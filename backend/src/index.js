@@ -1,10 +1,17 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import session from 'express-session';
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { createClient } from '@supabase/supabase-js';
 import { google } from 'googleapis';
+import multer from 'multer';
 
 dotenv.config();
+
+// Configure multer for memory storage
+const upload = multer({ storage: multer.memoryStorage() });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,13 +24,54 @@ const supabase = createClient(
 
 // Google Calendar API setup
 const calendar = google.calendar('v3');
-const auth = new google.auth.GoogleAuth({
-  credentials: process.env.GOOGLE_CREDENTIALS ? JSON.parse(process.env.GOOGLE_CREDENTIALS) : undefined,
-  scopes: ['https://www.googleapis.com/auth/calendar.readonly']
+
+// Session middleware
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false, // set to true if using https
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Passport middleware
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Passport Google OAuth Strategy
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5001/auth/google/callback'
+  },
+  (accessToken, refreshToken, profile, done) => {
+    // Store tokens in user object
+    const user = {
+      id: profile.id,
+      email: profile.emails[0].value,
+      name: profile.displayName,
+      accessToken,
+      refreshToken
+    };
+    return done(null, user);
+  }
+));
+
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((user, done) => {
+  done(null, user);
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true
+}));
 app.use(express.json({ limit: '50mb' }));
 
 /* ========================================
@@ -40,6 +88,53 @@ app.get('/api/test', async (req, res) => {
     res.json({ message: 'API and Supabase connected successfully', supabaseConfigured: true });
   } catch (error) {
     res.json({ message: 'Supabase connection needs configuration', error: error.message });
+  }
+});
+
+/* ========================================
+   OAuth Authentication Routes
+   ======================================== */
+app.get('/auth/google',
+  passport.authenticate('google', {
+    scope: [
+      'profile',
+      'email',
+      'https://www.googleapis.com/auth/calendar.readonly'
+    ],
+    accessType: 'offline',
+    prompt: 'consent'
+  })
+);
+
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: 'http://localhost:3000' }),
+  (req, res) => {
+    // Successful authentication, redirect to frontend
+    res.redirect('http://localhost:3000');
+  }
+);
+
+app.get('/auth/logout', (req, res) => {
+  req.logout((err) => {
+    if (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+    res.json({ success: true, message: 'Logged out successfully' });
+  });
+});
+
+app.get('/auth/user', (req, res) => {
+  if (req.isAuthenticated()) {
+    res.json({
+      success: true,
+      user: {
+        id: req.user.id,
+        email: req.user.email,
+        name: req.user.name
+      }
+    });
+  } else {
+    res.json({ success: false, user: null });
   }
 });
 
@@ -173,6 +268,97 @@ app.delete('/api/todos/:id', async (req, res) => {
 });
 
 /* ========================================
+   Images
+   ======================================== */
+app.post('/api/images/upload', upload.single('image'), async (req, res) => {
+  try {
+    const { date } = req.body;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    // Generate unique filename
+    const timestamp = Date.now();
+    const fileExt = file.originalname.split('.').pop();
+    const fileName = `${date}_${timestamp}.${fileExt}`;
+    const filePath = `${date}/${fileName}`;
+
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('diary-images')
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false
+      });
+
+    if (uploadError) throw uploadError;
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('diary-images')
+      .getPublicUrl(filePath);
+
+    // Save to database
+    const { data: dbData, error: dbError } = await supabase
+      .from('images')
+      .insert({
+        date,
+        file_id: fileName,
+        file_name: file.originalname,
+        thumbnail_url: urlData.publicUrl,
+        view_url: urlData.publicUrl
+      })
+      .select()
+      .single();
+
+    if (dbError) throw dbError;
+
+    res.json({ success: true, data: dbData });
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/images/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get image info from database
+    const { data: image, error: fetchError } = await supabase
+      .from('images')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Delete from storage
+    const filePath = `${image.date}/${image.file_id}`;
+    const { error: storageError } = await supabase.storage
+      .from('diary-images')
+      .remove([filePath]);
+
+    if (storageError) console.error('Storage deletion error:', storageError);
+
+    // Delete from database
+    const { error: dbError } = await supabase
+      .from('images')
+      .delete()
+      .eq('id', id);
+
+    if (dbError) throw dbError;
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting image:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/* ========================================
    Routines
    ======================================== */
 app.get('/api/routines', async (req, res) => {
@@ -241,8 +427,16 @@ app.post('/api/routine-checks', async (req, res) => {
    ======================================== */
 app.get('/api/calendars', async (req, res) => {
   try {
-    const authClient = await auth.getClient();
-    const response = await calendar.calendarList.list({ auth: authClient });
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ success: false, error: 'Not authenticated' });
+    }
+
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({
+      access_token: req.user.accessToken
+    });
+
+    const response = await calendar.calendarList.list({ auth: oauth2Client });
 
     console.log('Calendar API Response:', JSON.stringify(response.data, null, 2));
 
@@ -265,6 +459,10 @@ app.get('/api/calendars', async (req, res) => {
    ======================================== */
 app.post('/api/calendar/events', async (req, res) => {
   try {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ success: false, error: 'Not authenticated' });
+    }
+
     const { date, calendarIds } = req.body;
     const targetDate = new Date(date);
 
@@ -275,29 +473,33 @@ app.post('/api/calendar/events', async (req, res) => {
     endOfDay.setDate(endOfDay.getDate() + 1);
     endOfDay.setHours(0, 0, 0, 0);
 
-    const authClient = await auth.getClient();
-    const allEvents = [];
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({
+      access_token: req.user.accessToken
+    });
 
-    for (const calId of calendarIds) {
+    // Fetch all calendars in parallel
+    const calendarPromises = calendarIds.map(async (calId) => {
       try {
-        const response = await calendar.events.list({
-          auth: authClient,
-          calendarId: calId,
-          timeMin: startOfDay.toISOString(),
-          timeMax: endOfDay.toISOString(),
-          singleEvents: true,
-          orderBy: 'startTime'
-        });
+        // Fetch events and calendar info in parallel
+        const [eventsResponse, calendarInfo] = await Promise.all([
+          calendar.events.list({
+            auth: oauth2Client,
+            calendarId: calId,
+            timeMin: startOfDay.toISOString(),
+            timeMax: endOfDay.toISOString(),
+            singleEvents: true,
+            orderBy: 'startTime'
+          }),
+          calendar.calendarList.get({
+            auth: oauth2Client,
+            calendarId: calId
+          })
+        ]);
 
-        const calendarInfo = await calendar.calendarList.get({
-          auth: authClient,
-          calendarId: calId
-        });
-
-        response.data.items.forEach(event => {
-          if (!event.start.dateTime) return; // Skip all-day events
-
-          allEvents.push({
+        return eventsResponse.data.items
+          .filter(event => event.start.dateTime) // Skip all-day events
+          .map(event => ({
             title: event.summary,
             start: event.start.dateTime,
             end: event.end.dateTime,
@@ -305,12 +507,15 @@ app.post('/api/calendar/events', async (req, res) => {
             calendarName: calendarInfo.data.summary,
             color: calendarInfo.data.backgroundColor,
             description: event.description || ''
-          });
-        });
+          }));
       } catch (err) {
         console.error(`Error fetching calendar ${calId}:`, err.message);
+        return [];
       }
-    }
+    });
+
+    const eventArrays = await Promise.all(calendarPromises);
+    const allEvents = eventArrays.flat();
 
     res.json({ success: true, events: allEvents });
   } catch (error) {
@@ -414,6 +619,212 @@ app.post('/api/monthly/stats', async (req, res) => {
     res.json({ success: true, year, month, data: monthlyData });
   } catch (error) {
     console.error('Error loading monthly stats:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Monthly Time Stats (Time Tracker Grid)
+app.post('/api/monthly/time-stats', async (req, res) => {
+  try {
+    const { year, month } = req.body;
+    const user = req.user;
+
+    if (!user || !user.accessToken) {
+      return res.status(401).json({ success: false, error: 'Not authenticated' });
+    }
+
+    // Set up OAuth2 client
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    );
+    oauth2Client.setCredentials({
+      access_token: user.accessToken,
+      refresh_token: user.refreshToken
+    });
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+    // Get all calendars
+    const calendarList = await calendar.calendarList.list();
+    const calendars = calendarList.data.items || [];
+
+    // Calculate month range
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0);
+    const daysInMonth = endOfMonth.getDate();
+
+    // Fetch events for the entire month
+    const allEvents = [];
+    for (const cal of calendars) {
+      try {
+        const eventsResponse = await calendar.events.list({
+          calendarId: cal.id,
+          timeMin: startOfMonth.toISOString(),
+          timeMax: new Date(year, month, 1).toISOString(),
+          singleEvents: true,
+          orderBy: 'startTime'
+        });
+
+        const events = (eventsResponse.data.items || [])
+          .filter(event => event.start.dateTime && event.end.dateTime)
+          .map(event => ({
+            summary: event.summary,
+            start: event.start.dateTime,
+            end: event.end.dateTime,
+            calendarName: cal.summary,
+            color: cal.backgroundColor
+          }));
+
+        allEvents.push(...events);
+      } catch (err) {
+        console.error(`Error fetching calendar ${cal.id}:`, err.message);
+      }
+    }
+
+    // Group events by date and category
+    const days = [];
+    const categorySet = new Set();
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dayStart = new Date(year, month - 1, day);
+      const dayEnd = new Date(year, month - 1, day + 1);
+
+      const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+      const weekday = weekdays[dayStart.getDay()];
+
+      const dayEvents = allEvents.filter(event => {
+        const eventStart = new Date(event.start);
+        return eventStart >= dayStart && eventStart < dayEnd;
+      });
+
+      const categories = {};
+      const events = [];
+
+      dayEvents.forEach(event => {
+        const calendarName = event.calendarName || 'Unknown';
+        categorySet.add(calendarName);
+
+        const start = new Date(event.start);
+        const end = new Date(event.end);
+        const duration = (end - start) / (1000 * 60 * 60); // hours
+
+        if (!categories[calendarName]) {
+          categories[calendarName] = 0;
+        }
+        categories[calendarName] += duration;
+
+        // Add full event data for time tracker rendering
+        events.push({
+          title: event.summary,
+          start: event.start,
+          end: event.end,
+          calendarName: event.calendarName,
+          color: event.color
+        });
+      });
+
+      days.push({
+        date: day,
+        dateKey,
+        weekday,
+        categories,
+        events
+      });
+    }
+
+    // Build category list with colors
+    const categories = Array.from(categorySet).map(name => {
+      const event = allEvents.find(e => e.calendarName === name);
+      return {
+        name,
+        color: event ? event.color : '#9e9e9e'
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+
+    res.json({ success: true, data: { days, categories } });
+  } catch (error) {
+    console.error('Error loading monthly time stats:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ========================================
+// Quick Actions
+// ========================================
+
+// Save Feedback
+app.post('/api/feedback', async (req, res) => {
+  try {
+    const { date, feedback } = req.body;
+
+    const { data, error } = await supabase
+      .from('feedbacks')
+      .insert({ date, feedback_text: feedback })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error saving feedback:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Create 10AM Wake Event in Google Calendar
+app.post('/api/calendar/create-wake', async (req, res) => {
+  try {
+    const { date, time } = req.body;
+    const user = req.user;
+
+    if (!user || !user.accessToken) {
+      return res.status(401).json({ success: false, error: 'Not authenticated' });
+    }
+
+    // Set up OAuth2 client
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    );
+    oauth2Client.setCredentials({
+      access_token: user.accessToken,
+      refresh_token: user.refreshToken
+    });
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+    // Parse date and time
+    const [hours, minutes] = time.split(':');
+    const startDateTime = new Date(date);
+    startDateTime.setHours(parseInt(hours), parseInt(minutes), 0);
+
+    const endDateTime = new Date(startDateTime);
+    endDateTime.setMinutes(endDateTime.getMinutes() + 30); // 30 minute event
+
+    const event = {
+      summary: '기상',
+      start: {
+        dateTime: startDateTime.toISOString(),
+        timeZone: 'Asia/Seoul'
+      },
+      end: {
+        dateTime: endDateTime.toISOString(),
+        timeZone: 'Asia/Seoul'
+      },
+      description: 'TimeTracker Diary - 기상 이벤트'
+    };
+
+    const response = await calendar.events.insert({
+      calendarId: 'primary',
+      resource: event
+    });
+
+    res.json({ success: true, event: response.data });
+  } catch (error) {
+    console.error('Error creating wake event:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

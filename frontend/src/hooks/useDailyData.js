@@ -74,6 +74,27 @@ export function useDailyData(currentDate) {
     }
   }, [dateKey]);
 
+  const addRoutine = useCallback(async (text) => {
+    const result = await api.addRoutine(text);
+    if (result.success) {
+      await loadData();
+    }
+  }, [loadData]);
+
+  const updateRoutine = useCallback(async (id, text) => {
+    const result = await api.updateRoutine(id, text);
+    if (result.success) {
+      await loadData();
+    }
+  }, [loadData]);
+
+  const deleteRoutine = useCallback(async (id) => {
+    const result = await api.deleteRoutine(id);
+    if (result.success) {
+      await loadData();
+    }
+  }, [loadData]);
+
   return {
     dailyData,
     loading,
@@ -82,6 +103,9 @@ export function useDailyData(currentDate) {
     updateTodo,
     deleteTodo,
     updateRoutineCheck,
+    addRoutine,
+    updateRoutine,
+    deleteRoutine,
     reload: loadData
   };
 }

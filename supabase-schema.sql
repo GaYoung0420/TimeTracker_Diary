@@ -79,6 +79,18 @@ CREATE INDEX idx_routine_checks_date ON routine_checks(date);
 CREATE INDEX idx_routine_checks_routine_id ON routine_checks(routine_id);
 
 -- ========================================
+-- Feedback Table
+-- ========================================
+CREATE TABLE IF NOT EXISTS feedbacks (
+  id BIGSERIAL PRIMARY KEY,
+  date DATE NOT NULL,
+  feedback_text TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_feedbacks_date ON feedbacks(date);
+
+-- ========================================
 -- Auto-update updated_at trigger
 -- ========================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -100,3 +112,23 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_routine_checks_updated_at BEFORE UPDATE ON routine_checks
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ========================================
+-- Row Level Security (RLS) Policies
+-- ========================================
+
+-- Enable RLS on all tables
+ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reflections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE images ENABLE ROW LEVEL SECURITY;
+ALTER TABLE routines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE routine_checks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE feedbacks ENABLE ROW LEVEL SECURITY;
+
+-- Allow all operations for authenticated users (simple policy for single-user app)
+CREATE POLICY "Allow all for authenticated users" ON todos FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated users" ON reflections FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated users" ON images FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated users" ON routines FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated users" ON routine_checks FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated users" ON feedbacks FOR ALL USING (true);

@@ -14,7 +14,35 @@
 3. "Run" 버튼 클릭하여 실행
 4. 5개의 테이블이 생성됨을 확인
 
-### 1.3 API 키 복사
+### 1.3 Storage 버킷 생성
+1. Supabase 대시보드에서 "Storage" 메뉴 클릭
+2. "Create a new bucket" 클릭
+3. 버킷 이름: `diary-images` 입력
+4. Public bucket: **체크** (이미지를 공개적으로 접근 가능하게)
+5. "Create bucket" 클릭
+6. 생성된 `diary-images` 버킷 클릭
+7. "Policies" 탭으로 이동
+8. 다음 정책들을 추가:
+
+**INSERT 정책 (이미지 업로드 허용):**
+- Policy name: `Allow authenticated uploads`
+- Target roles: `authenticated`
+- Policy definition: `true`
+- Operations: `INSERT` 체크
+
+**SELECT 정책 (이미지 읽기 허용):**
+- Policy name: `Allow public read`
+- Target roles: `public`
+- Policy definition: `true`
+- Operations: `SELECT` 체크
+
+**DELETE 정책 (이미지 삭제 허용):**
+- Policy name: `Allow authenticated delete`
+- Target roles: `authenticated`
+- Policy definition: `true`
+- Operations: `DELETE` 체크
+
+### 1.4 API 키 복사
 1. Settings > API 메뉴로 이동
 2. Project URL 복사
 3. anon public 키 복사

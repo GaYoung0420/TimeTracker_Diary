@@ -1,21 +1,44 @@
 import { formatKoreanTime, getCategoryColorByName, getCategoryTextColorByName, hexToRgba } from '../../utils/helpers';
 
 function Timeline({ events, wakeSleepEvents, calendars, loading }) {
-  if (loading) {
-    return <div className="loading">로딩 중...</div>;
-  }
-
   const hourHeight = 40;
 
+  if (loading) {
+    return (
+      <div className="timeline-wrapper">
+        <div className="timeline-loading">
+          <div className="loading-spinner"></div>
+          <p>캘린더 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   const renderWakeSleepTimes = () => {
-    // Wake/Sleep 계산 로직 (원본 코드 참조)
+    let wakeTime = '-';
+    let sleepTime = '-';
+
+    if (wakeSleepEvents && wakeSleepEvents.length > 0) {
+      wakeSleepEvents.forEach(event => {
+        const eventTitle = event.title.toLowerCase();
+        const start = new Date(event.start);
+        const timeStr = formatKoreanTime(start);
+
+        if (eventTitle.includes('기상') || eventTitle.includes('wake')) {
+          wakeTime = timeStr;
+        } else if (eventTitle.includes('취침') || eventTitle.includes('sleep')) {
+          sleepTime = timeStr;
+        }
+      });
+    }
+
     return (
       <div className="wake-sleep-container">
         <div className="wake-sleep-item">
-          🌅 기상: <span className="time-value">-</span>
+          🌅 기상: <span className="time-value">{wakeTime}</span>
         </div>
         <div className="wake-sleep-item">
-          🌙 취침: <span className="time-value">-</span>
+          🌙 취침: <span className="time-value">{sleepTime}</span>
         </div>
       </div>
     );

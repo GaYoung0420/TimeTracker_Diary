@@ -84,7 +84,9 @@ export const api = {
 
   // Google Calendar
   async getCalendars() {
-    const res = await fetch(`${API_URL}/api/calendars`);
+    const res = await fetch(`${API_URL}/api/calendars`, {
+      credentials: 'include'
+    });
     return res.json();
   },
 
@@ -92,6 +94,7 @@ export const api = {
     const res = await fetch(`${API_URL}/api/calendar/events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ date, calendarIds })
     });
     return res.json();
@@ -101,6 +104,7 @@ export const api = {
     const res = await fetch(`${API_URL}/api/calendar/wake-sleep`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ date, calendarIds })
     });
     return res.json();
@@ -112,6 +116,36 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ year, month })
+    });
+    return res.json();
+  },
+
+  async getMonthlyTimeStats(year, month) {
+    const res = await fetch(`${API_URL}/api/monthly/time-stats`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ year, month })
+    });
+    return res.json();
+  },
+
+  // Quick Actions
+  async saveFeedback(date, feedback) {
+    const res = await fetch(`${API_URL}/api/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, feedback })
+    });
+    return res.json();
+  },
+
+  async create10AMWake(date) {
+    const res = await fetch(`${API_URL}/api/calendar/create-wake`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ date, time: '10:00' })
     });
     return res.json();
   }

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
+import MonthlyTimeGrid from './MonthlyTimeGrid';
 
 function MonthlyView({ goToDate }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [monthlyData, setMonthlyData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('calendar'); // 'calendar' or 'time'
 
   useEffect(() => {
     loadMonthlyData();
@@ -84,10 +86,28 @@ function MonthlyView({ goToDate }) {
         <button className="month-nav-btn" onClick={() => changeMonth(1)}>▶</button>
       </div>
 
+      <div className="view-mode-selector">
+        <button
+          className={`view-mode-btn ${viewMode === 'calendar' ? 'active' : ''}`}
+          onClick={() => setViewMode('calendar')}
+        >
+          📅 캘린더 뷰
+        </button>
+        <button
+          className={`view-mode-btn ${viewMode === 'time' ? 'active' : ''}`}
+          onClick={() => setViewMode('time')}
+        >
+          ⏰ 시간 추적 뷰
+        </button>
+      </div>
+
       {loading ? (
         <div className="loading">로딩 중...</div>
       ) : (
-        renderCalendarGrid()
+        <>
+          {viewMode === 'calendar' && renderCalendarGrid()}
+          {viewMode === 'time' && <MonthlyTimeGrid currentMonth={currentMonth} goToDate={goToDate} />}
+        </>
       )}
     </div>
   );

@@ -1,34 +1,48 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-function Reflection({ value, onSave }) {
-  const [text, setText] = useState(value || '');
-
-  const handleSave = () => {
-    onSave(text);
-    alert('회고가 저장되었습니다!');
-  };
-
-  const defaultTemplate = `✦[실제] 오늘 실제로 한 것: :
+const DEFAULT_TEMPLATE = `✦[실제] 오늘 실제로 한 것: :
 ✧[에너지] 0~10 중:
 ✧[칭찬] 칭찬하기 :
 -------------------
 ✧Keep           :
 ✦Problem        :
 ✧TRY      :
- `;
+`;
+
+function Reflection({ value, onSave }) {
+  const [text, setText] = useState(value || DEFAULT_TEMPLATE);
+
+  useEffect(() => {
+    setText(value || DEFAULT_TEMPLATE);
+  }, [value]);
+
+  const handleSave = () => {
+    onSave(text);
+    alert('회고가 저장되었습니다!');
+  };
+
+  const handleUseTemplate = () => {
+    setText(DEFAULT_TEMPLATE);
+  };
 
   return (
     <div className="reflection-container">
-      <div className="section-header">📝 오늘의 회고</div>
-      <div className="reflection-prompts">
-        <div>💭 오늘 가장 기억에 남는 일은?</div>
-        <div>✨ 오늘 배운 점이나 느낀 점은?</div>
-        <div>🎯 내일은 무엇을 해볼까?</div>
+      <div className="section-header">
+        <span>📝 오늘의 회고</span>
+        {text !== DEFAULT_TEMPLATE && (
+          <button
+            className="template-btn"
+            onClick={handleUseTemplate}
+            title="기본 템플릿 불러오기"
+          >
+            📋 템플릿
+          </button>
+        )}
       </div>
       <textarea
         className="reflection-textarea"
         placeholder="오늘 하루를 돌아보며..."
-        value={text || defaultTemplate}
+        value={text}
         onChange={(e) => setText(e.target.value)}
       />
       <button className="btn" style={{ marginTop: '12px', width: '100%' }} onClick={handleSave}>

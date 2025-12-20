@@ -34,7 +34,7 @@ function TodoList({ todos, onAdd, onUpdate, onDelete }) {
 
       <ul className="todo-list">
         {todos.length === 0 ? (
-          <li className="loading" style={{ textAlign: 'left', fontSize: '13px', color: '#9b9a97' }}>
+          <li style={{ textAlign: 'left', fontSize: '13px', color: '#9b9a97', padding: '8px 0', listStyle: 'none' }}>
             할 일이 없습니다
           </li>
         ) : (
