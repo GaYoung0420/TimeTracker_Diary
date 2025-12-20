@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm init:*)",
+      "Bash(node --version:*)",
+      "Bash(npm install)",
+      "Bash(npm --version:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd.exe /c \"taskkill /PID 8104 /F\")",
+      "Bash(cmd.exe /c \"taskkill /PID 7204 /F\")",
+      "Bash(curl:*)",
+      "Bash(cmd.exe /c \"taskkill /PID 15660 /F\")",
+      "Bash(cmd.exe /c \"taskkill /PID 7404 /F\")",
+      "Bash(cmd.exe /c \"taskkill /PID 9656 /F\")"
+    ]
+  }
+}

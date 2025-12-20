@@ -1,0 +1,118 @@
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+export const api = {
+  // Daily Data
+  async getDailyData(date) {
+    const res = await fetch(`${API_URL}/api/daily/${date}`);
+    return res.json();
+  },
+
+  async saveDailyData(date, data) {
+    const res = await fetch(`${API_URL}/api/daily/${date}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  // Todos
+  async addTodo(date, text) {
+    const res = await fetch(`${API_URL}/api/todos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, text })
+    });
+    return res.json();
+  },
+
+  async updateTodo(id, updates) {
+    const res = await fetch(`${API_URL}/api/todos/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    return res.json();
+  },
+
+  async deleteTodo(id) {
+    const res = await fetch(`${API_URL}/api/todos/${id}`, {
+      method: 'DELETE'
+    });
+    return res.json();
+  },
+
+  // Routines
+  async getRoutines() {
+    const res = await fetch(`${API_URL}/api/routines`);
+    return res.json();
+  },
+
+  async addRoutine(text, order) {
+    const res = await fetch(`${API_URL}/api/routines`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, order })
+    });
+    return res.json();
+  },
+
+  async updateRoutine(id, updates) {
+    const res = await fetch(`${API_URL}/api/routines/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    return res.json();
+  },
+
+  async deleteRoutine(id) {
+    const res = await fetch(`${API_URL}/api/routines/${id}`, {
+      method: 'DELETE'
+    });
+    return res.json();
+  },
+
+  async updateRoutineCheck(date, routine_id, checked) {
+    const res = await fetch(`${API_URL}/api/routine-checks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, routine_id, checked })
+    });
+    return res.json();
+  },
+
+  // Google Calendar
+  async getCalendars() {
+    const res = await fetch(`${API_URL}/api/calendars`);
+    return res.json();
+  },
+
+  async getEvents(date, calendarIds) {
+    const res = await fetch(`${API_URL}/api/calendar/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, calendarIds })
+    });
+    return res.json();
+  },
+
+  async getWakeSleepEvents(date, calendarIds) {
+    const res = await fetch(`${API_URL}/api/calendar/wake-sleep`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, calendarIds })
+    });
+    return res.json();
+  },
+
+  // Monthly
+  async getMonthlyStats(year, month) {
+    const res = await fetch(`${API_URL}/api/monthly/stats`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ year, month })
+    });
+    return res.json();
+  }
+};
