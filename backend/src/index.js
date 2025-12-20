@@ -440,12 +440,14 @@ app.get('/api/calendars', async (req, res) => {
 
     console.log('Calendar API Response:', JSON.stringify(response.data, null, 2));
 
-    const calendars = (response.data.items || []).map(cal => ({
-      id: cal.id,
-      name: cal.summary,
-      color: cal.backgroundColor,
-      isSelected: true
-    }));
+    const calendars = (response.data.items || [])
+      .filter(cal => cal.summary !== '계획')  // 계획 캘린더 제외
+      .map(cal => ({
+        id: cal.id,
+        name: cal.summary,
+        color: cal.backgroundColor,
+        isSelected: true
+      }));
 
     res.json({ success: true, calendars, timestamp: Date.now() });
   } catch (error) {
@@ -529,6 +531,10 @@ app.post('/api/calendar/events', async (req, res) => {
    ======================================== */
 app.post('/api/calendar/wake-sleep', async (req, res) => {
   try {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ success: false, error: 'Not authenticated' });
+    }
+
     const { date, calendarIds } = req.body;
     const targetDate = new Date(date);
 
@@ -540,20 +546,24 @@ app.post('/api/calendar/wake-sleep', async (req, res) => {
     endRange.setDate(endRange.getDate() + 2);
     endRange.setHours(0, 0, 0, 0);
 
-    const authClient = await auth.getClient();
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({
+      access_token: req.user.accessToken
+    });
+
     const allEvents = [];
 
     for (const calId of calendarIds) {
       try {
         const calendarInfo = await calendar.calendarList.get({
-          auth: authClient,
+          auth: oauth2Client,
           calendarId: calId
         });
 
         if (!calendarInfo.data.summary.includes('⑤')) continue;
 
         const response = await calendar.events.list({
-          auth: authClient,
+          auth: oauth2Client,
           calendarId: calId,
           timeMin: startRange.toISOString(),
           timeMax: endRange.toISOString(),
@@ -647,68 +657,105 @@ app.post('/api/monthly/time-stats', async (req, res) => {
 
     // Get all calendars
     const calendarList = await calendar.calendarList.list();
-    const calendars = calendarList.data.items || [];
+    const allCalendars = calendarList.data.items || [];
+
+    // Filter out "계획" calendar
+    const calendars = allCalendars.filter(cal => cal.summary !== '계획');
 
     // Calculate month range
     const startOfMonth = new Date(year, month - 1, 1);
     const endOfMonth = new Date(year, month, 0);
     const daysInMonth = endOfMonth.getDate();
 
-    // Fetch events for the entire month
-    const allEvents = [];
-    for (const cal of calendars) {
-      try {
-        const eventsResponse = await calendar.events.list({
-          calendarId: cal.id,
-          timeMin: startOfMonth.toISOString(),
-          timeMax: new Date(year, month, 1).toISOString(),
-          singleEvents: true,
-          orderBy: 'startTime'
-        });
-
-        const events = (eventsResponse.data.items || [])
-          .filter(event => event.start.dateTime && event.end.dateTime)
-          .map(event => ({
-            summary: event.summary,
-            start: event.start.dateTime,
-            end: event.end.dateTime,
-            calendarName: cal.summary,
-            color: cal.backgroundColor
-          }));
-
-        allEvents.push(...events);
-      } catch (err) {
+    // Fetch events for the entire month (병렬화)
+    const eventPromises = calendars.map(cal =>
+      calendar.events.list({
+        calendarId: cal.id,
+        timeMin: startOfMonth.toISOString(),
+        timeMax: new Date(year, month, 1).toISOString(),
+        singleEvents: true,
+        orderBy: 'startTime'
+      })
+      .then(eventsResponse => ({
+        calendarId: cal.id,
+        calendarName: cal.summary,
+        color: cal.backgroundColor,
+        events: eventsResponse.data.items || []
+      }))
+      .catch(err => {
         console.error(`Error fetching calendar ${cal.id}:`, err.message);
-      }
-    }
+        return { calendarId: cal.id, calendarName: cal.summary, color: cal.backgroundColor, events: [] };
+      })
+    );
 
-    // Group events by date and category
-    const days = [];
+    const calendarResults = await Promise.all(eventPromises);
+
+    const allEvents = calendarResults.flatMap(result =>
+      result.events
+        .filter(event => event.start.dateTime && event.end.dateTime)
+        .map(event => ({
+          summary: event.summary,
+          start: event.start.dateTime,
+          end: event.end.dateTime,
+          calendarName: result.calendarName,
+          color: result.color
+        }))
+    );
+
+    // 이벤트를 날짜별로 그룹화 (다음날 넘어가는 이벤트 포함)
+    const eventsByDate = {};
     const categorySet = new Set();
+
+    allEvents.forEach(event => {
+      const eventStart = new Date(event.start);
+      const eventEnd = new Date(event.end);
+
+      // 이벤트의 시작일과 종료일 사이의 모든 날짜에 이벤트 추가
+      const startDate = new Date(eventStart.getFullYear(), eventStart.getMonth(), eventStart.getDate());
+      const endDate = new Date(eventEnd.getFullYear(), eventEnd.getMonth(), eventEnd.getDate());
+
+      let currentDate = new Date(startDate);
+      while (currentDate <= endDate) {
+        const dateKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+
+        if (!eventsByDate[dateKey]) {
+          eventsByDate[dateKey] = [];
+        }
+        eventsByDate[dateKey].push(event);
+        categorySet.add(event.calendarName || 'Unknown');
+
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    });
+
+    // 각 날짜별 데이터 생성
+    const days = [];
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 
     for (let day = 1; day <= daysInMonth; day++) {
       const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const dayStart = new Date(year, month - 1, day);
-      const dayEnd = new Date(year, month - 1, day + 1);
-
-      const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
       const weekday = weekdays[dayStart.getDay()];
 
-      const dayEvents = allEvents.filter(event => {
-        const eventStart = new Date(event.start);
-        return eventStart >= dayStart && eventStart < dayEnd;
-      });
+      const dayEvents = eventsByDate[dateKey] || [];
 
       const categories = {};
       const events = [];
 
       dayEvents.forEach(event => {
         const calendarName = event.calendarName || 'Unknown';
-        categorySet.add(calendarName);
 
-        const start = new Date(event.start);
-        const end = new Date(event.end);
-        const duration = (end - start) / (1000 * 60 * 60); // hours
+        const eventStart = new Date(event.start);
+        const eventEnd = new Date(event.end);
+
+        // 해당 날짜 범위 계산
+        const dayStartTime = new Date(year, month - 1, day, 0, 0, 0);
+        const dayEndTime = new Date(year, month - 1, day, 23, 59, 59, 999);
+
+        // 이벤트가 해당 날짜에서 실제로 차지하는 시간 계산
+        const effectiveStart = eventStart > dayStartTime ? eventStart : dayStartTime;
+        const effectiveEnd = eventEnd < dayEndTime ? eventEnd : dayEndTime;
+        const duration = (effectiveEnd - effectiveStart) / (1000 * 60 * 60); // hours
 
         if (!categories[calendarName]) {
           categories[calendarName] = 0;

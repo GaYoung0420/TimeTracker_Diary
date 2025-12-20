@@ -1,7 +1,7 @@
 function CategoryStats({ events }) {
   // 고정된 카테고리 정의 (순서대로)
   const FIXED_CATEGORIES = [
-    { name: '① 날비시간', color: '#ff6b6b', number: 1 },
+    { name: '① 낭비시간', color: '#ff6b6b', number: 1 },
     { name: '② 사회적', color: '#4ecdc4', number: 2 },
     { name: '③ 지적', color: '#95e1d3', number: 3 },
     { name: '④ 영적', color: '#f38181', number: 4 },
