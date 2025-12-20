@@ -1,5 +1,7 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
+const monthlyStatsCache = new Map();
+
 export const api = {
   // Daily Data
   async getDailyData(date) {
@@ -112,12 +114,23 @@ export const api = {
 
   // Monthly
   async getMonthlyStats(year, month) {
+    const key = `${year}-${String(month).padStart(2, '0')}`;
+    const CACHE_TTL = 1000 * 60 * 1; // 1 minute
+    const cached = monthlyStatsCache.get(key);
+    if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
+      return cached.data;
+    }
+
     const res = await fetch(`${API_URL}/api/monthly/stats`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ year, month })
     });
-    return res.json();
+    const json = await res.json();
+    if (json && json.success) {
+      monthlyStatsCache.set(key, { data: json, ts: Date.now() });
+    }
+    return json;
   },
 
   async getMonthlyTimeStats(year, month) {

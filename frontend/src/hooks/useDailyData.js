@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../utils/api';
+import { getLocalDateString } from '../utils/helpers';
 
 export function useDailyData(currentDate) {
   const [dailyData, setDailyData] = useState({
@@ -12,7 +13,7 @@ export function useDailyData(currentDate) {
   });
   const [loading, setLoading] = useState(true);
 
-  const dateKey = currentDate.toISOString().split('T')[0];
+  const dateKey = getLocalDateString(currentDate);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -32,13 +33,31 @@ export function useDailyData(currentDate) {
     loadData();
   }, [loadData]);
 
+  // Optimistically update local state, then save to server
   const saveData = useCallback(async (updates) => {
+    setDailyData(prev => ({ ...prev, ...updates }));
     try {
       await api.saveDailyData(dateKey, updates);
     } catch (error) {
       console.error('Failed to save daily data:', error);
+      // On failure, reload to get authoritative state
+      await loadData();
     }
-  }, [dateKey]);
+  }, [dateKey, loadData]);
+
+  const addImageToState = useCallback((image) => {
+    setDailyData(prev => ({
+      ...prev,
+      images: [...(prev.images || []), image]
+    }));
+  }, []);
+
+  const removeImageFromState = useCallback((imageId) => {
+    setDailyData(prev => ({
+      ...prev,
+      images: (prev.images || []).filter(img => img.id !== imageId)
+    }));
+  }, []);
 
   const addTodo = useCallback(async (text) => {
     const result = await api.addTodo(dateKey, text);
@@ -99,6 +118,8 @@ export function useDailyData(currentDate) {
     dailyData,
     loading,
     saveData,
+    addImageToState,
+    removeImageFromState,
     addTodo,
     updateTodo,
     deleteTodo,

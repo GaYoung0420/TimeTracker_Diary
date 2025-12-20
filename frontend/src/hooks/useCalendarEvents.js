@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../utils/api';
+import { getLocalDateString } from '../utils/helpers';
 
 // Simple in-memory cache
 const eventCache = new Map();
@@ -12,44 +13,81 @@ export function useCalendarEvents(currentDate) {
   const [loading, setLoading] = useState(true);
   const calendarsLoadedRef = useRef(false);
 
-  const dateKey = currentDate.toISOString().split('T')[0];
-  const calendarIds = calendars.map(cal => cal.id);
+  const dateKey = getLocalDateString(currentDate);
 
-  // Load calendars (only once)
+  // Load calendars once on mount
   useEffect(() => {
     if (calendarsLoadedRef.current) return;
 
     const loadCalendars = async () => {
       try {
-        const result = await api.getCalendars();
-        if (result.success) {
-          setCalendars(result.calendars);
+        const calendarsResult = await api.getCalendars();
+        if (calendarsResult.success) {
+          setCalendars(calendarsResult.calendars);
           calendarsLoadedRef.current = true;
         }
       } catch (error) {
         console.error('Failed to load calendars:', error);
       }
     };
+
     loadCalendars();
   }, []);
 
-  // Load events when date or calendars change
-  const loadEvents = useCallback(async () => {
+  // Load events when date changes
+  useEffect(() => {
+    const calendarIds = calendars.map(cal => cal.id);
     if (calendarIds.length === 0) {
       setLoading(false);
       return;
     }
 
-    const cacheKey = `${dateKey}_${calendarIds.join(',')}`;
-    const cached = eventCache.get(cacheKey);
+    const loadEvents = async () => {
+      const cacheKey = `${dateKey}_${calendarIds.join(',')}`;
+      const cached = eventCache.get(cacheKey);
 
-    // Check cache
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      setEvents(cached.events);
-      setWakeSleepEvents(cached.wakeSleepEvents);
-      setLoading(false);
-      return;
-    }
+      // Check cache
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        setEvents(cached.events);
+        setWakeSleepEvents(cached.wakeSleepEvents);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const [eventsResult, wakeSleepResult] = await Promise.all([
+          api.getEvents(dateKey, calendarIds),
+          api.getWakeSleepEvents(dateKey, calendarIds)
+        ]);
+
+        if (eventsResult.success) {
+          setEvents(eventsResult.events);
+        }
+        if (wakeSleepResult.success) {
+          setWakeSleepEvents(wakeSleepResult.events);
+        }
+
+        // Cache the results
+        eventCache.set(cacheKey, {
+          events: eventsResult.success ? eventsResult.events : [],
+          wakeSleepEvents: wakeSleepResult.success ? wakeSleepResult.events : [],
+          timestamp: Date.now()
+        });
+      } catch (error) {
+        console.error('Failed to load events:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEvents();
+  }, [dateKey, calendars]);
+
+  // Reload function for manual refresh
+  const reload = useCallback(async () => {
+    const calendarIds = calendars.map(cal => cal.id);
+    if (calendarIds.length === 0) return;
 
     setLoading(true);
     try {
@@ -65,28 +103,25 @@ export function useCalendarEvents(currentDate) {
         setWakeSleepEvents(wakeSleepResult.events);
       }
 
-      // Cache the results
+      // Update cache
+      const cacheKey = `${dateKey}_${calendarIds.join(',')}`;
       eventCache.set(cacheKey, {
         events: eventsResult.success ? eventsResult.events : [],
         wakeSleepEvents: wakeSleepResult.success ? wakeSleepResult.events : [],
         timestamp: Date.now()
       });
     } catch (error) {
-      console.error('Failed to load events:', error);
+      console.error('Failed to reload events:', error);
     } finally {
       setLoading(false);
     }
-  }, [dateKey, calendarIds.join(',')]);
-
-  useEffect(() => {
-    loadEvents();
-  }, [loadEvents]);
+  }, [dateKey, calendars]);
 
   return {
     calendars,
     events,
     wakeSleepEvents,
     loading,
-    reload: loadEvents
+    reload
   };
 }

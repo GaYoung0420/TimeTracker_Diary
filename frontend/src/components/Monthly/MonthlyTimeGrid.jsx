@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../../utils/api';
-import { getCategoryColorByName, getCategoryTextColorByName, hexToRgba } from '../../utils/helpers';
+import { getCategoryColorByName, getCategoryTextColorByName, hexToRgba, getLocalDateString } from '../../utils/helpers';
 
 function MonthlyTimeGrid({ currentMonth, goToDate }) {
   const [timeData, setTimeData] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const trackerRef = useRef(null);
@@ -23,6 +24,7 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
 
       if (result.success) {
         setTimeData(result.data.days);
+        setCategories(result.data.categories || []);
 
         // DOM 렌더링 완료 후 이벤트 렌더링
         requestAnimationFrame(() => {
@@ -123,7 +125,7 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth() + 1;
     const daysInMonth = new Date(year, month, 0).getDate();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString(new Date());
     const weekdayNames = ['일', '월', '화', '수', '목', '금', '토'];
 
     return (
@@ -143,7 +145,7 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
           {Array.from({ length: daysInMonth }, (_, i) => {
             const day = i + 1;
             const date = new Date(year, month - 1, day);
-            const dateKey = date.toISOString().split('T')[0];
+            const dateKey = getLocalDateString(date);
             const weekday = date.getDay();
             const isToday = dateKey === today;
             const isWeekend = weekday === 0 || weekday === 6;

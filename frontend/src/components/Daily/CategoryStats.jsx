@@ -1,13 +1,13 @@
 function CategoryStats({ events }) {
   // 고정된 카테고리 정의 (순서대로)
   const FIXED_CATEGORIES = [
-    { name: '① 날비시간', color: '#ff6b6b', number: 1 },
-    { name: '② 사회적', color: '#4ecdc4', number: 2 },
-    { name: '③ 지적', color: '#95e1d3', number: 3 },
-    { name: '④ 영적', color: '#f38181', number: 4 },
-    { name: '⑤ 잠', color: '#aa96da', number: 5 },
-    { name: '⑥ 운동', color: '#fcbad3', number: 6 },
-    { name: '⑦ 기타', color: '#ffffd2', number: 7 }
+    { name: '① 낭비시간', color: '#D13F3F', number: 1 },
+    { name: '② 사회적', color: '#A78400', number: 2 },
+    { name: '③ 지적', color: '#1E7B34', number: 3 },
+    { name: '④ 영적', color: '#C46C00', number: 4 },
+    { name: '⑤ 잠', color: '#4A4AC4', number: 5 },
+    { name: '⑥ 운동', color: '#008C99', number: 6 },
+    { name: '⑦ 기타', color: '#654321', number: 7 }
   ];
 
   // 카테고리별 시간 계산
@@ -57,7 +57,7 @@ function CategoryStats({ events }) {
                     className="category-color-dot"
                     style={{ backgroundColor: cat.color }}
                   ></span>
-                  <span className="category-name">{cat.name}</span>
+                  <span style={{ color: cat.color, fontWeight: 'inherit' }}>{cat.name}</span>
                 </th>
               ))}
             </tr>

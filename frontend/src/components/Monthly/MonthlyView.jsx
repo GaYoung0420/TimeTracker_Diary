@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
 import MonthlyTimeGrid from './MonthlyTimeGrid';
+import { getLocalDateString } from '../../utils/helpers';
 
 function MonthlyView({ goToDate }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -45,7 +46,7 @@ function MonthlyView({ goToDate }) {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const firstDay = new Date(year, month, 1).getDay();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString(new Date());
 
     return (
       <div className="monthly-grid">
@@ -57,23 +58,38 @@ function MonthlyView({ goToDate }) {
           <div key={`empty-${i}`} className="monthly-day-cell empty"></div>
         ))}
 
-        {monthlyData.map(dayData => (
-          <div
-            key={dayData.dateKey}
-            className={`monthly-day-cell ${dayData.dateKey === today ? 'today' : ''}`}
-            onClick={() => goToDate(dayData.dateKey)}
-          >
-            <div className="monthly-date-num">{dayData.date}</div>
-            {dayData.firstImage && (
-              <img
-                src={dayData.firstImage.thumbnailUrl}
-                className="monthly-thumbnail"
-                alt="Daily thumbnail"
-                loading="lazy"
-              />
-            )}
-          </div>
-        ))}
+        {/* Render each day explicitly and look up image by numeric day to avoid formatting or timezone mismatches */}
+        {(() => {
+          const imagesMap = (monthlyData || []).reduce((acc, d) => {
+            // use numeric day as key (d.date) which is guaranteed by backend
+            acc[d.date] = d.firstImage;
+            return acc;
+          }, {});
+
+          return Array.from({ length: new Date(year, month + 1, 0).getDate() }, (_, idx) => {
+            const day = idx + 1;
+            const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const img = imagesMap[day];
+
+            return (
+              <div
+                key={dateKey}
+                className={`monthly-day-cell ${dateKey === today ? 'today' : ''}`}
+                onClick={() => goToDate(dateKey)}
+              >
+                <div className="monthly-date-num">{day}</div>
+                {img && (
+                  <img
+                    src={img.thumbnailUrl}
+                    className="monthly-thumbnail"
+                    alt="Daily thumbnail"
+                    loading="lazy"
+                  />
+                )}
+              </div>
+            );
+          });
+        })()}
       </div>
     );
   };
@@ -84,21 +100,22 @@ function MonthlyView({ goToDate }) {
         <button className="month-nav-btn" onClick={() => changeMonth(-1)}>◀</button>
         <div className="current-month">{formatMonth()}</div>
         <button className="month-nav-btn" onClick={() => changeMonth(1)}>▶</button>
-      </div>
-
-      <div className="view-mode-selector">
-        <button
-          className={`view-mode-btn ${viewMode === 'calendar' ? 'active' : ''}`}
-          onClick={() => setViewMode('calendar')}
-        >
-          📅 캘린더 뷰
-        </button>
-        <button
-          className={`view-mode-btn ${viewMode === 'time' ? 'active' : ''}`}
-          onClick={() => setViewMode('time')}
-        >
-          ⏰ 시간 추적 뷰
-        </button>
+        <div className="header-actions">
+          <div className="view-mode-selector header-inline">
+            <button
+              className={`view-mode-btn ${viewMode === 'calendar' ? 'active' : ''}`}
+              onClick={() => setViewMode('calendar')}
+            >
+              📅 캘린더 뷰
+            </button>
+            <button
+              className={`view-mode-btn ${viewMode === 'time' ? 'active' : ''}`}
+              onClick={() => setViewMode('time')}
+            >
+              ⏰ 시간 추적 뷰
+            </button>
+          </div>
+        </div>
       </div>
 
       {loading ? (

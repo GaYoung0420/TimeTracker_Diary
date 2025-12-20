@@ -1,7 +1,8 @@
 import { api } from '../../utils/api';
+import { getLocalDateString } from '../../utils/helpers';
 
 function QuickActions({ currentDate, onDateChange }) {
-  const dateKey = currentDate.toISOString().split('T')[0];
+  const dateKey = getLocalDateString(currentDate);
 
   const handleFeedback = async () => {
     const feedbackText = prompt('피드백을 입력하세요:');
@@ -49,7 +50,7 @@ function QuickActions({ currentDate, onDateChange }) {
         onDateChange(yesterday);
       } else {
         // Fallback if onDateChange is not provided
-        alert('전날 계획 기능: ' + yesterday.toISOString().split('T')[0]);
+        alert('전날 계획 기능: ' + getLocalDateString(yesterday));
       }
     }
   };

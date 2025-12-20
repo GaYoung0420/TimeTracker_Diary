@@ -1,6 +1,6 @@
-import { formatKoreanTime, getCategoryColorByName, getCategoryTextColorByName, hexToRgba } from '../../utils/helpers';
+import { formatKoreanTime, getCategoryColorByName, getCategoryTextColorByName, hexToRgba, getLocalDateString } from '../../utils/helpers';
 
-function Timeline({ events, wakeSleepEvents, calendars, loading }) {
+function Timeline({ events, wakeSleepEvents, calendars, loading, currentDate }) {
   const hourHeight = 40;
 
   if (loading) {
@@ -18,16 +18,24 @@ function Timeline({ events, wakeSleepEvents, calendars, loading }) {
     let wakeTime = '-';
     let sleepTime = '-';
 
-    if (wakeSleepEvents && wakeSleepEvents.length > 0) {
-      wakeSleepEvents.forEach(event => {
-        const eventTitle = event.title.toLowerCase();
-        const start = new Date(event.start);
-        const timeStr = formatKoreanTime(start);
+    if (wakeSleepEvents && wakeSleepEvents.length > 0 && currentDate) {
+      const currentDateStr = getLocalDateString(currentDate);
 
-        if (eventTitle.includes('기상') || eventTitle.includes('wake')) {
-          wakeTime = timeStr;
-        } else if (eventTitle.includes('취침') || eventTitle.includes('sleep')) {
-          sleepTime = timeStr;
+      wakeSleepEvents.forEach(event => {
+        const start = new Date(event.start);
+        const end = new Date(event.end);
+
+        const startDateStr = getLocalDateString(start);
+        const endDateStr = getLocalDateString(end);
+
+        // 기상 시간: 당일에 종료되는 잠 이벤트의 종료 시간
+        if (endDateStr === currentDateStr) {
+          wakeTime = formatKoreanTime(end);
+        }
+
+        // 취침 시간: 당일에 시작되는 잠 이벤트의 시작 시간
+        if (startDateStr === currentDateStr) {
+          sleepTime = formatKoreanTime(start);
         }
       });
     }

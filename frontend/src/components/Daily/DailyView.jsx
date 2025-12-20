@@ -10,17 +10,17 @@ import ImageUpload from './ImageUpload';
 import CategoryStats from './CategoryStats';
 
 function DailyView({ currentDate, setCurrentDate }) {
-  const { dailyData, loading, addTodo, updateTodo, deleteTodo, updateRoutineCheck, addRoutine, updateRoutine, deleteRoutine, saveData } = useDailyData(currentDate);
+  const { dailyData, loading, addTodo, updateTodo, deleteTodo, updateRoutineCheck, addRoutine, updateRoutine, deleteRoutine, saveData, addImageToState, removeImageFromState } = useDailyData(currentDate);
   const { calendars, events, wakeSleepEvents, loading: calendarLoading } = useCalendarEvents(currentDate);
 
   const handleImageUploaded = (newImage) => {
-    // Update local images state
-    dailyData.images = [...(dailyData.images || []), newImage];
+    // Optimistically update UI
+    addImageToState(newImage);
   };
 
   const handleImageDeleted = (imageId) => {
-    // Update local images state
-    dailyData.images = (dailyData.images || []).filter(img => img.id !== imageId);
+    // Optimistically update UI
+    removeImageFromState(imageId);
   };
 
   const changeDate = (delta) => {
@@ -58,6 +58,7 @@ function DailyView({ currentDate, setCurrentDate }) {
           wakeSleepEvents={wakeSleepEvents}
           calendars={calendars}
           loading={calendarLoading}
+          currentDate={currentDate}
         />
       </div>
 

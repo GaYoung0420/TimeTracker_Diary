@@ -1,9 +1,10 @@
 import { useState } from 'react';
+import { getLocalDateString } from '../../utils/helpers';
 
 function ImageUpload({ currentDate, images, onImageUploaded, onImageDeleted }) {
   const [uploading, setUploading] = useState(false);
 
-  const dateKey = currentDate.toISOString().split('T')[0];
+  const dateKey = getLocalDateString(currentDate);
 
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
