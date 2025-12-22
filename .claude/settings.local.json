@@ -15,7 +15,9 @@
       "Bash(curl:*)",
       "Bash(cmd.exe /c \"taskkill /PID 15660 /F\")",
       "Bash(cmd.exe /c \"taskkill /PID 7404 /F\")",
-      "Bash(cmd.exe /c \"taskkill /PID 9656 /F\")"
+      "Bash(cmd.exe /c \"taskkill /PID 9656 /F\")",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)"
     ]
   }
 }
