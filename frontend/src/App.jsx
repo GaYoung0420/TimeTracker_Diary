@@ -28,11 +28,11 @@ function App() {
   }, []);
 
   const handleLogin = () => {
-    window.location.href = 'http://localhost:5001/auth/google';
+    window.location.href = `${import.meta.env.VITE_API_URL}/auth/google`;
   };
 
   const handleLogout = () => {
-    fetch('http://localhost:5001/auth/logout', {
+    fetch(`${import.meta.env.VITE_API_URL}/auth/logout`, {
       credentials: 'include'
     })
       .then(() => {
