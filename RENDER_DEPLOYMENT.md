@@ -18,75 +18,66 @@ TimeTracker Diary를 Render에 배포하는 방법을 설명합니다.
 
 ## 2. Render 배포 방법
 
-### 방법 A: render.yaml을 사용한 배포 (권장)
+### 권장 방법: 수동 배포 (더 안정적)
 
-1. **GitHub에 push**
-   ```bash
-   git add render.yaml
-   git commit -m "Add Render configuration"
-   git push
-   ```
-
-2. **Render Dashboard에서**
-   - [Render Dashboard](https://dashboard.render.com)에 접속
-   - "New" > "Blueprint" 클릭
-   - GitHub 저장소 선택
-   - `render.yaml` 자동 감지됨
-   - "Create New Resources" 클릭
-
-3. **환경 변수 설정**
-   - Dashboard에서 각 서비스의 Environment 탭
-   - 다음 변수들을 추가:
-     ```
-     SUPABASE_URL=<your_supabase_url>
-     SUPABASE_ANON_KEY=<your_supabase_key>
-     GOOGLE_CLIENT_ID=<your_google_client_id>
-     GOOGLE_CLIENT_SECRET=<your_google_client_secret>
-     ```
-
-### 방법 B: 수동 배포
+각 서비스를 Render 대시보드에서 직접 설정하여 배포합니다.
 
 #### 1. 백엔드 배포 (Node.js 웹 서비스)
 
-1. Render Dashboard > "New Web Service"
-2. GitHub 저장소 선택
-3. 다음 설정:
+1. [Render Dashboard](https://dashboard.render.com) 접속
+2. "New Web Service" 클릭
+3. GitHub 저장소 선택
+4. 다음 설정 입력:
    - **Name**: `timetracker-backend`
    - **Runtime**: Node
+   - **Branch**: main
    - **Build Command**: `cd backend && npm install`
    - **Start Command**: `cd backend && npm start`
-   - **Plan**: Free 또는 Paid
+   - **Plan**: Free (권장) 또는 Paid
 
-4. Environment Variables 추가:
+5. "Environment" 탭에서 다음 환경 변수 추가:
    ```
    PORT=5001
    NODE_ENV=production
-   SUPABASE_URL=<your_url>
-   SUPABASE_ANON_KEY=<your_key>
-   GOOGLE_CLIENT_ID=<your_id>
-   GOOGLE_CLIENT_SECRET=<your_secret>
-   GOOGLE_CALLBACK_URL=https://<backend-url>.onrender.com/auth/google/callback
-   SESSION_SECRET=<generate_random_string>
+   SUPABASE_URL=<your_supabase_url>
+   SUPABASE_ANON_KEY=<your_supabase_key>
+   GOOGLE_CLIENT_ID=<your_google_client_id>
+   GOOGLE_CLIENT_SECRET=<your_google_client_secret>
+   GOOGLE_CALLBACK_URL=https://<YOUR_BACKEND_URL>.onrender.com/auth/google/callback
+   SESSION_SECRET=<random_secure_string>
    ```
 
-5. Deploy 클릭
+6. "Deploy" 클릭
+7. 배포 완료 후 URL 확인 (예: `https://timetracker-backend.onrender.com`)
 
 #### 2. 프론트엔드 배포 (Static Site)
 
-1. Render Dashboard > "New Static Site"
+Render의 Static Site 서비스 사용:
+
+1. Render Dashboard > "New Static Site" 클릭
 2. GitHub 저장소 선택
-3. 다음 설정:
+3. 다음 설정 입력:
    - **Name**: `timetracker-frontend`
+   - **Branch**: main
    - **Build Command**: `cd frontend && npm install && npm run build`
    - **Publish Directory**: `frontend/dist`
 
-4. Deploy 클릭
+4. "Environment" 탭에서 환경 변수 추가:
+   ```
+   VITE_API_URL=https://timetracker-backend.onrender.com
+   VITE_SUPABASE_URL=<your_supabase_url>
+   VITE_SUPABASE_ANON_KEY=<your_supabase_key>
+   ```
 
-## 3. 프론트엔드 API URL 업데이트
+5. "Deploy" 클릭
+6. 배포 완료 후 URL 확인 (예: `https://timetracker-frontend.onrender.com`)
 
-**Render에서 빌드할 때 자동으로 프로덕션 URL이 사용됩니다.**
+## 3. 배포 순서 및 체크리스트
 
-로컬 개발 시에는 `frontend/.env` 파일 사용:
+1. ✅ 백엔드 배포 후 URL 확인
+2. ✅ 프론트엔드의 "Environment" 탭에 백엔드 URL 입력
+3. ✅ 프론트엔드 배포
+4. ✅ Google OAuth 설정 업데이트
 ```
 VITE_API_URL=http://localhost:5001
 ```

@@ -9,10 +9,10 @@ services:
     envVars:
       - key: PORT
         value: 5001
+      - key: NODE_ENV
+        value: production
       - key: SUPABASE_URL
-        fromDatabase:
-          name: timetracker_db
-          property: connectionString
+        sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
       - key: GOOGLE_CLIENT_ID
@@ -22,17 +22,4 @@ services:
       - key: GOOGLE_CALLBACK_URL
         value: https://timetracker-backend.onrender.com/auth/google/callback
       - key: SESSION_SECRET
-        generateValue: true
-      - key: NODE_ENV
-        value: production
-
-  # Frontend Static Site
-  - type: static_site
-    name: timetracker-frontend
-    buildCommand: cd frontend && npm install && npm run build
-    staticPublishPath: frontend/dist
-    routes:
-      - path: /api/*
-        destination: https://timetracker-backend.onrender.com/api
-      - path: /auth/*
-        destination: https://timetracker-backend.onrender.com/auth
+        sync: false
