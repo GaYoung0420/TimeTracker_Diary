@@ -19,11 +19,11 @@ export const api = {
   },
 
   // Todos
-  async addTodo(date, text) {
+  async addTodo(date, text, category) {
     const res = await fetch(`${API_URL}/api/todos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, text })
+      body: JSON.stringify({ date, text, category })
     });
     return res.json();
   },
@@ -40,6 +40,23 @@ export const api = {
   async deleteTodo(id) {
     const res = await fetch(`${API_URL}/api/todos/${id}`, {
       method: 'DELETE'
+    });
+    return res.json();
+  },
+
+  async reorderTodos(updates) {
+    const res = await fetch(`${API_URL}/api/todos/reorder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates })
+    });
+    return res.json();
+  },
+
+  async incrementPomodoro(id) {
+    const res = await fetch(`${API_URL}/api/todos/${id}/pomodoro`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
     });
     return res.json();
   },

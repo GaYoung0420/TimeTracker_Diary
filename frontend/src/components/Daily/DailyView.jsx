@@ -10,7 +10,7 @@ import ImageUpload from './ImageUpload';
 import CategoryStats from './CategoryStats';
 
 function DailyView({ currentDate, setCurrentDate }) {
-  const { dailyData, loading, addTodo, updateTodo, deleteTodo, updateRoutineCheck, addRoutine, updateRoutine, deleteRoutine, saveData, addImageToState, removeImageFromState } = useDailyData(currentDate);
+  const { dailyData, loading, addTodo, updateTodo, deleteTodo, reorderTodos, updateRoutineCheck, addRoutine, updateRoutine, deleteRoutine, saveData, addImageToState, removeImageFromState } = useDailyData(currentDate);
   const { calendars, events, wakeSleepEvents, loading: calendarLoading } = useCalendarEvents(currentDate);
 
   const handleImageUploaded = (newImage) => {
@@ -80,6 +80,7 @@ function DailyView({ currentDate, setCurrentDate }) {
           onAdd={addTodo}
           onUpdate={updateTodo}
           onDelete={deleteTodo}
+          onReorder={reorderTodos}
         />
 
         <MoodSelector

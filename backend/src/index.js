@@ -238,8 +238,24 @@ app.post('/api/daily/:date', async (req, res) => {
    ======================================== */
 app.post('/api/todos', async (req, res) => {
   try {
-    const { date, text } = req.body;
-    const { data, error } = await supabase.from('todos').insert({ date, text, completed: false }).select().single();
+    const { date, text, category } = req.body;
+
+    // Get the highest order for this date
+    const { data: existingTodos } = await supabase
+      .from('todos')
+      .select('order')
+      .eq('date', date)
+      .order('order', { ascending: false })
+      .limit(1);
+
+    const nextOrder = existingTodos && existingTodos.length > 0 ? existingTodos[0].order + 1 : 0;
+
+    const { data, error } = await supabase
+      .from('todos')
+      .insert({ date, text, category, completed: false, order: nextOrder })
+      .select()
+      .single();
+
     if (error) throw error;
     res.json({ success: true, data });
   } catch (error) {
@@ -265,6 +281,58 @@ app.delete('/api/todos/:id', async (req, res) => {
     const { error } = await supabase.from('todos').delete().eq('id', id);
     if (error) throw error;
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Reorder Todos
+app.post('/api/todos/reorder', async (req, res) => {
+  try {
+    const { updates } = req.body;
+
+    // Update each todo's order
+    for (const update of updates) {
+      const { error } = await supabase
+        .from('todos')
+        .update({ order: update.order })
+        .eq('id', update.id);
+
+      if (error) throw error;
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Increment Pomodoro Count
+app.post('/api/todos/:id/pomodoro', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Fetch current pomodoro count
+    const { data: currentTodo, error: fetchError } = await supabase
+      .from('todos')
+      .select('pomodoro_count')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    const newCount = (currentTodo.pomodoro_count || 0) + 1;
+
+    // Update pomodoro count
+    const { data, error } = await supabase
+      .from('todos')
+      .update({ pomodoro_count: newCount })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

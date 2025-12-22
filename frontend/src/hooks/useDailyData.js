@@ -59,8 +59,8 @@ export function useDailyData(currentDate) {
     }));
   }, []);
 
-  const addTodo = useCallback(async (text) => {
-    const result = await api.addTodo(dateKey, text);
+  const addTodo = useCallback(async (text, category) => {
+    const result = await api.addTodo(dateKey, text, category);
     if (result.success) {
       await loadData();
     }
@@ -75,6 +75,13 @@ export function useDailyData(currentDate) {
 
   const deleteTodo = useCallback(async (id) => {
     const result = await api.deleteTodo(id);
+    if (result.success) {
+      await loadData();
+    }
+  }, [loadData]);
+
+  const reorderTodos = useCallback(async (updates) => {
+    const result = await api.reorderTodos(updates);
     if (result.success) {
       await loadData();
     }
@@ -123,6 +130,7 @@ export function useDailyData(currentDate) {
     addTodo,
     updateTodo,
     deleteTodo,
+    reorderTodos,
     updateRoutineCheck,
     addRoutine,
     updateRoutine,
