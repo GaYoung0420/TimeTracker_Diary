@@ -548,14 +548,13 @@ app.post('/api/calendar/events', async (req, res) => {
     }
 
     const { date, calendarIds } = req.body;
-    const targetDate = new Date(date);
+    // Parse date as local time (YYYY-MM-DD format)
+    const [year, month, day] = date.split('-').map(Number);
+    const targetDate = new Date(year, month - 1, day);
 
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date(targetDate);
-    endOfDay.setDate(endOfDay.getDate() + 1);
-    endOfDay.setHours(0, 0, 0, 0);
+    // Fetch events from previous day to next day to include multi-day events
+    const startOfDay = new Date(year, month - 1, day - 1, 0, 0, 0, 0);
+    const endOfDay = new Date(year, month - 1, day + 2, 0, 0, 0, 0);
 
     const oauth2Client = new google.auth.OAuth2();
     oauth2Client.setCredentials({
@@ -563,6 +562,9 @@ app.post('/api/calendar/events', async (req, res) => {
     });
 
     // Fetch all calendars in parallel
+    const targetDayStart = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const targetDayEnd = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
+
     const calendarPromises = calendarIds.map(async (calId) => {
       try {
         // Fetch events and calendar info in parallel
@@ -582,7 +584,15 @@ app.post('/api/calendar/events', async (req, res) => {
         ]);
 
         return eventsResponse.data.items
-          .filter(event => event.start.dateTime) // Skip all-day events
+          .filter(event => {
+            if (!event.start.dateTime) return false; // Skip all-day events
+
+            const eventStart = new Date(event.start.dateTime);
+            const eventEnd = new Date(event.end.dateTime);
+
+            // Include events that overlap with the target day
+            return eventStart < targetDayEnd && eventEnd > targetDayStart;
+          })
           .map(event => ({
             title: event.summary,
             start: event.start.dateTime,
@@ -600,6 +610,15 @@ app.post('/api/calendar/events', async (req, res) => {
 
     const eventArrays = await Promise.all(calendarPromises);
     const allEvents = eventArrays.flat();
+
+    // Debug: Log events for debugging
+    console.log(`\n=== Events for ${date} ===`);
+    console.log(`Target day: ${targetDayStart.toISOString()} ~ ${targetDayEnd.toISOString()}`);
+    console.log(`Total events: ${allEvents.length}`);
+    allEvents.forEach(event => {
+      console.log(`- ${event.title}: ${event.start} ~ ${event.end} (${event.calendarName})`);
+    });
+    console.log('=========================\n');
 
     res.json({ success: true, events: allEvents });
   } catch (error) {

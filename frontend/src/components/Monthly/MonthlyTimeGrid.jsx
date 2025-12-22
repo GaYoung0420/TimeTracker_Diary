@@ -71,17 +71,37 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
     const headerHeight = headerElement.offsetHeight;
     const hourHeight = firstHourCell.offsetHeight;
 
+    // Get the day number from the column (1-31)
+    const dayNumber = parseInt(dayColumn.querySelector('.tt-date-day')?.textContent || '0');
+    if (!dayNumber) return;
+
+    // Create day boundaries for this specific day
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const dayStart = new Date(year, month, dayNumber, 0, 0, 0, 0);
+    const dayEnd = new Date(year, month, dayNumber + 1, 0, 0, 0, 0);
+
     events.forEach(event => {
       const start = new Date(event.start);
       const end = new Date(event.end);
 
-      const startHour = start.getHours();
-      const startMinute = start.getMinutes();
-      const endHour = end.getHours();
-      const endMinute = end.getMinutes();
+      // Clamp event times to current day boundaries
+      const effectiveStart = start < dayStart ? dayStart : start;
+      const effectiveEnd = end > dayEnd ? dayEnd : end;
 
-      const startMinutesFromMidnight = startHour * 60 + startMinute;
-      const endMinutesFromMidnight = endHour * 60 + endMinute;
+      const startHour = effectiveStart.getHours();
+      const startMinute = effectiveStart.getMinutes();
+      const endHour = effectiveEnd.getHours();
+      const endMinute = effectiveEnd.getMinutes();
+
+      let startMinutesFromMidnight = startHour * 60 + startMinute;
+      let endMinutesFromMidnight = endHour * 60 + endMinute;
+
+      // If effectiveEnd is exactly at dayEnd (00:00 of next day), treat as 24:00
+      if (effectiveEnd.getTime() === dayEnd.getTime()) {
+        endMinutesFromMidnight = 24 * 60; // 1440 minutes = 24:00
+      }
+
       const durationMinutes = endMinutesFromMidnight - startMinutesFromMidnight;
 
       if (durationMinutes <= 0) return;

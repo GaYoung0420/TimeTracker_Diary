@@ -3,6 +3,18 @@ import { formatKoreanTime, getCategoryColorByName, getCategoryTextColorByName, h
 function Timeline({ events, wakeSleepEvents, calendars, loading, currentDate }) {
   const hourHeight = 40;
 
+  // Debug: Log all events
+  console.log('Timeline Debug:', {
+    currentDate: currentDate.toISOString(),
+    eventsCount: events.length,
+    events: events.map(e => ({
+      title: e.title,
+      start: e.start,
+      end: e.end,
+      calendarName: e.calendarName
+    }))
+  });
+
   if (loading) {
     return (
       <div className="timeline-wrapper">
@@ -56,9 +68,62 @@ function Timeline({ events, wakeSleepEvents, calendars, loading, currentDate }) 
     const start = new Date(event.start);
     const end = new Date(event.end);
 
-    const startMinutes = start.getHours() * 60 + start.getMinutes();
-    const endMinutes = end.getHours() * 60 + end.getMinutes();
+    // Get current day boundaries in local timezone
+    // Create a new date using local year/month/day from currentDate
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const day = currentDate.getDate();
+
+    const dayStart = new Date(year, month, day, 0, 0, 0, 0);
+    const dayEnd = new Date(year, month, day + 1, 0, 0, 0, 0);
+
+    // Debug multi-day events
+    if (event.title === '잠') {
+      console.log('Processing sleep event:', {
+        title: event.title,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        dayStart: dayStart.toISOString(),
+        dayEnd: dayEnd.toISOString(),
+        startBeforeDayStart: start < dayStart,
+        endAfterDayEnd: end > dayEnd
+      });
+    }
+
+    // Clamp event times to current day boundaries
+    const effectiveStart = start < dayStart ? dayStart : start;
+    const effectiveEnd = end > dayEnd ? dayEnd : end;
+
+    // Calculate position and height based on clamped times
+    const startHour = effectiveStart.getHours();
+    const startMinute = effectiveStart.getMinutes();
+    const endHour = effectiveEnd.getHours();
+    const endMinute = effectiveEnd.getMinutes();
+
+    let startMinutes = startHour * 60 + startMinute;
+    let endMinutes = endHour * 60 + endMinute;
+
+    // If effectiveEnd is exactly at dayEnd (00:00 of next day), treat as 24:00 (1440 minutes)
+    if (effectiveEnd.getTime() === dayEnd.getTime()) {
+      endMinutes = 24 * 60; // 1440 minutes = 24:00
+    }
+
     const durationMinutes = endMinutes - startMinutes;
+
+    if (event.title === '잠') {
+      console.log('Sleep event calculation:', {
+        effectiveStart: effectiveStart.toISOString(),
+        effectiveEnd: effectiveEnd.toISOString(),
+        startMinutes,
+        endMinutes,
+        durationMinutes,
+        topPosition: (startMinutes / 60) * hourHeight,
+        height: (durationMinutes / 60) * hourHeight
+      });
+    }
+
+    // Skip if event doesn't overlap with current day
+    if (durationMinutes <= 0) return null;
 
     const topPosition = (startMinutes / 60) * hourHeight;
     const height = (durationMinutes / 60) * hourHeight;
@@ -66,6 +131,11 @@ function Timeline({ events, wakeSleepEvents, calendars, loading, currentDate }) 
     const blockColor = getCategoryColorByName(event.calendarName, event.color);
     const textColor = getCategoryTextColorByName(event.calendarName);
     const bgColor = hexToRgba(blockColor, 0.35);
+
+    // Determine display time (use actual start if it's today, otherwise show 00:00)
+    const displayTime = start < dayStart
+      ? '00:00'
+      : start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
     return (
       <div
@@ -81,7 +151,7 @@ function Timeline({ events, wakeSleepEvents, calendars, loading, currentDate }) 
       >
         <div className="event-title">{event.title}</div>
         <div className="event-time">
-          {start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+          {displayTime}
         </div>
       </div>
     );

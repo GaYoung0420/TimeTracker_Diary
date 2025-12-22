@@ -141,14 +141,14 @@ function TodoList({ todos, onAdd, onUpdate, onDelete, onReorder }) {
     if (!count || count === 0) return null;
 
     return (
-      <div className="pomodoro-tomatoes" style={{ display: 'flex', gap: '2px', marginLeft: '8px' }}>
+      <div className="pomodoro-tomatoes" style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
         {Array.from({ length: count }).map((_, index) => (
           <img
             key={index}
             src={pomoSvg}
             alt="pomodoro"
-            width="16"
-            height="16"
+            width="20"
+            height="20"
             style={{ display: 'block' }}
           />
         ))}
