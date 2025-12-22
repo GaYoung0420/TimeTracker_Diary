@@ -72,7 +72,7 @@ passport.deserializeUser((user, done) => {
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: ['http://localhost:3000', 'http://localhost:5173'],
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
@@ -920,6 +920,140 @@ app.post('/api/monthly/time-stats', async (req, res) => {
     res.json({ success: true, data: { days, categories } });
   } catch (error) {
     console.error('Error loading monthly time stats:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Monthly Routine & Mood Statistics
+app.post('/api/monthly/routine-mood-stats', async (req, res) => {
+  try {
+    const { year, month } = req.body;
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`;
+
+    // Fetch all active routines
+    const { data: routines, error: routinesError } = await supabase
+      .from('routines')
+      .select('*')
+      .eq('active', true)
+      .order('order');
+
+    if (routinesError) throw routinesError;
+
+    // Fetch all routine checks for the month
+    const { data: routineChecks, error: checksError } = await supabase
+      .from('routine_checks')
+      .select('*')
+      .gte('date', startDate)
+      .lte('date', endDate);
+
+    if (checksError) throw checksError;
+
+    // Fetch all reflections (mood data) for the month
+    const { data: reflections, error: reflectionsError } = await supabase
+      .from('reflections')
+      .select('date, mood')
+      .gte('date', startDate)
+      .lte('date', endDate);
+
+    if (reflectionsError) throw reflectionsError;
+
+    // Process routine statistics
+    const routineStats = {};
+    const dailyRoutineChecks = {};
+
+    routines.forEach(routine => {
+      routineStats[routine.id] = {
+        id: routine.id,
+        text: routine.text,
+        totalDays: 0,
+        checkedDays: 0,
+        percentage: 0,
+        dailyStatus: {}
+      };
+    });
+
+    // Build daily status for each routine
+    const daysInMonth = new Date(year, month, 0).getDate();
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      dailyRoutineChecks[dateKey] = {};
+
+      routines.forEach(routine => {
+        routineStats[routine.id].dailyStatus[dateKey] = false;
+        dailyRoutineChecks[dateKey][routine.id] = false;
+      });
+    }
+
+    // Fill in actual check data
+    routineChecks.forEach(check => {
+      if (routineStats[check.routine_id]) {
+        routineStats[check.routine_id].totalDays++;
+        if (check.checked) {
+          routineStats[check.routine_id].checkedDays++;
+        }
+        routineStats[check.routine_id].dailyStatus[check.date] = check.checked;
+        dailyRoutineChecks[check.date][check.routine_id] = check.checked;
+      }
+    });
+
+    // Calculate percentages
+    Object.values(routineStats).forEach(stat => {
+      if (stat.totalDays > 0) {
+        stat.percentage = Math.round((stat.checkedDays / stat.totalDays) * 100);
+      }
+    });
+
+    // Process mood statistics
+    const moodCounts = {
+      'Good': 0,
+      'SoSo': 0,
+      'Bad': 0
+    };
+    const moodLabels = {
+      'Good': '😊 Good',
+      'SoSo': '😐 SoSo',
+      'Bad': '😢 Bad'
+    };
+    const dailyMoods = {};
+
+    reflections.forEach(ref => {
+      if (ref.mood) {
+        // Normalize mood value: lowercase to capitalized
+        const normalizedMood = ref.mood.charAt(0).toUpperCase() + ref.mood.slice(1).toLowerCase();
+        // Special case for "soso" -> "SoSo"
+        const mood = normalizedMood === 'Soso' ? 'SoSo' : normalizedMood;
+
+        moodCounts[mood] = (moodCounts[mood] || 0) + 1;
+        dailyMoods[ref.date] = ref.mood; // Keep original lowercase for frontend compatibility
+      }
+    });
+
+    const totalMoodEntries = Object.values(moodCounts).reduce((sum, count) => sum + count, 0);
+    const moodPercentages = {};
+    Object.keys(moodCounts).forEach(mood => {
+      moodPercentages[mood] = totalMoodEntries > 0
+        ? Math.round((moodCounts[mood] / totalMoodEntries) * 100)
+        : 0;
+    });
+
+    res.json({
+      success: true,
+      data: {
+        routineStats: Object.values(routineStats),
+        routines,
+        dailyRoutineChecks,
+        moodStats: {
+          counts: moodCounts,
+          percentages: moodPercentages,
+          total: totalMoodEntries,
+          labels: moodLabels
+        },
+        dailyMoods
+      }
+    });
+  } catch (error) {
+    console.error('Error loading monthly routine/mood stats:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

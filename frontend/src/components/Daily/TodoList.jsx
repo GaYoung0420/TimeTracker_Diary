@@ -4,11 +4,11 @@ import { api } from '../../utils/api';
 import pomoSvg from './pomo.svg';
 
 const TODO_CATEGORIES = [
-  { name: '🐰 영적', emoji: '🐰', color: '#FFB4C4' },
+  { name: '🐰 영적', emoji: '🐰', color: '#f29baeff' },
   { name: '💡 IAE LAB', emoji: '💡', color: '#C4B4FF' },
-  { name: '💻 취업 준비', emoji: '💻', color: '#B4FFC4' },
-  { name: '😊 개인', emoji: '😊', color: '#FFFFC4' },
-  { name: '🏢 회사', emoji: '🏢', color: '#B4E4FF' }
+  { name: '💻 취업 준비', emoji: '💻', color: '#bada55' },
+  { name: '😊 개인', emoji: '😊', color: '#f7eb0c' },
+  { name: '🏢 회사', emoji: '🏢', color: '#89c1f6ff' }
 ];
 
 function TodoList({ todos, onAdd, onUpdate, onDelete, onReorder }) {

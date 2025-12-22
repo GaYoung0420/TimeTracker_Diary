@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
 import MonthlyTimeGrid from './MonthlyTimeGrid';
+import MonthlyStats from './MonthlyStats';
 import { getLocalDateString } from '../../utils/helpers';
 
 function MonthlyView({ goToDate }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [monthlyData, setMonthlyData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('calendar'); // 'calendar' or 'time'
+  const [viewMode, setViewMode] = useState('calendar'); // 'calendar', 'time', or 'stats'
 
   useEffect(() => {
     loadMonthlyData();
@@ -114,16 +115,23 @@ function MonthlyView({ goToDate }) {
             >
               ⏰ 시간 추적 뷰
             </button>
+            <button
+              className={`view-mode-btn ${viewMode === 'stats' ? 'active' : ''}`}
+              onClick={() => setViewMode('stats')}
+            >
+              📊 통계 뷰
+            </button>
           </div>
         </div>
       </div>
 
-      {loading ? (
+      {loading && viewMode === 'calendar' ? (
         <div className="loading">로딩 중...</div>
       ) : (
         <>
           {viewMode === 'calendar' && renderCalendarGrid()}
           {viewMode === 'time' && <MonthlyTimeGrid currentMonth={currentMonth} goToDate={goToDate} />}
+          {viewMode === 'stats' && <MonthlyStats currentMonth={currentMonth} goToDate={goToDate} />}
         </>
       )}
     </div>

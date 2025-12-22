@@ -48,18 +48,70 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
 
     console.log(`총 ${days.length}일 데이터, ${dayColumns.length}개 컬럼`);
 
+    // 전체 월의 모든 이벤트 수집
+    const allEvents = days.flatMap(dayData => dayData.events || []);
+
     days.forEach((dayData) => {
+      const dayColumn = dayColumns[dayData.date - 1];
+      if (!dayColumn) return;
+
       if (dayData.events && dayData.events.length > 0) {
-        // dayColumns[0]부터 1일, 2일, 3일... 순서
-        const dayColumn = dayColumns[dayData.date - 1];
-        if (dayColumn) {
-          console.log(`${dayData.date}일: ${dayData.events.length}개 이벤트 렌더링`);
-          renderDayEventsAbsolute(dayColumn, dayData.events);
+        console.log(`${dayData.date}일: ${dayData.events.length}개 이벤트 렌더링`);
+        renderDayEventsAbsolute(dayColumn, dayData.events);
+      }
+
+      // 기상/취침 시간 마커 추가
+      renderWakeSleepMarkers(dayColumn, dayData.date, allEvents);
+    });
+
+    console.log(`✅ 타임트래커 렌더링 완료: ${days.length}일`);
+  };
+
+  const renderWakeSleepMarkers = (dayColumn, dayNumber, allEvents) => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const dateStr = getLocalDateString(new Date(year, month, dayNumber));
+
+    let wakeHour = null;
+    let sleepHour = null;
+
+    allEvents.forEach(event => {
+      if (event.title === '잠') {
+        const start = new Date(event.start);
+        const end = new Date(event.end);
+        const startDateStr = getLocalDateString(start);
+        const endDateStr = getLocalDateString(end);
+
+        // 기상 시간: 당일에 종료되는 잠 이벤트의 종료 시간
+        if (endDateStr === dateStr) {
+          wakeHour = end.getHours();
+        }
+
+        // 취침 시간: 당일에 시작되는 잠 이벤트의 시작 시간 (가장 늦은 시간)
+        if (startDateStr === dateStr) {
+          const hour = start.getHours();
+          if (sleepHour === null || hour > sleepHour) {
+            sleepHour = hour;
+          }
         }
       }
     });
 
-    console.log(`✅ 타임트래커 렌더링 완료: ${days.length}일`);
+    const hourCells = dayColumn.querySelectorAll('.tt-hour-cell');
+
+    if (wakeHour !== null && hourCells[wakeHour]) {
+      const marker = document.createElement('div');
+      marker.className = 'tt-wake-marker';
+      marker.textContent = String(wakeHour).padStart(2, '0');
+      hourCells[wakeHour].appendChild(marker);
+    }
+
+    if (sleepHour !== null && hourCells[sleepHour]) {
+      const marker = document.createElement('div');
+      marker.className = 'tt-sleep-marker';
+      marker.textContent = String(sleepHour).padStart(2, '0');
+      hourCells[sleepHour].appendChild(marker);
+    }
   };
 
   const renderDayEventsAbsolute = (dayColumn, events) => {
@@ -127,16 +179,19 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
         right: '2px'
       });
 
-      const title = document.createElement('div');
-      title.className = 'tt-event-title';
-      title.textContent = event.title;
-
-      eventBlock.appendChild(title);
+      // Create tooltip element that appears on hover
+      const tooltip = document.createElement('div');
+      tooltip.className = 'tt-event-tooltip';
 
       const startTime = start.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
       const endTime = end.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-      eventBlock.title = `${event.title}\n${startTime} - ${endTime}`;
 
+      tooltip.innerHTML = `
+        <div class="tt-tooltip-title">${event.title}</div>
+        <div class="tt-tooltip-time">${startTime} - ${endTime}</div>
+      `;
+
+      eventBlock.appendChild(tooltip);
       dayColumn.appendChild(eventBlock);
     });
   };

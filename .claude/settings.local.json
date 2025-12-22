@@ -17,7 +17,9 @@
       "Bash(cmd.exe /c \"taskkill /PID 7404 /F\")",
       "Bash(cmd.exe /c \"taskkill /PID 9656 /F\")",
       "Bash(lsof:*)",
-      "Bash(xargs kill:*)"
+      "Bash(xargs kill:*)",
+      "Bash(npm start)",
+      "Bash(git checkout:*)"
     ]
   }
 }

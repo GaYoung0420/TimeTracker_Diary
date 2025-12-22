@@ -26,9 +26,11 @@ function Timeline({ events, wakeSleepEvents, calendars, loading, currentDate }) 
     );
   }
 
-  const renderWakeSleepTimes = () => {
+  const getWakeSleepInfo = () => {
     let wakeTime = '-';
     let sleepTime = '-';
+    let wakeHour = null;
+    let sleepHour = null;
 
     if (wakeSleepEvents && wakeSleepEvents.length > 0 && currentDate) {
       const currentDateStr = getLocalDateString(currentDate);
@@ -43,14 +45,22 @@ function Timeline({ events, wakeSleepEvents, calendars, loading, currentDate }) 
         // 기상 시간: 당일에 종료되는 잠 이벤트의 종료 시간
         if (endDateStr === currentDateStr) {
           wakeTime = formatKoreanTime(end);
+          wakeHour = end.getHours();
         }
 
         // 취침 시간: 당일에 시작되는 잠 이벤트의 시작 시간
         if (startDateStr === currentDateStr) {
           sleepTime = formatKoreanTime(start);
+          sleepHour = start.getHours();
         }
       });
     }
+
+    return { wakeTime, sleepTime, wakeHour, sleepHour };
+  };
+
+  const renderWakeSleepTimes = () => {
+    const { wakeTime, sleepTime } = getWakeSleepInfo();
 
     return (
       <div className="wake-sleep-container">
@@ -132,10 +142,25 @@ function Timeline({ events, wakeSleepEvents, calendars, loading, currentDate }) 
     const textColor = getCategoryTextColorByName(event.calendarName);
     const bgColor = hexToRgba(blockColor, 0.35);
 
-    // Determine display time (use actual start if it's today, otherwise show 00:00)
-    const displayTime = start < dayStart
+    // Determine display time range (show start and end times)
+    const displayStartTime = start < dayStart
       ? '00:00'
-      : start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      : start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    
+    const displayEndTime = end > dayEnd
+      ? '24:00'
+      : end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+    // Calculate duration for tooltip
+    const durationMs = end.getTime() - start.getTime();
+    const tooltipDurationHours = Math.floor(durationMs / (1000 * 60 * 60));
+    const tooltipDurationMinutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+    const durationText = tooltipDurationHours > 0 
+      ? `${tooltipDurationHours}시간 ${tooltipDurationMinutes}분`
+      : `${tooltipDurationMinutes}분`;
+
+    // Full tooltip text
+    const tooltipText = `${event.title}\n${start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })} - ${end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}\n소요 시간: ${durationText}`;
 
     return (
       <div
@@ -147,11 +172,11 @@ function Timeline({ events, wakeSleepEvents, calendars, loading, currentDate }) 
           top: `${topPosition}px`,
           height: `${Math.max(height, 20)}px`
         }}
-        title={event.title}
+        title={tooltipText}
       >
         <div className="event-title">{event.title}</div>
         <div className="event-time">
-          {displayTime}
+          {displayStartTime} - {displayEndTime}
         </div>
       </div>
     );
@@ -163,6 +188,8 @@ function Timeline({ events, wakeSleepEvents, calendars, loading, currentDate }) 
   const actualEvents = events.filter(e =>
     !e.calendarName?.includes('계획') && !e.calendarName?.includes('Plan') && !e.calendarName?.includes('⑧')
   );
+
+  const { wakeHour, sleepHour } = getWakeSleepInfo();
 
   return (
     <>
@@ -187,13 +214,19 @@ function Timeline({ events, wakeSleepEvents, calendars, loading, currentDate }) 
           </div>
 
           <div className="time-markers">
-            {Array.from({ length: 24 }, (_, hour) => (
-              <div key={hour} className="time-marker-row" style={{ height: `${hourHeight}px` }}>
-                <div></div>
-                <div className="time-marker-label">{String(hour).padStart(2, '0')}</div>
-                <div></div>
-              </div>
-            ))}
+            {Array.from({ length: 24 }, (_, hour) => {
+              const isWakeHour = wakeHour === hour;
+              const isSleepHour = sleepHour === hour;
+              const markerClass = isWakeHour ? 'wake-hour' : isSleepHour ? 'sleep-hour' : '';
+
+              return (
+                <div key={hour} className={`time-marker-row ${markerClass}`} style={{ height: `${hourHeight}px` }}>
+                  <div></div>
+                  <div className="time-marker-label">{String(hour).padStart(2, '0')}</div>
+                  <div></div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

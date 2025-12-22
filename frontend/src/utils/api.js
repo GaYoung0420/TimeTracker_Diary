@@ -160,6 +160,15 @@ export const api = {
     return res.json();
   },
 
+  async getMonthlyRoutineMoodStats(year, month) {
+    const res = await fetch(`${API_URL}/api/monthly/routine-mood-stats`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ year, month })
+    });
+    return res.json();
+  },
+
   // Quick Actions
   async saveFeedback(date, feedback) {
     const res = await fetch(`${API_URL}/api/feedback`, {
