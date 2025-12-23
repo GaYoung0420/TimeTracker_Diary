@@ -646,22 +646,30 @@ app.post('/api/calendar/events', async (req, res) => {
     }
 
     const { date, calendarIds } = req.body;
-    // Parse date as local time (YYYY-MM-DD format)
+    // Parse date in Korea timezone (UTC+9)
+    // date format: 'YYYY-MM-DD'
     const [year, month, day] = date.split('-').map(Number);
-    const targetDate = new Date(year, month - 1, day);
 
-    // Fetch events from previous day to next day to include multi-day events
-    const startOfDay = new Date(year, month - 1, day - 1, 0, 0, 0, 0);
-    const endOfDay = new Date(year, month - 1, day + 2, 0, 0, 0, 0);
+    // Create dates in Korea timezone (UTC+9)
+    // Use ISO string with Korea timezone offset
+    const koreaOffset = 9 * 60; // Korea is UTC+9
+    const startOfDayKorea = new Date(Date.UTC(year, month - 1, day - 1, 15, 0, 0)); // 00:00 KST = 15:00 previous day UTC
+    const endOfDayKorea = new Date(Date.UTC(year, month - 1, day + 1, 15, 0, 0)); // 00:00 next day KST
+
+    console.log('Date parsing:', {
+      requestedDate: date,
+      startOfDayKorea: startOfDayKorea.toISOString(),
+      endOfDayKorea: endOfDayKorea.toISOString()
+    });
 
     const oauth2Client = new google.auth.OAuth2();
     oauth2Client.setCredentials({
       access_token: req.user.accessToken
     });
 
-    // Fetch all calendars in parallel
-    const targetDayStart = new Date(year, month - 1, day, 0, 0, 0, 0);
-    const targetDayEnd = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
+    // Target day boundaries in Korea timezone
+    const targetDayStart = new Date(Date.UTC(year, month - 1, day, -9, 0, 0)); // 00:00 KST
+    const targetDayEnd = new Date(Date.UTC(year, month - 1, day + 1, -9, 0, 0)); // 24:00 KST (next day 00:00)
 
     const calendarPromises = calendarIds.map(async (calId) => {
       try {
@@ -670,10 +678,11 @@ app.post('/api/calendar/events', async (req, res) => {
           calendar.events.list({
             auth: oauth2Client,
             calendarId: calId,
-            timeMin: startOfDay.toISOString(),
-            timeMax: endOfDay.toISOString(),
+            timeMin: startOfDayKorea.toISOString(),
+            timeMax: endOfDayKorea.toISOString(),
             singleEvents: true,
-            orderBy: 'startTime'
+            orderBy: 'startTime',
+            timeZone: 'Asia/Seoul'
           }),
           calendar.calendarList.get({
             auth: oauth2Client,
@@ -718,6 +727,17 @@ app.post('/api/calendar/events', async (req, res) => {
     });
     console.log('=========================\n');
 
+    // Log first event for timezone debugging
+    if (allEvents.length > 0) {
+      const firstEvent = allEvents[0];
+      console.log('First event timezone check:', {
+        title: firstEvent.title,
+        start: firstEvent.start,
+        startDate: new Date(firstEvent.start).toISOString(),
+        startLocalTime: new Date(firstEvent.start).toString()
+      });
+    }
+
     res.json({ success: true, events: allEvents });
   } catch (error) {
     console.error('Error fetching events:', error);
@@ -735,15 +755,12 @@ app.post('/api/calendar/wake-sleep', async (req, res) => {
     }
 
     const { date, calendarIds } = req.body;
-    const targetDate = new Date(date);
+    // Parse date in Korea timezone
+    const [year, month, day] = date.split('-').map(Number);
 
-    const startRange = new Date(targetDate);
-    startRange.setDate(startRange.getDate() - 1);
-    startRange.setHours(0, 0, 0, 0);
-
-    const endRange = new Date(targetDate);
-    endRange.setDate(endRange.getDate() + 2);
-    endRange.setHours(0, 0, 0, 0);
+    // Create date ranges in Korea timezone (UTC+9)
+    const startRange = new Date(Date.UTC(year, month - 1, day - 2, 15, 0, 0)); // 2 days before, 00:00 KST
+    const endRange = new Date(Date.UTC(year, month - 1, day + 2, 15, 0, 0)); // 2 days after, 00:00 KST
 
     const oauth2Client = new google.auth.OAuth2();
     oauth2Client.setCredentials({
@@ -766,7 +783,8 @@ app.post('/api/calendar/wake-sleep', async (req, res) => {
           timeMin: startRange.toISOString(),
           timeMax: endRange.toISOString(),
           singleEvents: true,
-          orderBy: 'startTime'
+          orderBy: 'startTime',
+          timeZone: 'Asia/Seoul'
         });
 
         return response.data.items
@@ -887,19 +905,23 @@ app.post('/api/monthly/time-stats', async (req, res) => {
     // Filter out "계획" calendar
     const calendars = allCalendars.filter(cal => !cal.summary.includes('계획'));
 
-    // Calculate month range
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0);
-    const daysInMonth = endOfMonth.getDate();
+    // Calculate month range in Korea timezone
+    const daysInMonth = new Date(year, month, 0).getDate();
+
+    // Start of month in Korea timezone (00:00 KST on the 1st)
+    const startOfMonth = new Date(Date.UTC(year, month - 1, 1, -9, 0, 0));
+    // End of month in Korea timezone (00:00 KST on the 1st of next month)
+    const endOfMonth = new Date(Date.UTC(year, month, 1, -9, 0, 0));
 
     // Fetch events for the entire month (병렬화)
     const eventPromises = calendars.map(cal =>
       calendar.events.list({
         calendarId: cal.id,
         timeMin: startOfMonth.toISOString(),
-        timeMax: new Date(year, month, 1).toISOString(),
+        timeMax: endOfMonth.toISOString(),
         singleEvents: true,
-        orderBy: 'startTime'
+        orderBy: 'startTime',
+        timeZone: 'Asia/Seoul'
       })
       .then(eventsResponse => ({
         calendarId: cal.id,
