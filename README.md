@@ -249,6 +249,49 @@ Safari blocks third-party cookies. This app solves it by:
 - Using `sameSite: 'lax'` for session cookies
 - No cross-origin requests needed
 
+### Timeline/TimeTracker Not Showing Events
+
+If the timeline is blank or events are not showing:
+
+1. **Check authentication**: Make sure you're logged in with Google OAuth
+   - Look for your email in the top right corner
+   - If not logged in, click "Sign in with Google"
+
+2. **Verify Google OAuth Callback URL**: In Render environment variables, ensure:
+   ```
+   GOOGLE_CALLBACK_URL=https://yourapp.onrender.com/auth/google/callback
+   ```
+
+3. **Check Google Cloud Console**:
+   - Go to https://console.cloud.google.com
+   - Navigate to APIs & Services > Credentials
+   - Edit your OAuth 2.0 Client ID
+   - Add `https://yourapp.onrender.com/auth/google/callback` to Authorized redirect URIs
+
+4. **Verify CORS and Session**:
+   - Backend automatically detects Render deployment via `RENDER_EXTERNAL_URL`
+   - Session cookies should work since frontend/backend are same-origin
+
+5. **Check Render logs**:
+   ```bash
+   # Look for these log messages:
+   === /api/calendars request ===
+   Authenticated: true/false
+   User: your-email@gmail.com
+   ```
+
+6. **Clear browser cache and cookies**: Sometimes stale sessions cause issues
+   - Log out and log back in
+   - Try in an incognito/private window
+
+7. **Test authentication endpoint**: Open developer console and check:
+   ```javascript
+   fetch('/auth/user', { credentials: 'include' })
+     .then(r => r.json())
+     .then(console.log)
+   ```
+   Should return `{ success: true, user: {...} }`
+
 ## License
 
 ISC

@@ -84,11 +84,31 @@ passport.deserializeUser((user, done) => {
 });
 
 // Middleware
+// In production on Render, frontend and backend are served from the same origin
+// So we need to allow the deployed domain as well
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173'
+];
+
+// Add production domain if available
+if (process.env.RENDER_EXTERNAL_URL) {
+  allowedOrigins.push(process.env.RENDER_EXTERNAL_URL);
+  allowedOrigins.push(process.env.RENDER_EXTERNAL_URL.replace('http://', 'https://'));
+}
+
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:5173'
-  ],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(null, false);
+    }
+  },
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
@@ -576,7 +596,13 @@ app.post('/api/routine-checks', async (req, res) => {
    ======================================== */
 app.get('/api/calendars', async (req, res) => {
   try {
+    console.log('=== /api/calendars request ===');
+    console.log('Authenticated:', req.isAuthenticated());
+    console.log('User:', req.user?.email);
+    console.log('Session ID:', req.sessionID);
+
     if (!req.isAuthenticated()) {
+      console.log('User not authenticated - returning 401');
       return res.status(401).json({ success: false, error: 'Not authenticated' });
     }
 
@@ -597,6 +623,7 @@ app.get('/api/calendars', async (req, res) => {
         isSelected: true
       }));
 
+    console.log('Returning calendars:', calendars.length);
     res.json({ success: true, calendars, timestamp: Date.now() });
   } catch (error) {
     console.error('Error fetching calendars:', error);
@@ -609,7 +636,12 @@ app.get('/api/calendars', async (req, res) => {
    ======================================== */
 app.post('/api/calendar/events', async (req, res) => {
   try {
+    console.log('=== /api/calendar/events request ===');
+    console.log('Authenticated:', req.isAuthenticated());
+    console.log('Request body:', req.body);
+
     if (!req.isAuthenticated()) {
+      console.log('User not authenticated - returning 401');
       return res.status(401).json({ success: false, error: 'Not authenticated' });
     }
 
