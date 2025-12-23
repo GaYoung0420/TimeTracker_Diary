@@ -1175,13 +1175,9 @@ app.post('/api/calendar/create-wake', async (req, res) => {
 const frontendDistPath = path.join(__dirname, '../../frontend/dist');
 app.use(express.static(frontendDistPath));
 
-// All non-API routes should serve index.html (for client-side routing)
-// This must be AFTER all API routes
-app.get('*', (req, res, next) => {
-  // Skip API routes
-  if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
-    return next();
-  }
+// Serve index.html for all other routes (SPA routing)
+// This catches all routes that aren't API endpoints or static files
+app.get('*', (req, res) => {
   res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
 
