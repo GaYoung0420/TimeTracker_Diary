@@ -93,6 +93,14 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '50mb' }));
 
+// Serve static files EARLY - before any route handlers
+const frontendDistPath = path.join(__dirname, '../../frontend/dist');
+console.log('Setting up static file serving from:', frontendDistPath);
+app.use(express.static(frontendDistPath, {
+  maxAge: '1d',
+  etag: true
+}));
+
 /* ========================================
    Health & Test
    ======================================== */
@@ -1167,40 +1175,11 @@ app.post('/api/calendar/create-wake', async (req, res) => {
 });
 
 /* ========================================
-   Serve Frontend Static Files
+   SPA Fallback
    ======================================== */
-// Serve static files from frontend/dist
-const frontendDistPath = path.join(__dirname, '../../frontend/dist');
-const fs = await import('fs');
-
-// Check if dist folder exists
-console.log('Checking frontend dist path:', frontendDistPath);
-console.log('__dirname:', __dirname);
-try {
-  const exists = fs.existsSync(frontendDistPath);
-  console.log('Frontend dist exists:', exists);
-  if (exists) {
-    const files = fs.readdirSync(frontendDistPath);
-    console.log('Files in dist:', files);
-  }
-} catch (err) {
-  console.error('Error checking dist folder:', err);
-}
-
-// Serve static files from dist folder - this must come BEFORE catch-all
-app.use(express.static(frontendDistPath, {
-  maxAge: '1d',
-  etag: true
-}));
-
-// SPA fallback - ONLY for routes that don't match any file or API route
+// SPA fallback - serve index.html for any unmatched routes
 // This will only trigger if express.static didn't find a file
 app.use((req, res) => {
-  // If we got here, it means:
-  // 1. Not an API route (those are handled above)
-  // 2. Not an auth route (those are handled above)
-  // 3. Not a static file (express.static didn't find it)
-  // So serve the SPA index.html
   console.log('SPA fallback for:', req.path);
   res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
