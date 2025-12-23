@@ -36,7 +36,7 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   },
   proxy: true
@@ -127,9 +127,17 @@ app.get('/auth/google/callback',
   (req, res) => {
     // Successful authentication, redirect to frontend
     const redirectUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    console.log('OAuth callback - User authenticated:', req.user?.email);
+    console.log('OAuth callback - Session ID:', req.sessionID);
     console.log('OAuth callback - Redirecting to:', redirectUrl);
-    console.log('FRONTEND_URL env var:', process.env.FRONTEND_URL);
-    res.redirect(redirectUrl);
+
+    // Ensure session is saved before redirect
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+      }
+      res.redirect(redirectUrl);
+    });
   }
 );
 
@@ -143,6 +151,10 @@ app.get('/auth/logout', (req, res) => {
 });
 
 app.get('/auth/user', (req, res) => {
+  console.log('Auth check - Session ID:', req.sessionID);
+  console.log('Auth check - Is authenticated:', req.isAuthenticated());
+  console.log('Auth check - User:', req.user?.email);
+
   if (req.isAuthenticated()) {
     res.json({
       success: true,
