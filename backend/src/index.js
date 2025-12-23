@@ -1187,24 +1187,16 @@ try {
   console.error('Error checking dist folder:', err);
 }
 
-// Serve static files first with explicit configuration
-app.use(express.static(frontendDistPath, {
-  index: false,  // Don't serve index.html automatically
-  setHeaders: (res, path) => {
-    // Set correct MIME types for assets
-    if (path.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript');
-    } else if (path.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css');
-    }
-  }
-}));
+// Serve static files from dist folder
+app.use(express.static(frontendDistPath));
 
-// Serve index.html for all other routes (SPA routing)
-// This catches all routes that aren't API endpoints or static files
+// SPA fallback - serve index.html for non-file routes
 app.get('*', (req, res, next) => {
-  // Skip API and auth routes
-  if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
+  // Skip API routes, auth routes, and static assets
+  if (req.path.startsWith('/api') ||
+      req.path.startsWith('/auth') ||
+      req.path.startsWith('/assets/') ||
+      req.path.includes('.')) {
     return next();
   }
 
