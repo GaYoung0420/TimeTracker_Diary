@@ -11,7 +11,8 @@ function App() {
 
   // Check authentication status on load
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/auth/user`, {
+    const apiUrl = import.meta.env.VITE_API_URL || '';
+    fetch(`${apiUrl}/auth/user`, {
       credentials: 'include'
     })
       .then(res => res.json())
@@ -28,11 +29,13 @@ function App() {
   }, []);
 
   const handleLogin = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL}/auth/google`;
+    const apiUrl = import.meta.env.VITE_API_URL || '';
+    window.location.href = `${apiUrl}/auth/google`;
   };
 
   const handleLogout = () => {
-    fetch(`${import.meta.env.VITE_API_URL}/auth/logout`, {
+    const apiUrl = import.meta.env.VITE_API_URL || '';
+    fetch(`${apiUrl}/auth/logout`, {
       credentials: 'include'
     })
       .then(() => {

@@ -1,4 +1,5 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Use relative URL when in production (same domain), absolute URL for local dev
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 const monthlyStatsCache = new Map();
 

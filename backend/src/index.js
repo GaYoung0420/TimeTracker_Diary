@@ -7,6 +7,11 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { createClient } from '@supabase/supabase-js';
 import { google } from 'googleapis';
 import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -36,7 +41,7 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    sameSite: 'lax', // Same domain, so lax is fine
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   },
   proxy: true
@@ -123,20 +128,18 @@ app.get('/auth/google',
 );
 
 app.get('/auth/google/callback',
-  passport.authenticate('google', { failureRedirect: process.env.FRONTEND_URL || 'http://localhost:5173' }),
+  passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
-    // Successful authentication, redirect to frontend
-    const redirectUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    // Successful authentication, redirect to root (frontend)
     console.log('OAuth callback - User authenticated:', req.user?.email);
     console.log('OAuth callback - Session ID:', req.sessionID);
-    console.log('OAuth callback - Redirecting to:', redirectUrl);
 
     // Ensure session is saved before redirect
     req.session.save((err) => {
       if (err) {
         console.error('Session save error:', err);
       }
-      res.redirect(redirectUrl);
+      res.redirect('/');
     });
   }
 );
@@ -1165,8 +1168,21 @@ app.post('/api/calendar/create-wake', async (req, res) => {
   }
 });
 
+/* ========================================
+   Serve Frontend Static Files
+   ======================================== */
+// Serve static files from frontend/dist
+const frontendDistPath = path.join(__dirname, '../../frontend/dist');
+app.use(express.static(frontendDistPath));
+
+// All other routes should serve index.html (for client-side routing)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(frontendDistPath, 'index.html'));
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log(`Serving frontend from: ${frontendDistPath}`);
 });
 
 export default app;
