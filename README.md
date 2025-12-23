@@ -163,35 +163,91 @@ Frontend will run on http://localhost:3000
 
 ## Development Notes
 
-- Backend runs on port 5000
-- Frontend runs on port 3000
-- Frontend proxies `/api` requests to backend
+### Local Development
+- Backend runs on port 5001
+- Frontend runs on port 5173 (Vite default)
+- Frontend makes API requests to backend
 - Google Calendar events are fetched on-demand (not stored in database)
-- Images metadata stored in Supabase, files stored in cloud storage (implement upload endpoint)
+- Images stored in Supabase Storage
 
-## Next Steps
+### Production Deployment (Render)
 
-To complete the frontend implementation, you need to create:
+The app uses a **monorepo structure** where the backend serves the frontend build files:
+- Backend serves static files from `frontend/dist/`
+- Frontend and backend run on the same domain (fixes Safari cookie issues)
+- No CORS issues since it's same-origin
 
-1. **Daily View Components** (`frontend/src/components/Daily/`):
-   - `DailyView.jsx` - Main daily container
-   - `Timeline.jsx` - Event timeline from Google Calendar
-   - `TodoList.jsx` - Todo list with drag & drop
-   - `RoutineGrid.jsx` - Routine checklist
-   - `MoodSelector.jsx` - Mood picker
-   - `ImageUpload.jsx` - Image upload component
-   - `Reflection.jsx` - Reflection textarea
+#### Deployment Steps
 
-2. **Monthly View Components** (`frontend/src/components/Monthly/`):
-   - `MonthlyView.jsx` - Main monthly container
-   - `CalendarGrid.jsx` - Calendar grid with thumbnails
-   - `TimeTrackerGrid.jsx` - Monthly time tracker
+1. **Build the frontend**:
+```bash
+npm --prefix frontend install
+npm --prefix frontend run build
+```
 
-3. **Hooks** (`frontend/src/hooks/`):
-   - `useDailyData.js` - Manage daily data state
-   - `useCalendarEvents.js` - Fetch and cache calendar events
+2. **Commit dist files**:
+```bash
+git add frontend/dist/
+git commit -m "Build frontend for deployment"
+git push
+```
 
-4. **Styling**: Copy the CSS from the original project
+3. **Render Configuration**:
+   - Build Command: `npm run build`
+   - Start Command: `npm start`
+   - Environment Variables:
+     - `GOOGLE_CLIENT_ID`
+     - `GOOGLE_CLIENT_SECRET`
+     - `GOOGLE_CALLBACK_URL` (e.g., `https://yourapp.onrender.com/auth/google/callback`)
+     - `SESSION_SECRET`
+     - `SUPABASE_URL`
+     - `SUPABASE_ANON_KEY`
+     - `NODE_ENV=production`
+
+#### Important: Updating Frontend Code
+
+When you modify frontend code, you MUST rebuild and commit the dist files:
+
+```bash
+# 1. Build frontend
+npm --prefix frontend run build
+
+# 2. Commit the changes
+git add frontend/dist/
+git commit -m "Update frontend build"
+git push
+```
+
+**Note**: The root `.gitignore` has `dist/` commented out to allow committing frontend build files for deployment.
+
+## Troubleshooting
+
+### White Screen on Render Deployment
+
+If you see a white screen after deploying to Render:
+
+1. **Check if dist files are committed**:
+```bash
+git ls-files frontend/dist/
+```
+You should see `index.html`, JS, and CSS files.
+
+2. **Verify .gitignore**:
+Make sure root `.gitignore` doesn't ignore `dist/` folder:
+```
+# Don't ignore frontend/dist - we need it for deployment
+# dist/
+```
+
+3. **Check Render logs**:
+Look for "SPA fallback for: /assets/..." messages. If assets are falling back, dist files weren't deployed properly.
+
+### Safari Cookie Issues
+
+Safari blocks third-party cookies. This app solves it by:
+- Serving frontend and backend from the same domain
+- Using `sameSite: 'lax'` for session cookies
+- No cross-origin requests needed
 
 ## License
 
