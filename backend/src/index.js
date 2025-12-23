@@ -429,10 +429,19 @@ app.post('/api/todos/:id/pomodoro', async (req, res) => {
    ======================================== */
 app.post('/api/images/upload', upload.single('image'), async (req, res) => {
   try {
+    console.log('=== Image Upload Request ===');
+    console.log('Date:', req.body.date);
+    console.log('File:', req.file ? {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    } : 'No file');
+
     const { date } = req.body;
     const file = req.file;
 
     if (!file) {
+      console.log('ERROR: No file in request');
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
 
@@ -442,6 +451,8 @@ app.post('/api/images/upload', upload.single('image'), async (req, res) => {
     const fileName = `${date}_${timestamp}.${fileExt}`;
     const filePath = `${date}/${fileName}`;
 
+    console.log('Uploading to Supabase Storage:', filePath);
+
     // Upload to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('diary-images')
@@ -450,12 +461,19 @@ app.post('/api/images/upload', upload.single('image'), async (req, res) => {
         upsert: false
       });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      console.error('Supabase Storage upload error:', uploadError);
+      throw uploadError;
+    }
+
+    console.log('Upload successful:', uploadData);
 
     // Get public URL
     const { data: urlData } = supabase.storage
       .from('diary-images')
       .getPublicUrl(filePath);
+
+    console.log('Public URL:', urlData.publicUrl);
 
     // Save to database
     const { data: dbData, error: dbError } = await supabase
@@ -470,7 +488,12 @@ app.post('/api/images/upload', upload.single('image'), async (req, res) => {
       .select()
       .single();
 
-    if (dbError) throw dbError;
+    if (dbError) {
+      console.error('Database insert error:', dbError);
+      throw dbError;
+    }
+
+    console.log('Database insert successful:', dbData.id);
 
     // Invalidate monthly cache for the affected month
     if (dbData && dbData.date) {
@@ -478,10 +501,22 @@ app.post('/api/images/upload', upload.single('image'), async (req, res) => {
       monthlyStatsCache.delete(monthKey);
     }
 
+    console.log('=== Image Upload Complete ===');
     res.json({ success: true, data: dbData });
   } catch (error) {
-    console.error('Error uploading image:', error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('=== Image Upload Error ===');
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+      stack: error.stack
+    });
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: error.details || error.hint || 'Unknown error'
+    });
   }
 });
 
