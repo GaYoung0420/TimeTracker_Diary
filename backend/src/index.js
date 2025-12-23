@@ -1425,8 +1425,15 @@ app.post('/api/calendar/create-wake', async (req, res) => {
    SPA Fallback
    ======================================== */
 // SPA fallback - serve index.html for any unmatched routes
-// This will only trigger if express.static didn't find a file
-app.use((req, res) => {
+// Skip for API routes and static assets
+app.get('*', (req, res, next) => {
+  // Don't intercept API routes or static files
+  if (req.path.startsWith('/api/') || 
+      req.path.startsWith('/auth/') || 
+      req.path.startsWith('/assets/') ||
+      req.path.includes('.')) {
+    return next();
+  }
   console.log('SPA fallback for:', req.path);
   res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
