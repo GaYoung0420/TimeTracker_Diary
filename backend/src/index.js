@@ -95,7 +95,36 @@ app.use(express.json({ limit: '50mb' }));
 
 // Serve static files EARLY - before any route handlers
 const frontendDistPath = path.join(__dirname, '../../frontend/dist');
-console.log('Setting up static file serving from:', frontendDistPath);
+console.log('=== Static File Serving Setup ===');
+console.log('__dirname:', __dirname);
+console.log('frontendDistPath:', frontendDistPath);
+
+// Check if dist exists and log its contents
+import('fs').then(fs => {
+  try {
+    const exists = fs.existsSync(frontendDistPath);
+    console.log('dist folder exists:', exists);
+    if (exists) {
+      const files = fs.readdirSync(frontendDistPath);
+      console.log('Files in dist:', files);
+
+      // Check assets folder
+      const assetsPath = path.join(frontendDistPath, 'assets');
+      if (fs.existsSync(assetsPath)) {
+        const assetFiles = fs.readdirSync(assetsPath);
+        console.log('Files in dist/assets:', assetFiles);
+      } else {
+        console.log('WARNING: assets folder does not exist!');
+      }
+    } else {
+      console.log('ERROR: dist folder does not exist at', frontendDistPath);
+    }
+  } catch (err) {
+    console.error('Error checking dist folder:', err);
+  }
+  console.log('=================================');
+});
+
 app.use(express.static(frontendDistPath, {
   maxAge: '1d',
   etag: true
