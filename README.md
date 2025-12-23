@@ -249,6 +249,45 @@ Safari blocks third-party cookies. This app solves it by:
 - Using `sameSite: 'lax'` for session cookies
 - No cross-origin requests needed
 
+### Image Upload Failing
+
+If image upload shows "업로드 중 오류가 발생했습니다":
+
+1. **Check Supabase Storage Bucket**:
+   - Go to your Supabase project dashboard
+   - Navigate to Storage section
+   - Ensure `diary-images` bucket exists
+   - If not, create it with these settings:
+     - Name: `diary-images`
+     - Public bucket: Yes (or configure RLS policies)
+
+2. **Check Bucket Permissions**:
+   - Go to Storage > diary-images > Policies
+   - Add policy for INSERT:
+     ```sql
+     CREATE POLICY "Allow public uploads"
+     ON storage.objects FOR INSERT
+     TO public
+     WITH CHECK (bucket_id = 'diary-images');
+     ```
+   - Add policy for SELECT (to view images):
+     ```sql
+     CREATE POLICY "Allow public access"
+     ON storage.objects FOR SELECT
+     TO public
+     USING (bucket_id = 'diary-images');
+     ```
+
+3. **Check Render Logs**:
+   - Look for "Image Upload Error" messages
+   - Check for Supabase Storage errors
+   - Verify SUPABASE_URL and SUPABASE_ANON_KEY are set correctly
+
+4. **Verify Environment Variables**:
+   - `SUPABASE_URL` should be your project URL
+   - `SUPABASE_ANON_KEY` should be your anon/public key
+   - Both must be set in Render environment variables
+
 ### Timeline/TimeTracker Not Showing Events
 
 If the timeline is blank or events are not showing:
