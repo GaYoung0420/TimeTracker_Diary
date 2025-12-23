@@ -104,24 +104,38 @@ cd frontend
 npm install
 ```
 
-3. Create `.env` file from example:
+3. Create `.env.development` file for local development:
 ```bash
-cp .env.example .env
+cp .env.example .env.development
 ```
 
-4. Update `.env` with your Supabase credentials:
+4. Update `.env.development` with your credentials:
 ```
 VITE_SUPABASE_URL=your_supabase_project_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_API_URL=http://localhost:5000
+VITE_API_URL=http://localhost:5001
 ```
 
-5. Start the development server:
+5. **Important: Production Environment Variables**
+
+For Render deployment, create `.env.production`:
+```
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_API_URL=
+```
+
+**⚠️ IMPORTANT**: `VITE_API_URL` must be **empty** in production!
+- Frontend and backend are served from the same domain on Render
+- Empty value makes API calls use relative URLs (same-origin)
+- If you set a different backend URL, deployment will fail with infinite loading
+
+6. Start the development server:
 ```bash
 npm run dev
 ```
 
-Frontend will run on http://localhost:3000
+Frontend will run on http://localhost:5173
 
 ## API Endpoints
 
@@ -221,6 +235,28 @@ git push
 **Note**: The root `.gitignore` has `dist/` commented out to allow committing frontend build files for deployment.
 
 ## Troubleshooting
+
+### Infinite Loading Screen on Render Deployment
+
+**Symptom**: Deployed app shows "Loading..." forever, but works fine locally.
+
+**Cause**: Incorrect `VITE_API_URL` in `.env.production` file.
+
+**Solution**:
+1. Open `frontend/.env.production`
+2. Ensure `VITE_API_URL` is **empty** (not set to a different backend URL):
+   ```
+   VITE_API_URL=
+   ```
+3. Rebuild and redeploy:
+   ```bash
+   npm run build
+   git add frontend/dist/
+   git commit -m "Fix production API URL"
+   git push
+   ```
+
+**Why**: On Render, frontend and backend are served from the same domain. Empty `VITE_API_URL` makes the app use relative URLs for API calls, ensuring same-origin requests.
 
 ### White Screen on Render Deployment
 
