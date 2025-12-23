@@ -88,7 +88,10 @@ passport.deserializeUser((user, done) => {
 // So we need to allow the deployed domain as well
 const allowedOrigins = [
   'http://localhost:3000',
-  'http://localhost:5173'
+  'http://localhost:5173',
+  'http://localhost:5174',
+  // Render frontend domain
+  'https://timetracker-diary.onrender.com'
 ];
 
 // Add production domain if available
@@ -96,6 +99,15 @@ if (process.env.RENDER_EXTERNAL_URL) {
   allowedOrigins.push(process.env.RENDER_EXTERNAL_URL);
   allowedOrigins.push(process.env.RENDER_EXTERNAL_URL.replace('http://', 'https://'));
 }
+
+// Add frontend URL from environment variable
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
+console.log('=== CORS Allowed Origins ===');
+console.log(allowedOrigins);
+console.log('============================');
 
 app.use(cors({
   origin: (origin, callback) => {
