@@ -3,9 +3,8 @@
   "version": "1.0.0",
   "description": "TimeTracker Diary - Full Stack Application",
   "scripts": {
-    "build": "cd frontend && npm ci && npm run build",
-    "start": "cd backend && npm start",
-    "postinstall": "cd backend && npm install && cd ../frontend && npm install"
+    "build": "npm --prefix frontend install && npm --prefix frontend run build && npm --prefix backend install",
+    "start": "npm --prefix backend start"
   },
   "keywords": [],
   "author": "",
