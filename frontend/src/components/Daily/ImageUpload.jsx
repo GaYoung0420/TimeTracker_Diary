@@ -29,7 +29,7 @@ function ImageUpload({ currentDate, images, onImageUploaded, onImageDeleted }) {
       formData.append('image', file);
       formData.append('date', dateKey);
 
-      const response = await fetch('http://localhost:5001/api/images/upload', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/images/upload`, {
         method: 'POST',
         body: formData
       });
@@ -54,7 +54,7 @@ function ImageUpload({ currentDate, images, onImageUploaded, onImageDeleted }) {
     if (!confirm('이미지를 삭제하시겠습니까?')) return;
 
     try {
-      const response = await fetch(`http://localhost:5001/api/images/${imageId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/images/${imageId}`, {
         method: 'DELETE'
       });
 

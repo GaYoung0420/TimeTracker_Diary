@@ -117,7 +117,10 @@ app.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: process.env.FRONTEND_URL || 'http://localhost:5173' }),
   (req, res) => {
     // Successful authentication, redirect to frontend
-    res.redirect(process.env.FRONTEND_URL || 'http://localhost:5173');
+    const redirectUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    console.log('OAuth callback - Redirecting to:', redirectUrl);
+    console.log('FRONTEND_URL env var:', process.env.FRONTEND_URL);
+    res.redirect(redirectUrl);
   }
 );
 

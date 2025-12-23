@@ -11,7 +11,7 @@ function App() {
 
   // Check authentication status on load
   useEffect(() => {
-    fetch('http://localhost:5001/auth/user', {
+    fetch(`${import.meta.env.VITE_API_URL}/auth/user`, {
       credentials: 'include'
     })
       .then(res => res.json())
