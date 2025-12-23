@@ -1191,9 +1191,14 @@ app.use(express.static(frontendDistPath));
 
 // Serve index.html for all other routes (SPA routing)
 // This catches all routes that aren't API endpoints or static files
-app.get('*', (req, res) => {
-  console.log('Catch-all route for:', req.path);
-  res.sendFile(path.join(frontendDistPath, 'index.html'));
+app.use((req, res, next) => {
+  // Only serve index.html for non-API, non-auth, non-static file requests
+  if (!req.path.startsWith('/api') && !req.path.startsWith('/auth') && !req.path.match(/\.\w+$/)) {
+    console.log('Serving index.html for:', req.path);
+    res.sendFile(path.join(frontendDistPath, 'index.html'));
+  } else {
+    next();
+  }
 });
 
 app.listen(PORT, () => {
