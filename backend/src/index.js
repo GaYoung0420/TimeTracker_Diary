@@ -55,7 +55,6 @@ app.use(passport.session());
 const callbackURL = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5001/auth/google/callback';
 console.log('=== Google OAuth Configuration ===');
 console.log('GOOGLE_CALLBACK_URL:', callbackURL);
-console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
 console.log('==================================');
 
 passport.use(new GoogleStrategy({
@@ -87,10 +86,9 @@ passport.deserializeUser((user, done) => {
 // Middleware
 app.use(cors({
   origin: [
-    'http://localhost:3000', 
-    'http://localhost:5173',
-    process.env.FRONTEND_URL
-  ].filter(Boolean),
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ],
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
