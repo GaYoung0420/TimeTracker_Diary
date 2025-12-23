@@ -189,11 +189,63 @@ app.get('/api/test/storage', async (req, res) => {
     // Check if diary-images bucket exists
     const diaryBucket = buckets.find(b => b.name === 'diary-images');
 
+    // Try to upload a test file to verify upload permissions
+    let uploadTest = { attempted: false };
+    try {
+      const testFileName = `test-${Date.now()}.txt`;
+      const testContent = Buffer.from('Test upload to verify permissions');
+
+      console.log('Attempting test upload to diary-images bucket...');
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('diary-images')
+        .upload(testFileName, testContent, {
+          contentType: 'text/plain',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Test upload failed:', uploadError);
+        uploadTest = {
+          attempted: true,
+          success: false,
+          error: uploadError.message,
+          details: uploadError
+        };
+      } else {
+        console.log('Test upload succeeded:', uploadData);
+        uploadTest = {
+          attempted: true,
+          success: true,
+          path: uploadData.path
+        };
+
+        // Clean up test file
+        const { error: deleteError } = await supabase.storage
+          .from('diary-images')
+          .remove([testFileName]);
+
+        if (deleteError) {
+          console.warn('Failed to delete test file:', deleteError);
+        } else {
+          console.log('Test file cleaned up successfully');
+        }
+      }
+    } catch (uploadErr) {
+      console.error('Test upload exception:', uploadErr);
+      uploadTest = {
+        attempted: true,
+        success: false,
+        error: uploadErr.message,
+        exception: true
+      };
+    }
+
     res.json({
       success: true,
       buckets: buckets.map(b => ({ name: b.name, public: b.public })),
       diaryImagesExists: !!diaryBucket,
-      diaryBucketInfo: diaryBucket || null
+      diaryBucketInfo: diaryBucket || null,
+      uploadTest
     });
   } catch (error) {
     console.error('Storage test error:', error);
