@@ -1171,11 +1171,28 @@ app.post('/api/calendar/create-wake', async (req, res) => {
    ======================================== */
 // Serve static files from frontend/dist
 const frontendDistPath = path.join(__dirname, '../../frontend/dist');
+const fs = await import('fs');
+
+// Check if dist folder exists
+console.log('Checking frontend dist path:', frontendDistPath);
+console.log('__dirname:', __dirname);
+try {
+  const exists = fs.existsSync(frontendDistPath);
+  console.log('Frontend dist exists:', exists);
+  if (exists) {
+    const files = fs.readdirSync(frontendDistPath);
+    console.log('Files in dist:', files);
+  }
+} catch (err) {
+  console.error('Error checking dist folder:', err);
+}
+
 app.use(express.static(frontendDistPath));
 
 // Serve index.html for all other routes (SPA routing)
 // This catches all routes that aren't API endpoints or static files
 app.get('*', (req, res) => {
+  console.log('Catch-all route for:', req.path);
   res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
 
