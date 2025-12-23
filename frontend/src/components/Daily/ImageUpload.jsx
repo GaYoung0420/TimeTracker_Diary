@@ -7,41 +7,45 @@ function ImageUpload({ currentDate, images, onImageUploaded, onImageDeleted }) {
   const dateKey = getLocalDateString(currentDate);
 
   const handleFileSelect = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      alert('이미지 파일만 업로드할 수 있습니다.');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('파일 크기는 5MB를 초과할 수 없습니다.');
-      return;
+    // Validate all files
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) {
+        alert('이미지 파일만 업로드할 수 있습니다.');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`${file.name}: 파일 크기는 5MB를 초과할 수 없습니다.`);
+        return;
+      }
     }
 
     setUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-      formData.append('date', dateKey);
+      // Upload files sequentially to maintain order
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('date', dateKey);
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/images/upload`, {
-        method: 'POST',
-        body: formData
-      });
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/images/upload`, {
+          method: 'POST',
+          body: formData
+        });
 
-      const result = await response.json();
+        const result = await response.json();
 
-      if (result.success) {
-        onImageUploaded(result.data);
-        e.target.value = ''; // Reset input
-      } else {
-        alert('업로드 실패: ' + result.error);
+        if (result.success) {
+          onImageUploaded(result.data);
+        } else {
+          alert(`${file.name} 업로드 실패: ${result.error}`);
+          break; // Stop on first failure
+        }
       }
+      e.target.value = ''; // Reset input
     } catch (error) {
       console.error('Upload error:', error);
       alert('업로드 중 오류가 발생했습니다.');
@@ -96,10 +100,11 @@ function ImageUpload({ currentDate, images, onImageUploaded, onImageDeleted }) {
         {/* Upload button card - always last */}
         <label className="image-upload-card">
           <div className="upload-icon">+</div>
-          <div className="upload-text">사진 추가</div>
+          <div className="upload-text">{uploading ? '업로드 중...' : '사진 추가'}</div>
           <input
             type="file"
             accept="image/*"
+            multiple
             onChange={handleFileSelect}
             disabled={uploading}
             style={{ display: 'none' }}
