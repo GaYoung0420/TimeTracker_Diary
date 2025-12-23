@@ -949,6 +949,16 @@ app.post('/api/monthly/time-stats', async (req, res) => {
         }))
     );
 
+    console.log(`\n=== Monthly Time Stats for ${year}-${month} ===`);
+    console.log(`Total events fetched: ${allEvents.length}`);
+    if (allEvents.length > 0) {
+      console.log('First event:', {
+        title: allEvents[0].summary,
+        start: allEvents[0].start,
+        end: allEvents[0].end
+      });
+    }
+
     // 이벤트를 날짜별로 그룹화 (다음날 넘어가는 이벤트 포함)
     const eventsByDate = {};
     const categorySet = new Set();
@@ -957,13 +967,30 @@ app.post('/api/monthly/time-stats', async (req, res) => {
       const eventStart = new Date(event.start);
       const eventEnd = new Date(event.end);
 
+      // Convert to Korea timezone and get date in YYYY-MM-DD format
+      const getKoreaDateString = (date) => {
+        // Convert to Korea timezone (UTC+9)
+        const koreaTime = new Date(date.getTime() + (9 * 60 * 60 * 1000));
+        const year = koreaTime.getUTCFullYear();
+        const month = String(koreaTime.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(koreaTime.getUTCDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
       // 이벤트의 시작일과 종료일 사이의 모든 날짜에 이벤트 추가
-      const startDate = new Date(eventStart.getFullYear(), eventStart.getMonth(), eventStart.getDate());
-      const endDate = new Date(eventEnd.getFullYear(), eventEnd.getMonth(), eventEnd.getDate());
+      const startDateStr = getKoreaDateString(eventStart);
+      const endDateStr = getKoreaDateString(eventEnd);
+
+      // Create date range in Korea timezone
+      const startParts = startDateStr.split('-').map(Number);
+      const endParts = endDateStr.split('-').map(Number);
+
+      const startDate = new Date(Date.UTC(startParts[0], startParts[1] - 1, startParts[2]));
+      const endDate = new Date(Date.UTC(endParts[0], endParts[1] - 1, endParts[2]));
 
       let currentDate = new Date(startDate);
       while (currentDate <= endDate) {
-        const dateKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+        const dateKey = getKoreaDateString(currentDate);
 
         if (!eventsByDate[dateKey]) {
           eventsByDate[dateKey] = [];
@@ -971,7 +998,7 @@ app.post('/api/monthly/time-stats', async (req, res) => {
         eventsByDate[dateKey].push(event);
         categorySet.add(event.calendarName || 'Unknown');
 
-        currentDate.setDate(currentDate.getDate() + 1);
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
       }
     });
 
@@ -981,8 +1008,8 @@ app.post('/api/monthly/time-stats', async (req, res) => {
 
     for (let day = 1; day <= daysInMonth; day++) {
       const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const dayStart = new Date(year, month - 1, day);
-      const weekday = weekdays[dayStart.getDay()];
+      const dayStart = new Date(Date.UTC(year, month - 1, day));
+      const weekday = weekdays[dayStart.getUTCDay()];
 
       const dayEvents = eventsByDate[dateKey] || [];
 
@@ -995,9 +1022,10 @@ app.post('/api/monthly/time-stats', async (req, res) => {
         const eventStart = new Date(event.start);
         const eventEnd = new Date(event.end);
 
-        // 해당 날짜 범위 계산
-        const dayStartTime = new Date(year, month - 1, day, 0, 0, 0);
-        const dayEndTime = new Date(year, month - 1, day, 23, 59, 59, 999);
+        // 해당 날짜 범위 계산 (Korea timezone 00:00 - 23:59:59)
+        // 00:00 KST = previous day 15:00 UTC
+        const dayStartTime = new Date(Date.UTC(year, month - 1, day, -9, 0, 0));
+        const dayEndTime = new Date(Date.UTC(year, month - 1, day + 1, -9, 0, 0));
 
         // 이벤트가 해당 날짜에서 실제로 차지하는 시간 계산
         const effectiveStart = eventStart > dayStartTime ? eventStart : dayStartTime;
