@@ -167,6 +167,43 @@ app.get('/api/test', async (req, res) => {
   }
 });
 
+// Test Storage bucket
+app.get('/api/test/storage', async (req, res) => {
+  try {
+    console.log('Testing Supabase Storage...');
+
+    // List buckets
+    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+
+    if (bucketsError) {
+      console.error('Buckets list error:', bucketsError);
+      return res.json({
+        success: false,
+        error: 'Failed to list buckets',
+        details: bucketsError
+      });
+    }
+
+    console.log('Available buckets:', buckets);
+
+    // Check if diary-images bucket exists
+    const diaryBucket = buckets.find(b => b.name === 'diary-images');
+
+    res.json({
+      success: true,
+      buckets: buckets.map(b => ({ name: b.name, public: b.public })),
+      diaryImagesExists: !!diaryBucket,
+      diaryBucketInfo: diaryBucket || null
+    });
+  } catch (error) {
+    console.error('Storage test error:', error);
+    res.json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 /* ========================================
    OAuth Authentication Routes
    ======================================== */
