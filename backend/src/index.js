@@ -1187,20 +1187,21 @@ try {
   console.error('Error checking dist folder:', err);
 }
 
-// Serve static files from dist folder
-app.use(express.static(frontendDistPath));
+// Serve static files from dist folder - this must come BEFORE catch-all
+app.use(express.static(frontendDistPath, {
+  maxAge: '1d',
+  etag: true
+}));
 
-// SPA fallback - serve index.html for non-file routes
-app.get('*', (req, res, next) => {
-  // Skip API routes, auth routes, and static assets
-  if (req.path.startsWith('/api') ||
-      req.path.startsWith('/auth') ||
-      req.path.startsWith('/assets/') ||
-      req.path.includes('.')) {
-    return next();
-  }
-
-  console.log('Serving index.html for:', req.path);
+// SPA fallback - ONLY for routes that don't match any file or API route
+// This will only trigger if express.static didn't find a file
+app.use((req, res) => {
+  // If we got here, it means:
+  // 1. Not an API route (those are handled above)
+  // 2. Not an auth route (those are handled above)
+  // 3. Not a static file (express.static didn't find it)
+  // So serve the SPA index.html
+  console.log('SPA fallback for:', req.path);
   res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
 
