@@ -102,30 +102,51 @@ export const api = {
     return res.json();
   },
 
-  // Google Calendar
-  async getCalendars() {
-    const res = await fetch(`${API_URL}/api/calendars`, {
-      credentials: 'include'
+  // Events (Supabase-based, replaces Google Calendar)
+  async getCategories() {
+    const res = await fetch(`${API_URL}/api/events/categories`);
+    return res.json();
+  },
+
+  async getEvents(date) {
+    const res = await fetch(`${API_URL}/api/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date })
     });
     return res.json();
   },
 
-  async getEvents(date, calendarIds) {
-    const res = await fetch(`${API_URL}/api/calendar/events`, {
+  async createEvent(date, title, start_time, end_time, category, description) {
+    const res = await fetch(`${API_URL}/api/events/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ date, calendarIds })
+      body: JSON.stringify({ date, title, start_time, end_time, category, description })
     });
     return res.json();
   },
 
-  async getWakeSleepEvents(date, calendarIds) {
-    const res = await fetch(`${API_URL}/api/calendar/wake-sleep`, {
+  async updateEvent(id, updates) {
+    const res = await fetch(`${API_URL}/api/events/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    return res.json();
+  },
+
+  async deleteEvent(id) {
+    const res = await fetch(`${API_URL}/api/events/${id}`, {
+      method: 'DELETE'
+    });
+    return res.json();
+  },
+
+  async getWakeSleepEvents(date) {
+    const res = await fetch(`${API_URL}/api/events/wake-sleep`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ date, calendarIds })
+      body: JSON.stringify({ date })
     });
     return res.json();
   },
@@ -181,10 +202,9 @@ export const api = {
   },
 
   async create10AMWake(date) {
-    const res = await fetch(`${API_URL}/api/calendar/create-wake`, {
+    const res = await fetch(`${API_URL}/api/events/create-wake`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ date, time: '10:00' })
     });
     return res.json();

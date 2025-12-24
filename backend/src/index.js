@@ -9,6 +9,7 @@ import { google } from 'googleapis';
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { setupEventsAPI } from './events-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1422,14 +1423,19 @@ app.post('/api/calendar/create-wake', async (req, res) => {
 });
 
 /* ========================================
+   Events API (Supabase-based)
+   ======================================== */
+setupEventsAPI(app, supabase);
+
+/* ========================================
    SPA Fallback
    ======================================== */
 // SPA fallback - serve index.html for any unmatched routes
 // Skip for API routes and static assets
 app.get('*', (req, res, next) => {
   // Don't intercept API routes or static files
-  if (req.path.startsWith('/api/') || 
-      req.path.startsWith('/auth/') || 
+  if (req.path.startsWith('/api/') ||
+      req.path.startsWith('/auth/') ||
       req.path.startsWith('/assets/') ||
       req.path.includes('.')) {
     return next();

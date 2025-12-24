@@ -1,66 +1,30 @@
+import { useState, useRef } from 'react';
 import { formatKoreanTime, getCategoryColorByName, getCategoryTextColorByName, hexToRgba, getLocalDateString } from '../../utils/helpers';
+import EventEditModal from './EventEditModal';
 
-function Timeline({ events, wakeSleepEvents, calendars, loading, currentDate }) {
+function Timeline({ events, categories, loading, currentDate, onCreateEvent, onUpdateEvent, onDeleteEvent, getWakeSleepTimes }) {
   const hourHeight = 40;
-
-  // Debug: Log all events
-  console.log('Timeline Debug:', {
-    currentDate: currentDate.toISOString(),
-    eventsCount: events.length,
-    events: events.map(e => ({
-      title: e.title,
-      start: e.start,
-      end: e.end,
-      calendarName: e.calendarName
-    }))
-  });
+  const [isCreating, setIsCreating] = useState(false);
+  const [creatingColumn, setCreatingColumn] = useState(null); // 'plan' or 'actual'
+  const [dragStart, setDragStart] = useState(null);
+  const [dragEnd, setDragEnd] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const timelineRef = useRef(null);
 
   if (loading) {
     return (
       <div className="timeline-wrapper">
         <div className="timeline-loading">
           <div className="loading-spinner"></div>
-          <p>캘린더 불러오는 중...</p>
+          <p>이벤트 불러오는 중...</p>
         </div>
       </div>
     );
   }
 
-  const getWakeSleepInfo = () => {
-    let wakeTime = '-';
-    let sleepTime = '-';
-    let wakeHour = null;
-    let sleepHour = null;
-
-    if (wakeSleepEvents && wakeSleepEvents.length > 0 && currentDate) {
-      const currentDateStr = getLocalDateString(currentDate);
-
-      wakeSleepEvents.forEach(event => {
-        const start = new Date(event.start);
-        const end = new Date(event.end);
-
-        const startDateStr = getLocalDateString(start);
-        const endDateStr = getLocalDateString(end);
-
-        // 기상 시간: 당일에 종료되는 잠 이벤트의 종료 시간
-        if (endDateStr === currentDateStr) {
-          wakeTime = formatKoreanTime(end);
-          wakeHour = end.getHours();
-        }
-
-        // 취침 시간: 당일에 시작되는 잠 이벤트의 시작 시간
-        if (startDateStr === currentDateStr) {
-          sleepTime = formatKoreanTime(start);
-          sleepHour = start.getHours();
-        }
-      });
-    }
-
-    return { wakeTime, sleepTime, wakeHour, sleepHour };
-  };
-
   const renderWakeSleepTimes = () => {
-    const { wakeTime, sleepTime } = getWakeSleepInfo();
+    const { wakeTime, sleepTime } = getWakeSleepTimes();
 
     return (
       <div className="wake-sleep-container">
@@ -74,105 +38,132 @@ function Timeline({ events, wakeSleepEvents, calendars, loading, currentDate }) 
     );
   };
 
+  const handleMouseDown = (e, column) => {
+    if (e.target.className.includes('event-block')) return; // Don't create if clicking on event
+
+    const rect = timelineRef.current.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const minutes = Math.floor((y / hourHeight) * 60);
+
+    setIsCreating(true);
+    setCreatingColumn(column);
+    setDragStart(minutes);
+    setDragEnd(minutes);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isCreating) return;
+
+    const rect = timelineRef.current.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const minutes = Math.floor((y / hourHeight) * 60);
+
+    setDragEnd(minutes);
+  };
+
+  const handleMouseUp = async () => {
+    if (!isCreating) return;
+
+    const start = Math.min(dragStart, dragEnd);
+    const end = Math.max(dragStart, dragEnd);
+
+    // Minimum 15 minutes
+    if (end - start < 15) {
+      setIsCreating(false);
+      return;
+    }
+
+    const startHour = Math.floor(start / 60);
+    const startMinute = start % 60;
+    const endHour = Math.floor(end / 60);
+    const endMinute = end % 60;
+
+    const start_time = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00`;
+    const end_time = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00`;
+
+    // Determine category based on column
+    const category = creatingColumn === 'plan' ? 'plan' : 'work';
+
+    try {
+      await onCreateEvent('새 이벤트', start_time, end_time, category, '');
+    } catch (error) {
+      console.error('Failed to create event:', error);
+    }
+
+    setIsCreating(false);
+    setDragStart(null);
+    setDragEnd(null);
+    setCreatingColumn(null);
+  };
+
+  const handleEventClick = (event) => {
+    setSelectedEvent(event);
+    setShowEditModal(true);
+  };
+
+  const handleEventUpdate = async (id, updates) => {
+    try {
+      await onUpdateEvent(id, updates);
+      setShowEditModal(false);
+      setSelectedEvent(null);
+    } catch (error) {
+      console.error('Failed to update event:', error);
+    }
+  };
+
+  const handleEventDelete = async (id) => {
+    try {
+      await onDeleteEvent(id);
+      setShowEditModal(false);
+      setSelectedEvent(null);
+    } catch (error) {
+      console.error('Failed to delete event:', error);
+    }
+  };
+
   const renderEventBlock = (event) => {
-    const start = new Date(event.start);
-    const end = new Date(event.end);
+    const [dateStr, timeStr] = event.start.split('T');
+    const [endDateStr, endTimeStr] = event.end.split('T');
 
-    // Get current day boundaries in local timezone
-    // Create a new date using local year/month/day from currentDate
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const day = currentDate.getDate();
+    const [startHour, startMinute] = timeStr.split(':').map(Number);
+    const [endHour, endMinute] = endTimeStr.split(':').map(Number);
 
-    const dayStart = new Date(year, month, day, 0, 0, 0, 0);
-    const dayEnd = new Date(year, month, day + 1, 0, 0, 0, 0);
-
-    // Debug multi-day events
-    if (event.title === '잠') {
-      console.log('Processing sleep event:', {
-        title: event.title,
-        start: start.toISOString(),
-        end: end.toISOString(),
-        dayStart: dayStart.toISOString(),
-        dayEnd: dayEnd.toISOString(),
-        startBeforeDayStart: start < dayStart,
-        endAfterDayEnd: end > dayEnd
-      });
-    }
-
-    // Clamp event times to current day boundaries
-    const effectiveStart = start < dayStart ? dayStart : start;
-    const effectiveEnd = end > dayEnd ? dayEnd : end;
-
-    // Calculate position and height based on clamped times
-    const startHour = effectiveStart.getHours();
-    const startMinute = effectiveStart.getMinutes();
-    const endHour = effectiveEnd.getHours();
-    const endMinute = effectiveEnd.getMinutes();
-
-    let startMinutes = startHour * 60 + startMinute;
-    let endMinutes = endHour * 60 + endMinute;
-
-    // If effectiveEnd is exactly at dayEnd (00:00 of next day), treat as 24:00 (1440 minutes)
-    if (effectiveEnd.getTime() === dayEnd.getTime()) {
-      endMinutes = 24 * 60; // 1440 minutes = 24:00
-    }
-
+    const startMinutes = startHour * 60 + startMinute;
+    const endMinutes = endHour * 60 + endMinute;
     const durationMinutes = endMinutes - startMinutes;
 
-    if (event.title === '잠') {
-      console.log('Sleep event calculation:', {
-        effectiveStart: effectiveStart.toISOString(),
-        effectiveEnd: effectiveEnd.toISOString(),
-        startMinutes,
-        endMinutes,
-        durationMinutes,
-        topPosition: (startMinutes / 60) * hourHeight,
-        height: (durationMinutes / 60) * hourHeight
-      });
-    }
-
-    // Skip if event doesn't overlap with current day
     if (durationMinutes <= 0) return null;
 
     const topPosition = (startMinutes / 60) * hourHeight;
     const height = (durationMinutes / 60) * hourHeight;
 
-    const blockColor = getCategoryColorByName(event.calendarName, event.color);
-    const textColor = getCategoryTextColorByName(event.calendarName);
+    // Get category info
+    const categoryInfo = categories.find(c => c.id === event.category) || { color: '#9E9E9E', name: '기타' };
+    const blockColor = categoryInfo.color;
     const bgColor = hexToRgba(blockColor, 0.35);
 
-    // Determine display time range (show start and end times)
-    const displayStartTime = start < dayStart
-      ? '00:00'
-      : start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-    
-    const displayEndTime = end > dayEnd
-      ? '24:00'
-      : end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const displayStartTime = timeStr.substring(0, 5);
+    const displayEndTime = endTimeStr.substring(0, 5);
 
-    // Calculate duration for tooltip
-    const durationMs = end.getTime() - start.getTime();
-    const tooltipDurationHours = Math.floor(durationMs / (1000 * 60 * 60));
-    const tooltipDurationMinutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-    const durationText = tooltipDurationHours > 0 
-      ? `${tooltipDurationHours}시간 ${tooltipDurationMinutes}분`
-      : `${tooltipDurationMinutes}분`;
-
-    // Full tooltip text
-    const tooltipText = `${event.title}\n${start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })} - ${end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}\n소요 시간: ${durationText}`;
+    const durationHours = Math.floor(durationMinutes / 60);
+    const durationMins = durationMinutes % 60;
+    const durationText = durationHours > 0
+      ? `${durationHours}시간 ${durationMins}분`
+      : `${durationMins}분`;
 
     return (
       <div
-        key={`${event.calendarId}-${event.start}`}
+        key={event.id}
         className="event-block-absolute"
         style={{
           background: bgColor,
-          color: textColor,
+          color: '#000',
           top: `${topPosition}px`,
-          height: `${Math.max(height, 20)}px`
+          height: `${Math.max(height, 20)}px`,
+          cursor: 'pointer'
         }}
-        title={tooltipText}
+        onClick={() => handleEventClick(event)}
+        title={`${event.title}\n${displayStartTime} - ${displayEndTime}\n${durationText}`}
       >
         <div className="event-title">{event.title}</div>
         <div className="event-time">
@@ -182,14 +173,33 @@ function Timeline({ events, wakeSleepEvents, calendars, loading, currentDate }) 
     );
   };
 
-  const planEvents = events.filter(e =>
-    e.calendarName?.includes('계획') || e.calendarName?.includes('Plan') || e.calendarName?.includes('⑧')
-  );
-  const actualEvents = events.filter(e =>
-    !e.calendarName?.includes('계획') && !e.calendarName?.includes('Plan') && !e.calendarName?.includes('⑧')
-  );
+  const renderDragPreview = () => {
+    if (!isCreating) return null;
 
-  const { wakeHour, sleepHour } = getWakeSleepInfo();
+    const start = Math.min(dragStart, dragEnd);
+    const end = Math.max(dragStart, dragEnd);
+    const topPosition = (start / 60) * hourHeight;
+    const height = ((end - start) / 60) * hourHeight;
+
+    return (
+      <div
+        className="event-block-absolute"
+        style={{
+          background: 'rgba(66, 133, 244, 0.3)',
+          border: '2px dashed #4285F4',
+          top: `${topPosition}px`,
+          height: `${Math.max(height, 20)}px`,
+          pointerEvents: 'none'
+        }}
+      >
+        <div className="event-title">새 이벤트</div>
+      </div>
+    );
+  };
+
+  // Separate events by category
+  const planEvents = events.filter(e => e.category === 'plan');
+  const actualEvents = events.filter(e => e.category !== 'plan');
 
   return (
     <>
@@ -202,34 +212,56 @@ function Timeline({ events, wakeSleepEvents, calendars, loading, currentDate }) 
           <div>실제</div>
         </div>
 
-        <div className="timeline-wrapper" style={{ minHeight: `${24 * hourHeight}px` }}>
+        <div
+          ref={timelineRef}
+          className="timeline-wrapper"
+          style={{ minHeight: `${24 * hourHeight}px` }}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={() => setIsCreating(false)}
+        >
           <div className="timeline-columns">
-            <div className="timeline-column plan-column">
+            <div
+              className="timeline-column plan-column"
+              onMouseDown={(e) => handleMouseDown(e, 'plan')}
+            >
               {planEvents.map(renderEventBlock)}
+              {isCreating && creatingColumn === 'plan' && renderDragPreview()}
             </div>
             <div className="timeline-column time-column"></div>
-            <div className="timeline-column actual-column">
+            <div
+              className="timeline-column actual-column"
+              onMouseDown={(e) => handleMouseDown(e, 'actual')}
+            >
               {actualEvents.map(renderEventBlock)}
+              {isCreating && creatingColumn === 'actual' && renderDragPreview()}
             </div>
           </div>
 
           <div className="time-markers">
-            {Array.from({ length: 24 }, (_, hour) => {
-              const isWakeHour = wakeHour === hour;
-              const isSleepHour = sleepHour === hour;
-              const markerClass = isWakeHour ? 'wake-hour' : isSleepHour ? 'sleep-hour' : '';
-
-              return (
-                <div key={hour} className={`time-marker-row ${markerClass}`} style={{ height: `${hourHeight}px` }}>
-                  <div></div>
-                  <div className="time-marker-label">{String(hour).padStart(2, '0')}</div>
-                  <div></div>
-                </div>
-              );
-            })}
+            {Array.from({ length: 24 }, (_, hour) => (
+              <div key={hour} className="time-marker-row" style={{ height: `${hourHeight}px` }}>
+                <div></div>
+                <div className="time-marker-label">{String(hour).padStart(2, '0')}</div>
+                <div></div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
+
+      {showEditModal && selectedEvent && (
+        <EventEditModal
+          event={selectedEvent}
+          categories={categories}
+          onUpdate={handleEventUpdate}
+          onDelete={handleEventDelete}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedEvent(null);
+          }}
+        />
+      )}
     </>
   );
 }

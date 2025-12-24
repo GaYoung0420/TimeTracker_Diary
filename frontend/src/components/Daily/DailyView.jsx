@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDailyData } from '../../hooks/useDailyData';
-import { useCalendarEvents } from '../../hooks/useCalendarEvents';
+import { useEvents } from '../../hooks/useEvents';
 import Timeline from './Timeline';
 import TodoList from './TodoList';
 import RoutineGrid from './RoutineGrid';
@@ -11,7 +11,7 @@ import CategoryStats from './CategoryStats';
 
 function DailyView({ currentDate, setCurrentDate }) {
   const { dailyData, loading, addTodo, updateTodo, deleteTodo, reorderTodos, updateRoutineCheck, addRoutine, updateRoutine, deleteRoutine, saveData, addImageToState, removeImageFromState } = useDailyData(currentDate);
-  const { calendars, events, wakeSleepEvents, loading: calendarLoading } = useCalendarEvents(currentDate);
+  const { categories, events, loading: eventsLoading, createEvent, updateEvent, deleteEvent, getWakeSleepTimes } = useEvents(currentDate);
 
   const handleImageUploaded = (newImage) => {
     // Optimistically update UI
@@ -55,10 +55,13 @@ function DailyView({ currentDate, setCurrentDate }) {
 
         <Timeline
           events={events}
-          wakeSleepEvents={wakeSleepEvents}
-          calendars={calendars}
-          loading={calendarLoading}
+          categories={categories}
+          loading={eventsLoading}
           currentDate={currentDate}
+          onCreateEvent={createEvent}
+          onUpdateEvent={updateEvent}
+          onDeleteEvent={deleteEvent}
+          getWakeSleepTimes={getWakeSleepTimes}
         />
       </div>
 

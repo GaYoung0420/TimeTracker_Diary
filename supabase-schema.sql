@@ -91,6 +91,24 @@ CREATE TABLE IF NOT EXISTS feedbacks (
 CREATE INDEX idx_feedbacks_date ON feedbacks(date);
 
 -- ========================================
+-- Events Table (replaces Google Calendar)
+-- ========================================
+CREATE TABLE IF NOT EXISTS events (
+  id BIGSERIAL PRIMARY KEY,
+  date DATE NOT NULL,
+  title TEXT NOT NULL,
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  category VARCHAR(50),
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_events_date ON events(date);
+CREATE INDEX idx_events_category ON events(category);
+
+-- ========================================
 -- Auto-update updated_at trigger
 -- ========================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -113,6 +131,9 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_routine_checks_updated_at BEFORE UPDATE ON routine_checks
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_events_updated_at BEFORE UPDATE ON events
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- ========================================
 -- Row Level Security (RLS) Policies
 -- ========================================
@@ -124,6 +145,7 @@ ALTER TABLE images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE routines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE routine_checks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feedbacks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 
 -- Allow all operations for authenticated users (simple policy for single-user app)
 CREATE POLICY "Allow all for authenticated users" ON todos FOR ALL USING (true);
@@ -132,3 +154,4 @@ CREATE POLICY "Allow all for authenticated users" ON images FOR ALL USING (true)
 CREATE POLICY "Allow all for authenticated users" ON routines FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated users" ON routine_checks FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated users" ON feedbacks FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated users" ON events FOR ALL USING (true);
