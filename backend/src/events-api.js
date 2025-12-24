@@ -56,7 +56,19 @@ export function setupEventsAPI(app, supabase) {
 
       if (error) throw error;
 
-      res.json({ success: true, event: data });
+      // Format event to match getEvents format
+      const formattedEvent = {
+        id: data.id,
+        title: data.title,
+        start: `${data.date}T${data.start_time}`,
+        end: `${data.date}T${data.end_time}`,
+        category: data.category,
+        description: data.description || '',
+        start_time: data.start_time,
+        end_time: data.end_time
+      };
+
+      res.json({ success: true, event: formattedEvent });
     } catch (error) {
       console.error('Error creating event:', error);
       res.status(500).json({ success: false, error: error.message });
@@ -80,7 +92,19 @@ export function setupEventsAPI(app, supabase) {
 
       if (error) throw error;
 
-      res.json({ success: true, event: data });
+      // Format event to match getEvents format
+      const formattedEvent = {
+        id: data.id,
+        title: data.title,
+        start: `${data.date}T${data.start_time}`,
+        end: `${data.date}T${data.end_time}`,
+        category: data.category,
+        description: data.description || '',
+        start_time: data.start_time,
+        end_time: data.end_time
+      };
+
+      res.json({ success: true, event: formattedEvent });
     } catch (error) {
       console.error('Error updating event:', error);
       res.status(500).json({ success: false, error: error.message });

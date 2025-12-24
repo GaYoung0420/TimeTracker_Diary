@@ -76,13 +76,8 @@ export function useEvents(currentDate) {
     try {
       const result = await api.createEvent(dateKey, title, start_time, end_time, category, description);
       if (result.success) {
-        // Optimistically update UI
-        const newEvent = {
-          ...result.event,
-          start: `${dateKey}T${result.event.start_time}`,
-          end: `${dateKey}T${result.event.end_time}`
-        };
-        setEvents(prev => [...prev, newEvent]);
+        // Optimistically update UI - backend now returns formatted event
+        setEvents(prev => [...prev, result.event]);
 
         // Invalidate cache
         eventCache.delete(dateKey);
@@ -100,14 +95,9 @@ export function useEvents(currentDate) {
     try {
       const result = await api.updateEvent(id, updates);
       if (result.success) {
-        // Optimistically update UI
+        // Optimistically update UI - backend now returns formatted event
         setEvents(prev => prev.map(evt =>
-          evt.id === id ? {
-            ...evt,
-            ...result.event,
-            start: `${dateKey}T${result.event.start_time}`,
-            end: `${dateKey}T${result.event.end_time}`
-          } : evt
+          evt.id === id ? result.event : evt
         ));
 
         // Invalidate cache

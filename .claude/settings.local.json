@@ -25,7 +25,11 @@
       "Bash(git push)",
       "Bash(npm run build:*)",
       "Bash(git check-ignore:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(git push:*)",
+      "Bash(ssh -i ~/.ssh/oracle_key ubuntu@140.238.17.14 \"cd TimeTracker_Diary && git pull && source ~/.nvm/nvm.sh && nvm use 20 && cd frontend && npm run build\")",
+      "Bash(ssh -i ~/.ssh/oracle_key ubuntu@140.238.17.14 \"cd TimeTracker_Diary && git reset --hard HEAD && git pull && source ~/.nvm/nvm.sh && nvm use 20 && cd frontend && npm run build\")",
+      "Bash(ssh:*)"
     ]
   }
 }
