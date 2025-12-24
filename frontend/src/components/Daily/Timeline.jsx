@@ -40,6 +40,30 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
     return { clientY: e.clientY };
   };
 
+  const isMobile = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+  };
+
+  const handleAddEventClick = () => {
+    // Create a new event template
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = Math.floor(now.getMinutes() / 10) * 10; // Round to nearest 10 minutes
+    const startTime = `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`;
+    const endTime = `${String(currentHour).padStart(2, '0')}:${String(currentMinute + 30).padStart(2, '0')}`;
+
+    setSelectedEvent({
+      id: null, // null means new event
+      title: '',
+      start_time: startTime,
+      end_time: endTime,
+      category_id: categories.length > 0 ? categories[0].id : null,
+      description: '',
+      is_plan: false // Default to actual event
+    });
+    setShowEditModal(true);
+  };
+
   const renderWakeSleepTimes = () => {
     const { wakeTime, sleepTime } = getWakeSleepTimes();
 
@@ -51,6 +75,13 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
         <div className="wake-sleep-item">
           🌙 취침: <span className="time-value">{sleepTime}</span>
         </div>
+        <button
+          className="add-event-button-mobile"
+          onClick={handleAddEventClick}
+          title="이벤트 추가"
+        >
+          ➕ 이벤트 추가
+        </button>
       </div>
     );
   };
@@ -138,6 +169,9 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
   };
 
   const handleDragStart = (e, column) => {
+    // Disable drag event creation on mobile
+    if (isMobile()) return;
+
     if (e.target.closest('.event-block-absolute')) return; // Don't create if clicking on event
 
     const rect = timelineRef.current.getBoundingClientRect();
@@ -468,6 +502,33 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
     try {
       await onDeleteEvent(id);
       setShowEditPopup(false);
+      setSelectedEvent(null);
+    } catch (error) {
+      console.error('Failed to delete event:', error);
+    }
+  };
+
+  const handleModalUpdate = async (id, updates) => {
+    try {
+      if (id === null) {
+        // Create new event
+        const { title, start_time, end_time, category_id, description, is_plan } = updates;
+        await onCreateEvent(title, start_time, end_time, category_id, is_plan, description);
+      } else {
+        // Update existing event
+        await onUpdateEvent(id, updates);
+      }
+      setShowEditModal(false);
+      setSelectedEvent(null);
+    } catch (error) {
+      console.error('Failed to save event:', error);
+    }
+  };
+
+  const handleModalDelete = async (id) => {
+    try {
+      await onDeleteEvent(id);
+      setShowEditModal(false);
       setSelectedEvent(null);
     } catch (error) {
       console.error('Failed to delete event:', error);
@@ -834,6 +895,19 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
           onDelete={handleEventDelete}
           onClose={() => {
             setShowEditPopup(false);
+            setSelectedEvent(null);
+          }}
+        />
+      )}
+
+      {showEditModal && selectedEvent && (
+        <EventEditModal
+          event={selectedEvent}
+          categories={categories}
+          onUpdate={handleModalUpdate}
+          onDelete={handleModalDelete}
+          onClose={() => {
+            setShowEditModal(false);
             setSelectedEvent(null);
           }}
         />

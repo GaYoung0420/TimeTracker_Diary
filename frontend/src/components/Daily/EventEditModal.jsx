@@ -2,11 +2,13 @@ import { useState } from 'react';
 import './EventEditModal.css';
 
 function EventEditModal({ event, categories, onUpdate, onDelete, onClose }) {
-  const [title, setTitle] = useState(event.title);
-  const [startTime, setStartTime] = useState(event.start_time || event.start.split('T')[1].substring(0, 5));
-  const [endTime, setEndTime] = useState(event.end_time || event.end.split('T')[1].substring(0, 5));
+  const isNewEvent = event.id === null;
+  const [title, setTitle] = useState(event.title || '');
+  const [startTime, setStartTime] = useState(event.start_time || (event.start ? event.start.split('T')[1].substring(0, 5) : ''));
+  const [endTime, setEndTime] = useState(event.end_time || (event.end ? event.end.split('T')[1].substring(0, 5) : ''));
   const [categoryId, setCategoryId] = useState(event.category_id);
   const [description, setDescription] = useState(event.description || '');
+  const [isPlan, setIsPlan] = useState(event.is_plan || false);
 
   // is_plan field indicates whether this is a plan or actual event
   const isPlanEvent = event.is_plan;
@@ -23,7 +25,8 @@ function EventEditModal({ event, categories, onUpdate, onDelete, onClose }) {
       start_time: formattedStartTime,
       end_time: formattedEndTime,
       category_id: categoryId,
-      description
+      description,
+      is_plan: isPlan
     });
   };
 
@@ -36,7 +39,7 @@ function EventEditModal({ event, categories, onUpdate, onDelete, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <h2>이벤트 수정</h2>
+        <h2>{isNewEvent ? '이벤트 추가' : '이벤트 수정'}</h2>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -81,6 +84,17 @@ function EventEditModal({ event, categories, onUpdate, onDelete, onClose }) {
             </select>
           </div>
 
+          <div className="form-group checkbox-group">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={isPlan}
+                onChange={(e) => setIsPlan(e.target.checked)}
+              />
+              <span className="checkbox-text">계획 이벤트로 추가</span>
+            </label>
+          </div>
+
           <div className="form-group">
             <label>설명</label>
             <textarea
@@ -92,15 +106,17 @@ function EventEditModal({ event, categories, onUpdate, onDelete, onClose }) {
           </div>
 
           <div className="modal-actions">
-            <button type="button" className="btn-delete" onClick={handleDelete}>
-              삭제
-            </button>
+            {!isNewEvent && (
+              <button type="button" className="btn-delete" onClick={handleDelete}>
+                삭제
+              </button>
+            )}
             <div className="modal-actions-right">
               <button type="button" className="btn-cancel" onClick={onClose}>
                 취소
               </button>
               <button type="submit" className="btn-submit">
-                저장
+                {isNewEvent ? '추가' : '저장'}
               </button>
             </div>
           </div>
