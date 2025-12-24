@@ -272,27 +272,15 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
           date: newStartDateStr
         };
 
-        // Keep original end_date if it exists
-        if (originalEndDate !== originalStartDate) {
-          updates.end_date = originalEndDate;
-        } else if (originalEndDate !== newStartDateStr) {
-          // End was on same day as original start, but now start moved
-          updates.end_date = originalEndDate;
-        }
-
       } else if (resizeEdge === 'bottom') {
         // Resizing bottom edge - only change end_time, keep start_time unchanged
         let newEndHour = Math.floor(newResizeEnd / 60);
         let newEndMinute = newResizeEnd % 60;
-        let newEndDateStr = currentDateStr;
 
-        // Handle day overflow for end time
-        if (newResizeEnd > 24 * 60) {
+        // Handle day overflow for end time (event spans to next day)
+        if (newResizeEnd >= 24 * 60) {
           newEndHour = Math.floor(newResizeEnd / 60) - 24;
           newEndMinute = newResizeEnd % 60;
-          const nextDay = new Date(currentDate);
-          nextDay.setDate(nextDay.getDate() + 1);
-          newEndDateStr = getLocalDateString(nextDay);
         }
 
         const new_end_time = `${String(newEndHour).padStart(2, '0')}:${String(newEndMinute).padStart(2, '0')}:00`;
@@ -300,13 +288,6 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
         updates = {
           end_time: new_end_time
         };
-
-        // Set end_date appropriately
-        if (newEndDateStr !== originalStartDate) {
-          updates.end_date = newEndDateStr;
-        } else {
-          updates.end_date = null; // Same day as start
-        }
       }
 
       try {
@@ -350,7 +331,6 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
 
       const currentDateStr = getLocalDateString(currentDate);
       let newStartDateStr = currentDateStr;
-      let newEndDateStr;
       let newStartHour = Math.floor(newStartMinutes / 60);
       let newStartMinute = newStartMinutes % 60;
       let newEndHour = Math.floor(newEndMinutes / 60);
@@ -360,12 +340,6 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
       if (newEndMinutes >= 24 * 60) {
         newEndHour = Math.floor(newEndMinutes / 60) - 24;
         newEndMinute = newEndMinutes % 60;
-        // Calculate next day
-        const nextDay = new Date(currentDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        newEndDateStr = getLocalDateString(nextDay);
-      } else {
-        newEndDateStr = currentDateStr;
       }
 
       const new_start_time = `${String(newStartHour).padStart(2, '0')}:${String(newStartMinute).padStart(2, '0')}:00`;
@@ -389,14 +363,6 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
             end_time: new_end_time,
             date: newStartDateStr
           };
-          
-          // Always include end_date to prevent backend from using date for end_date
-          if (newEndDateStr !== newStartDateStr) {
-            updates.end_date = newEndDateStr;
-          } else {
-            // Explicitly set end_date to null to indicate same-day event
-            updates.end_date = null;
-          }
 
           await onUpdateEvent(draggingEvent.id, updates);
         } catch (error) {

@@ -107,11 +107,26 @@ export function setupEventsAPI(app, supabase) {
       if (error) throw error;
 
       // Format event to match getEvents format
+      const start = `${data.date}T${data.start_time}`;
+      const end = `${data.date}T${data.end_time}`;
+
+      // Handle overnight events: if end_time < start_time, event ends next day
+      const [startHour] = data.start_time.split(':').map(Number);
+      const [endHour] = data.end_time.split(':').map(Number);
+
+      let actualEnd = end;
+      if (endHour < startHour) {
+        // Event spans to next day
+        const nextDay = new Date(data.date);
+        nextDay.setDate(nextDay.getDate() + 1);
+        actualEnd = `${nextDay.toISOString().split('T')[0]}T${data.end_time}`;
+      }
+
       const formattedEvent = {
         id: data.id,
         title: data.title,
-        start: `${data.date}T${data.start_time}`,
-        end: `${data.date}T${data.end_time}`,
+        start,
+        end: actualEnd,
         category_id: data.category_id,
         category: data.category,
         is_plan: data.is_plan,
@@ -165,11 +180,26 @@ export function setupEventsAPI(app, supabase) {
       if (error) throw error;
 
       // Format event to match getEvents format
+      const start = `${data.date}T${data.start_time}`;
+      const end = `${data.date}T${data.end_time}`;
+
+      // Handle overnight events: if end_time < start_time, event ends next day
+      const [startHour] = data.start_time.split(':').map(Number);
+      const [endHour] = data.end_time.split(':').map(Number);
+
+      let actualEnd = end;
+      if (endHour < startHour) {
+        // Event spans to next day
+        const nextDay = new Date(data.date);
+        nextDay.setDate(nextDay.getDate() + 1);
+        actualEnd = `${nextDay.toISOString().split('T')[0]}T${data.end_time}`;
+      }
+
       const formattedEvent = {
         id: data.id,
         title: data.title,
-        start: `${data.date}T${data.start_time}`,
-        end: `${data.date}T${data.end_time}`,
+        start,
+        end: actualEnd,
         category_id: data.category_id,
         category: data.category,
         is_plan: data.is_plan,
