@@ -16,7 +16,14 @@ const __dirname = path.dirname(__filename);
 
 // Load .env from backend directory (works both in dev and production)
 const backendDir = path.join(__dirname, '..');
-dotenv.config({ path: path.join(backendDir, '.env') });
+const envPath = path.join(backendDir, '.env');
+console.log('Loading .env from:', envPath);
+dotenv.config({ path: envPath });
+
+// Debug: Check if env vars are loaded
+console.log('Environment variables loaded:');
+console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'exists' : 'MISSING');
+console.log('SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? 'exists' : 'MISSING');
 
 // Configure multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
