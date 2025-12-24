@@ -17,10 +17,28 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
   const [draggingEvent, setDraggingEvent] = useState(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [newEventPosition, setNewEventPosition] = useState(null);
+  const [originalEventDuration, setOriginalEventDuration] = useState(null); // Store original duration in minutes
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeEdge, setResizeEdge] = useState(null); // 'top' or 'bottom'
+  const [resizingEvent, setResizingEvent] = useState(null);
+  const [newResizeStart, setNewResizeStart] = useState(null);
+  const [newResizeEnd, setNewResizeEnd] = useState(null);
   const timelineRef = useRef(null);
   const rafRef = useRef(null);
   const lastDragEndRef = useRef(null);
   const eventDragRafRef = useRef(null);
+  const resizeRafRef = useRef(null);
+
+  // Get coordinates from mouse or touch event
+  const getEventCoordinates = (e) => {
+    if (e.touches && e.touches.length > 0) {
+      return { clientY: e.touches[0].clientY };
+    }
+    if (e.changedTouches && e.changedTouches.length > 0) {
+      return { clientY: e.changedTouches[0].clientY };
+    }
+    return { clientY: e.clientY };
+  };
 
   const renderWakeSleepTimes = () => {
     const { wakeTime, sleepTime } = getWakeSleepTimes();
@@ -37,16 +55,36 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
     );
   };
 
-  const handleEventMouseDown = (e, event) => {
+  const handleEventStart = (e, event) => {
+    // Don't start dragging if already resizing
+    if (isResizing) return;
+    
     e.stopPropagation(); // Prevent creating new event
+    e.preventDefault(); // Prevent scrolling on touch
 
     const rect = timelineRef.current.getBoundingClientRect();
-    const y = e.clientY - rect.top;
+    const { clientY } = getEventCoordinates(e);
+    const y = clientY - rect.top;
 
-    // Parse event start time to get offset from click position
-    const [, timeStr] = event.start.split('T');
+    const currentDayStr = getLocalDateString(currentDate);
+    const [startDateStr, timeStr] = event.start.split('T');
     const [startHour, startMinute] = timeStr.split(':').map(Number);
-    const eventStartMinutes = startHour * 60 + startMinute;
+    
+    // Calculate actual duration in minutes from event start to end (regardless of date boundaries)
+    const eventStart = new Date(event.start);
+    const eventEnd = new Date(event.end);
+    const actualDuration = Math.round((eventEnd - eventStart) / (1000 * 60));
+    
+    // Calculate start minutes relative to current day view
+    let eventStartMinutes;
+    if (startDateStr < currentDayStr) {
+      eventStartMinutes = 0; // Started before today, show from 00:00
+    } else if (startDateStr > currentDayStr) {
+      return; // Starts after today, shouldn't be draggable in this view
+    } else {
+      eventStartMinutes = startHour * 60 + startMinute;
+    }
+    
     const eventTopPosition = (eventStartMinutes / 60) * hourHeight;
 
     // Calculate offset from event top
@@ -56,13 +94,55 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
     setDraggingEvent(event);
     setDragOffset(offset);
     setNewEventPosition(eventStartMinutes);
+    setOriginalEventDuration(actualDuration); // Store actual duration
   };
 
-  const handleMouseDown = (e, column) => {
+  const handleResizeStart = (e, event, edge) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const currentDayStr = getLocalDateString(currentDate);
+    const [startDateStr, startTimeStr] = event.start.split('T');
+    const [endDateStr, endTimeStr] = event.end.split('T');
+    const [startHour, startMinute] = startTimeStr.split(':').map(Number);
+    const [endHour, endMinute] = endTimeStr.split(':').map(Number);
+
+    // Calculate start minutes relative to current day (00:00)
+    let startMinutes;
+    if (startDateStr < currentDayStr) {
+      startMinutes = 0; // Started before today, show from 00:00
+    } else if (startDateStr > currentDayStr) {
+      return; // Starts after today, shouldn't be visible
+    } else {
+      startMinutes = startHour * 60 + startMinute;
+    }
+
+    // Calculate end minutes relative to current day (00:00)
+    let endMinutes;
+    if (endDateStr > currentDayStr) {
+      endMinutes = 24 * 60 + (endHour * 60 + endMinute); // Ends tomorrow
+    } else if (endDateStr < currentDayStr) {
+      return; // Ends before today, shouldn't be visible
+    } else {
+      endMinutes = endHour * 60 + endMinute;
+    }
+
+    setIsResizing(true);
+    setResizeEdge(edge);
+    setResizingEvent(event);
+    setNewResizeStart(startMinutes);
+    setNewResizeEnd(endMinutes);
+    // Prevent event dragging while resizing
+    setIsDraggingEvent(false);
+    setDraggingEvent(null);
+  };
+
+  const handleDragStart = (e, column) => {
     if (e.target.closest('.event-block-absolute')) return; // Don't create if clicking on event
 
     const rect = timelineRef.current.getBoundingClientRect();
-    const y = e.clientY - rect.top;
+    const { clientY } = getEventCoordinates(e);
+    const y = clientY - rect.top;
     const minutes = Math.floor((y / hourHeight) * 60);
 
     // Snap to 10-minute intervals
@@ -74,7 +154,37 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
     setDragEnd(snappedMinutes);
   };
 
-  const handleMouseMove = useCallback((e) => {
+  const handleDragMove = useCallback((e) => {
+    // Handle event resizing
+    if (isResizing) {
+      if (resizeRafRef.current) {
+        cancelAnimationFrame(resizeRafRef.current);
+      }
+
+      resizeRafRef.current = requestAnimationFrame(() => {
+        const rect = timelineRef.current.getBoundingClientRect();
+        const { clientY } = getEventCoordinates(e);
+        const y = clientY - rect.top;
+        const targetMinutes = Math.floor((y / hourHeight) * 60);
+        const snappedMinutes = Math.round(targetMinutes / 10) * 10;
+        // Allow resizing beyond 24 hours (up to 48 hours for next day)
+        const clampedMinutes = Math.max(0, Math.min(48 * 60, snappedMinutes));
+
+        if (resizeEdge === 'top') {
+          // Resizing top edge (changing start time)
+          if (clampedMinutes < newResizeEnd - 10) { // Minimum 10 minutes
+            setNewResizeStart(clampedMinutes);
+          }
+        } else if (resizeEdge === 'bottom') {
+          // Resizing bottom edge (changing end time)
+          if (clampedMinutes > newResizeStart + 10) { // Minimum 10 minutes
+            setNewResizeEnd(clampedMinutes);
+          }
+        }
+      });
+      return;
+    }
+
     // Handle event dragging
     if (isDraggingEvent) {
       if (eventDragRafRef.current) {
@@ -83,12 +193,14 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
 
       eventDragRafRef.current = requestAnimationFrame(() => {
         const rect = timelineRef.current.getBoundingClientRect();
-        const y = e.clientY - rect.top;
+        const { clientY } = getEventCoordinates(e);
+        const y = clientY - rect.top;
         const targetMinutes = Math.floor((y - dragOffset) / hourHeight * 60);
 
         // Snap to 10-minute intervals
         const snappedMinutes = Math.round(targetMinutes / 10) * 10;
-        const clampedMinutes = Math.max(0, Math.min(23 * 60 + 50, snappedMinutes));
+        // Allow dragging up to start of next day (consider event duration)
+        const clampedMinutes = Math.max(0, snappedMinutes);
 
         if (newEventPosition !== clampedMinutes) {
           setNewEventPosition(clampedMinutes);
@@ -108,7 +220,8 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
     // Schedule update for next frame
     rafRef.current = requestAnimationFrame(() => {
       const rect = timelineRef.current.getBoundingClientRect();
-      const y = e.clientY - rect.top;
+      const { clientY } = getEventCoordinates(e);
+      const y = clientY - rect.top;
       const minutes = Math.floor((y / hourHeight) * 60);
 
       // Snap to 10-minute intervals for event creation
@@ -120,9 +233,96 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
         setDragEnd(snappedMinutes);
       }
     });
-  }, [isCreating, isDraggingEvent, hourHeight, dragOffset, newEventPosition]);
+  }, [isCreating, isDraggingEvent, isResizing, resizeEdge, newResizeStart, newResizeEnd, hourHeight, dragOffset, newEventPosition]);
 
   const handleMouseUp = useCallback(async () => {
+    // Handle event resizing completion
+    if (isResizing && resizingEvent) {
+      if (resizeRafRef.current) {
+        cancelAnimationFrame(resizeRafRef.current);
+        resizeRafRef.current = null;
+      }
+
+      const currentDateStr = getLocalDateString(currentDate);
+      const [originalStartDate, originalStartTime] = resizingEvent.start.split('T');
+      const [originalEndDate, originalEndTime] = resizingEvent.end.split('T');
+
+      let updates = {};
+
+      if (resizeEdge === 'top') {
+        // Resizing top edge - only change start_time, keep end_time unchanged
+        let newStartHour = Math.floor(newResizeStart / 60);
+        let newStartMinute = newResizeStart % 60;
+        let newStartDateStr = currentDateStr;
+
+        // Handle if dragged before midnight (can't go to previous day in current implementation)
+        if (newResizeStart < 0) {
+          setIsResizing(false);
+          setResizeEdge(null);
+          setResizingEvent(null);
+          setNewResizeStart(null);
+          setNewResizeEnd(null);
+          return;
+        }
+
+        const new_start_time = `${String(newStartHour).padStart(2, '0')}:${String(newStartMinute).padStart(2, '0')}:00`;
+
+        updates = {
+          start_time: new_start_time,
+          date: newStartDateStr
+        };
+
+        // Keep original end_date if it exists
+        if (originalEndDate !== originalStartDate) {
+          updates.end_date = originalEndDate;
+        } else if (originalEndDate !== newStartDateStr) {
+          // End was on same day as original start, but now start moved
+          updates.end_date = originalEndDate;
+        }
+
+      } else if (resizeEdge === 'bottom') {
+        // Resizing bottom edge - only change end_time, keep start_time unchanged
+        let newEndHour = Math.floor(newResizeEnd / 60);
+        let newEndMinute = newResizeEnd % 60;
+        let newEndDateStr = currentDateStr;
+
+        // Handle day overflow for end time
+        if (newResizeEnd > 24 * 60) {
+          newEndHour = Math.floor(newResizeEnd / 60) - 24;
+          newEndMinute = newResizeEnd % 60;
+          const nextDay = new Date(currentDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          newEndDateStr = getLocalDateString(nextDay);
+        }
+
+        const new_end_time = `${String(newEndHour).padStart(2, '0')}:${String(newEndMinute).padStart(2, '0')}:00`;
+
+        updates = {
+          end_time: new_end_time
+        };
+
+        // Set end_date appropriately
+        if (newEndDateStr !== originalStartDate) {
+          updates.end_date = newEndDateStr;
+        } else {
+          updates.end_date = null; // Same day as start
+        }
+      }
+
+      try {
+        await onUpdateEvent(resizingEvent.id, updates);
+      } catch (error) {
+        console.error('Failed to resize event:', error);
+      }
+
+      setIsResizing(false);
+      setResizeEdge(null);
+      setResizingEvent(null);
+      setNewResizeStart(null);
+      setNewResizeEnd(null);
+      return;
+    }
+
     // Handle event dragging completion
     if (isDraggingEvent && draggingEvent) {
       if (eventDragRafRef.current) {
@@ -130,42 +330,75 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
         eventDragRafRef.current = null;
       }
 
-      // Calculate new start and end times
-      const [, timeStr] = draggingEvent.start.split('T');
-      const [, endTimeStr] = draggingEvent.end.split('T');
-      const [startHour, startMinute] = timeStr.split(':').map(Number);
-      const [endHour, endMinute] = endTimeStr.split(':').map(Number);
+      const currentDayStr = getLocalDateString(currentDate);
+      const [startDateStr] = draggingEvent.start.split('T');
 
-      const originalStartMinutes = startHour * 60 + startMinute;
-      const originalEndMinutes = endHour * 60 + endMinute;
-      const duration = originalEndMinutes - originalStartMinutes;
+      // Use stored duration instead of recalculating
+      const duration = originalEventDuration;
 
       const newStartMinutes = newEventPosition;
       const newEndMinutes = newStartMinutes + duration;
 
-      // Make sure end time doesn't exceed 24:00
-      if (newEndMinutes > 24 * 60) {
+      // Prevent dragging before midnight of current day
+      if (newStartMinutes < 0) {
         setIsDraggingEvent(false);
         setDraggingEvent(null);
         setNewEventPosition(null);
+        setOriginalEventDuration(null);
         return;
       }
 
-      const newStartHour = Math.floor(newStartMinutes / 60);
-      const newStartMinute = newStartMinutes % 60;
-      const newEndHour = Math.floor(newEndMinutes / 60);
-      const newEndMinute = newEndMinutes % 60;
+      const currentDateStr = getLocalDateString(currentDate);
+      let newStartDateStr = currentDateStr;
+      let newEndDateStr;
+      let newStartHour = Math.floor(newStartMinutes / 60);
+      let newStartMinute = newStartMinutes % 60;
+      let newEndHour = Math.floor(newEndMinutes / 60);
+      let newEndMinute = newEndMinutes % 60;
+
+      // Handle day overflow if end time goes past midnight
+      if (newEndMinutes >= 24 * 60) {
+        newEndHour = Math.floor(newEndMinutes / 60) - 24;
+        newEndMinute = newEndMinutes % 60;
+        // Calculate next day
+        const nextDay = new Date(currentDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        newEndDateStr = getLocalDateString(nextDay);
+      } else {
+        newEndDateStr = currentDateStr;
+      }
 
       const new_start_time = `${String(newStartHour).padStart(2, '0')}:${String(newStartMinute).padStart(2, '0')}:00`;
       const new_end_time = `${String(newEndHour).padStart(2, '0')}:${String(newEndMinute).padStart(2, '0')}:00`;
 
+      // Calculate original start minutes for comparison
+      const [origStartDateStr, origTimeStr] = draggingEvent.start.split('T');
+      const [origStartHour, origStartMinute] = origTimeStr.split(':').map(Number);
+      let originalStartMinutes;
+      if (origStartDateStr < currentDayStr) {
+        originalStartMinutes = 0;
+      } else {
+        originalStartMinutes = origStartHour * 60 + origStartMinute;
+      }
+
       // Only update if position changed
       if (newStartMinutes !== originalStartMinutes) {
         try {
-          await onUpdateEvent(draggingEvent.id, {
+          const updates = {
             start_time: new_start_time,
-            end_time: new_end_time
-          });
+            end_time: new_end_time,
+            date: newStartDateStr
+          };
+          
+          // Always include end_date to prevent backend from using date for end_date
+          if (newEndDateStr !== newStartDateStr) {
+            updates.end_date = newEndDateStr;
+          } else {
+            // Explicitly set end_date to null to indicate same-day event
+            updates.end_date = null;
+          }
+
+          await onUpdateEvent(draggingEvent.id, updates);
         } catch (error) {
           console.error('Failed to update event:', error);
         }
@@ -174,6 +407,7 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
       setIsDraggingEvent(false);
       setDraggingEvent(null);
       setNewEventPosition(null);
+      setOriginalEventDuration(null);
       return;
     }
 
@@ -235,7 +469,9 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
     setDragEnd(null);
     setCreatingColumn(null);
     lastDragEndRef.current = null;
-  }, [isCreating, isDraggingEvent, draggingEvent, newEventPosition, dragStart, dragEnd, creatingColumn, categories, onCreateEvent, onUpdateEvent]);
+  }, [isCreating, isDraggingEvent, isResizing, draggingEvent, resizingEvent, newEventPosition, newResizeStart, newResizeEnd, dragStart, dragEnd, creatingColumn, categories, onCreateEvent, onUpdateEvent]);
+
+  const handleDragEnd = handleMouseUp;
 
   const handleEventClick = (event, e) => {
     if (!timelineRef.current) return;
@@ -305,9 +541,24 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
 
     // If this is the event being dragged, use the new position
     const isBeingDragged = isDraggingEvent && draggingEvent && draggingEvent.id === event.id;
-    const displayStartMinutes = isBeingDragged ? newEventPosition : startMinutes;
+    const isBeingResized = isResizing && resizingEvent && resizingEvent.id === event.id;
+    
+    let displayStartMinutes, displayEndMinutes;
+    
+    if (isBeingResized) {
+      displayStartMinutes = newResizeStart;
+      displayEndMinutes = newResizeEnd;
+    } else if (isBeingDragged) {
+      displayStartMinutes = newEventPosition;
+      displayEndMinutes = newEventPosition + durationMinutes;
+    } else {
+      displayStartMinutes = startMinutes;
+      displayEndMinutes = endMinutes;
+    }
+    
+    const displayDuration = displayEndMinutes - displayStartMinutes;
     const topPosition = (displayStartMinutes / 60) * hourHeight;
-    const height = (durationMinutes / 60) * hourHeight;
+    const height = (displayDuration / 60) * hourHeight;
 
     // Get category info from nested category object (populated by backend)
     const categoryInfo = event.category || { color: '#9E9E9E', name: '기타' };
@@ -344,15 +595,50 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
           flexDirection: 'column',
           justifyContent: isSmallEvent ? 'center' : 'flex-start'
         }}
-        onMouseDown={(e) => !isTodo && handleEventMouseDown(e, event)}
+        onMouseDown={(e) => !isTodo && handleEventStart(e, event)}
+        onTouchStart={(e) => !isTodo && handleEventStart(e, event)}
         onClick={(e) => {
-          // Only trigger click if not dragging and not a todo
-          if (!isDraggingEvent && !isTodo) {
+          // Only trigger click if not dragging, not resizing, and not a todo
+          if (!isDraggingEvent && !isResizing && !isTodo) {
             handleEventClick(event, e);
           }
         }}
         title={isTodo ? `📋 ${event.title}\n${displayStartTime} - ${displayEndTime}\n(할일 계획)` : `${event.title}\n${displayStartTime} - ${displayEndTime}\n${durationText}`}
       >
+        {!isTodo && (
+          <>
+            <div 
+              className="resize-handle resize-handle-top"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '6px',
+                cursor: 'ns-resize',
+                zIndex: 10
+              }}
+              onMouseDown={(e) => handleResizeStart(e, event, 'top')}
+              onTouchStart={(e) => handleResizeStart(e, event, 'top')}
+              onClick={(e) => e.stopPropagation()}
+            />
+            <div 
+              className="resize-handle resize-handle-bottom"
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: '6px',
+                cursor: 'ns-resize',
+                zIndex: 10
+              }}
+              onMouseDown={(e) => handleResizeStart(e, event, 'bottom')}
+              onTouchStart={(e) => handleResizeStart(e, event, 'bottom')}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </>
+        )}
         <div className="event-title" style={{ 
           fontSize: isSmallEvent ? '10px' : '11px',
           lineHeight: isSmallEvent ? '1.1' : '1.4',
@@ -361,6 +647,11 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
           textOverflow: 'ellipsis'
         }}>
           {isTodo ? '📋 ' : ''}{event.title}
+          {isSmallEvent && (
+            <span style={{ marginLeft: '4px', fontSize: '9px', opacity: 0.8, fontWeight: 'normal' }}>
+              {displayStartTime}-{displayEndTime}
+            </span>
+          )}
         </div>
         {!isSmallEvent && (
           <div className="event-time">
@@ -489,8 +780,10 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
           ref={timelineRef}
           className="timeline-wrapper"
           style={{ minHeight: `${24 * hourHeight}px` }}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
+          onMouseMove={handleDragMove}
+          onMouseUp={handleDragEnd}
+          onTouchMove={handleDragMove}
+          onTouchEnd={handleDragEnd}
           onMouseLeave={() => {
             if (rafRef.current) {
               cancelAnimationFrame(rafRef.current);
@@ -500,17 +793,28 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
               cancelAnimationFrame(eventDragRafRef.current);
               eventDragRafRef.current = null;
             }
+            if (resizeRafRef.current) {
+              cancelAnimationFrame(resizeRafRef.current);
+              resizeRafRef.current = null;
+            }
             setIsCreating(false);
             setIsDraggingEvent(false);
             setDraggingEvent(null);
             setNewEventPosition(null);
+            setOriginalEventDuration(null);
+            setIsResizing(false);
+            setResizeEdge(null);
+            setResizingEvent(null);
+            setNewResizeStart(null);
+            setNewResizeEnd(null);
             lastDragEndRef.current = null;
           }}
         >
           <div className="timeline-columns">
             <div
               className="timeline-column plan-column"
-              onMouseDown={(e) => handleMouseDown(e, 'plan')}
+              onMouseDown={(e) => handleDragStart(e, 'plan')}
+              onTouchStart={(e) => handleDragStart(e, 'plan')}
             >
               {planEvents.map(event => renderEventBlock(event, event.is_todo))}
               {isCreating && creatingColumn === 'plan' && renderDragPreview()}
@@ -518,7 +822,8 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
             <div className="timeline-column time-column"></div>
             <div
               className="timeline-column actual-column"
-              onMouseDown={(e) => handleMouseDown(e, 'actual')}
+              onMouseDown={(e) => handleDragStart(e, 'actual')}
+              onTouchStart={(e) => handleDragStart(e, 'actual')}
             >
               {actualEvents.map(event => renderEventBlock(event, false))}
               {isCreating && creatingColumn === 'actual' && renderDragPreview()}

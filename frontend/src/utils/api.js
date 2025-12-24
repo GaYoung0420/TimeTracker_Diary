@@ -100,6 +100,15 @@ export const api = {
     return res.json();
   },
 
+  async reorderRoutines(updates) {
+    const res = await fetch(`${API_URL}/api/routines/reorder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates })
+    });
+    return res.json();
+  },
+
   async updateRoutineCheck(date, routine_id, checked) {
     const res = await fetch(`${API_URL}/api/routine-checks`, {
       method: 'POST',

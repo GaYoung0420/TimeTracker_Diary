@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import './EventEditModal.css';
 
-function RoutineGrid({ routines, routineChecks, onToggle, onAdd, onUpdate, onDelete }) {
+function RoutineGrid({ routines, routineChecks, onToggle, onAdd, onUpdate, onDelete, onReorder }) {
   const [newRoutine, setNewRoutine] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
+  const [draggedItem, setDraggedItem] = useState(null);
 
   const handleAdd = () => {
     if (newRoutine.trim()) {
@@ -29,7 +30,7 @@ function RoutineGrid({ routines, routineChecks, onToggle, onAdd, onUpdate, onDel
 
   const saveEdit = () => {
     if (editText.trim()) {
-      onUpdate(editingId, editText.trim());
+      onUpdate(editingId, { text: editText.trim() });
     }
     setEditingId(null);
     setEditText('');
@@ -47,6 +48,52 @@ function RoutineGrid({ routines, routineChecks, onToggle, onAdd, onUpdate, onDel
     }
   };
 
+  const handleDragStart = (e, routine) => {
+    setDraggedItem(routine);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, targetRoutine) => {
+    e.preventDefault();
+
+    if (!draggedItem || draggedItem.id === targetRoutine.id) {
+      setDraggedItem(null);
+      return;
+    }
+
+    const sortedRoutines = [...routines].sort((a, b) => a.order - b.order);
+    const draggedIndex = sortedRoutines.findIndex(r => r.id === draggedItem.id);
+    const targetIndex = sortedRoutines.findIndex(r => r.id === targetRoutine.id);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedItem(null);
+      return;
+    }
+
+    const newRoutines = [...sortedRoutines];
+    const [removed] = newRoutines.splice(draggedIndex, 1);
+    newRoutines.splice(targetIndex, 0, removed);
+
+    const updates = newRoutines.map((routine, index) => ({
+      id: routine.id,
+      order: index
+    }));
+
+    onReorder(updates);
+    setDraggedItem(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+  };
+
+  const sortedRoutines = [...routines].sort((a, b) => a.order - b.order);
+
   return (
     <div className="routine-container">
       <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -61,18 +108,23 @@ function RoutineGrid({ routines, routineChecks, onToggle, onAdd, onUpdate, onDel
       </div>
 
       <div className="routine-grid">
-        {routines.length === 0 ? (
+        {sortedRoutines.length === 0 ? (
           <div style={{ fontSize: '13px', color: '#9b9a97' }}>루틴이 없습니다</div>
         ) : (
-          routines.map((routine) => {
+          sortedRoutines.map((routine) => {
             const checked = routineChecks[routine.id] || false;
             const isEditing = editingId === routine.id;
 
             return (
               <div
                 key={routine.id}
-                className={`routine-card ${checked ? 'completed' : ''}`}
+                className={`routine-card ${checked ? 'completed' : ''} ${draggedItem?.id === routine.id ? 'dragging' : ''}`}
                 onClick={() => !isEditing && onToggle(routine.id, !checked)}
+                draggable={!isEditing}
+                onDragStart={(e) => handleDragStart(e, routine)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, routine)}
+                onDragEnd={handleDragEnd}
               >
                 {isEditing ? (
                   <div className="routine-edit-mode" onClick={(e) => e.stopPropagation()}>

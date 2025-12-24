@@ -16,7 +16,7 @@ function DailyView({ currentDate, setCurrentDate }) {
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showTodoCategoryManager, setShowTodoCategoryManager] = useState(false);
   const [todoCategories, setTodoCategories] = useState([]);
-  const { dailyData, loading, addTodo, updateTodo, deleteTodo, reorderTodos, updateRoutineCheck, addRoutine, updateRoutine, deleteRoutine, saveData, addImageToState, removeImageFromState } = useDailyData(currentDate);
+  const { dailyData, loading, addTodo, updateTodo, deleteTodo, reorderTodos, updateRoutineCheck, addRoutine, updateRoutine, deleteRoutine, reorderRoutines, saveData, addImageToState, removeImageFromState } = useDailyData(currentDate);
   const { categories, events, loading: eventsLoading, reloadCategories, createEvent, updateEvent, deleteEvent, getWakeSleepTimes } = useEvents(currentDate);
 
   // 투두 카테고리 로드
@@ -127,6 +127,7 @@ function DailyView({ currentDate, setCurrentDate }) {
         <CategoryStats
           events={events}
           categories={categories}
+          currentDate={currentDate}
           onOpenSettings={() => setShowCategoryManager(true)}
         />
 
@@ -137,6 +138,7 @@ function DailyView({ currentDate, setCurrentDate }) {
           onAdd={addRoutine}
           onUpdate={updateRoutine}
           onDelete={deleteRoutine}
+          onReorder={reorderRoutines}
         />
 
         <TodoList

@@ -1,4 +1,4 @@
-function CategoryStats({ events, categories, onOpenSettings }) {
+function CategoryStats({ events, categories, onOpenSettings, currentDate }) {
   // 카테고리별 시간 계산 (실제 이벤트만)
   const calculateCategoryStats = () => {
     // 모든 카테고리를 0으로 초기화
@@ -17,18 +17,38 @@ function CategoryStats({ events, categories, onOpenSettings }) {
     // 실제 이벤트만 필터링 (is_plan = false)
     const actualEvents = events.filter(e => e.is_plan === false);
 
+    // Parse ISO string as local time (ignore timezone offset)
+    const parseLocalTime = (isoString) => {
+      if (!isoString) return new Date();
+      const localIso = isoString.split(/[+Z]/)[0];
+      return new Date(localIso);
+    };
+
+    // 현재 날짜의 시작/끝 시간
+    const dayStart = new Date(currentDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(currentDate);
+    dayEnd.setHours(23, 59, 59, 999);
+
     // 이벤트가 있으면 시간 계산
     if (actualEvents && actualEvents.length > 0) {
       actualEvents.forEach(event => {
         const categoryId = event.category_id;
 
         if (categoryId && stats[categoryId]) {
-          // Parse start and end times from ISO format
-          const start = new Date(event.start);
-          const end = new Date(event.end);
-          const duration = (end - start) / (1000 * 60 * 60); // 시간 단위
+          // Parse start and end times as local time (ignore timezone)
+          const eventStart = parseLocalTime(event.start);
+          const eventEnd = parseLocalTime(event.end);
 
-          stats[categoryId].hours += duration;
+          // 현재 날짜에 해당하는 시간만 계산
+          const effectiveStart = eventStart > dayStart ? eventStart : dayStart;
+          const effectiveEnd = eventEnd < dayEnd ? eventEnd : dayEnd;
+
+          // 음수 방지
+          if (effectiveEnd > effectiveStart) {
+            const duration = (effectiveEnd - effectiveStart) / (1000 * 60 * 60); // 시간 단위
+            stats[categoryId].hours += duration;
+          }
         }
       });
     }

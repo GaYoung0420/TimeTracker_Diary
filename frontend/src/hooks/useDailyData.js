@@ -107,8 +107,8 @@ export function useDailyData(currentDate) {
     }
   }, [loadData]);
 
-  const updateRoutine = useCallback(async (id, text) => {
-    const result = await api.updateRoutine(id, text);
+  const updateRoutine = useCallback(async (id, updates) => {
+    const result = await api.updateRoutine(id, updates);
     if (result.success) {
       await loadData();
     }
@@ -116,6 +116,13 @@ export function useDailyData(currentDate) {
 
   const deleteRoutine = useCallback(async (id) => {
     const result = await api.deleteRoutine(id);
+    if (result.success) {
+      await loadData();
+    }
+  }, [loadData]);
+
+  const reorderRoutines = useCallback(async (updates) => {
+    const result = await api.reorderRoutines(updates);
     if (result.success) {
       await loadData();
     }
@@ -135,6 +142,7 @@ export function useDailyData(currentDate) {
     addRoutine,
     updateRoutine,
     deleteRoutine,
+    reorderRoutines,
     reload: loadData
   };
 }

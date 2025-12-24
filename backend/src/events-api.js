@@ -75,10 +75,18 @@ export function setupEventsAPI(app, supabase) {
       const { date, title, start_time, end_time, category_id, is_plan, description, end_date } = req.body;
 
       // Construct full ISO timestamps
-      // Input: date="2025-12-25", start_time="09:00"
+      // Input: date="2025-12-25", start_time="09:00" or "09:00:00"
       // We need to combine them.
-      const startAt = `${date}T${start_time}:00`;
-      const endAt = `${end_date || date}T${end_time}:00`;
+      const ensureSeconds = (timeStr) => {
+        if (!timeStr) return '00:00:00';
+        const parts = timeStr.split(':');
+        if (parts.length === 2) return `${timeStr}:00`;
+        if (parts.length === 3) return timeStr;
+        return `${timeStr}:00:00`;
+      };
+
+      const startAt = `${date}T${ensureSeconds(start_time)}`;
+      const endAt = `${end_date || date}T${ensureSeconds(end_time)}`;
 
       const { data, error } = await supabase
         .from('events')
@@ -156,23 +164,41 @@ export function setupEventsAPI(app, supabase) {
         : currentStartParts.time;
       
       // Determine components for end
-      const endDate = updates.end_date || updates.date || currentEndParts.date;
+      // Handle explicit null for end_date (means same-day event)
+      let endDate;
+      if (updates.hasOwnProperty('end_date')) {
+        endDate = updates.end_date || startDate;  // null means use startDate
+      } else if (updates.date) {
+        endDate = updates.date;  // If date changed but no end_date specified, use new date
+      } else {
+        endDate = currentEndParts.date;  // Keep original end date
+      }
+      
       const endTime = (updates.end_time && !updates.end_time.includes('T'))
         ? updates.end_time
         : currentEndParts.time;
+
+      // Helper to ensure seconds are present
+      const ensureSeconds = (timeStr) => {
+        if (!timeStr) return '00:00:00';
+        const parts = timeStr.split(':');
+        if (parts.length === 2) return `${timeStr}:00`;
+        if (parts.length === 3) return timeStr;
+        return `${timeStr}:00`;
+      };
 
       // If updates.start_time is a full ISO string, use it directly
       if (updates.start_time && updates.start_time.includes('T')) {
         newStartTime = updates.start_time;
       } else {
-        newStartTime = `${startDate}T${startTime}:00`;
+        newStartTime = `${startDate}T${ensureSeconds(startTime)}`;
       }
 
       // If updates.end_time is a full ISO string, use it directly
       if (updates.end_time && updates.end_time.includes('T')) {
         newEndTime = updates.end_time;
       } else {
-        newEndTime = `${endDate}T${endTime}:00`;
+        newEndTime = `${endDate}T${ensureSeconds(endTime)}`;
       }
 
       // Prepare fields to update

@@ -735,6 +735,27 @@ app.delete('/api/routines/:id', async (req, res) => {
   }
 });
 
+app.post('/api/routines/reorder', async (req, res) => {
+  try {
+    const { updates } = req.body;
+    
+    const updatePromises = updates.map(update => 
+      supabase.from('routines').update({ order: update.order }).eq('id', update.id)
+    );
+    
+    const results = await Promise.all(updatePromises);
+    const errors = results.filter(r => r.error);
+    
+    if (errors.length > 0) {
+      throw new Error('Failed to update some routines');
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 /* ========================================
    Routine Checks
    ======================================== */
