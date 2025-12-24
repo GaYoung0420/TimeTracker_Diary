@@ -14,7 +14,9 @@ import { setupEventsAPI } from './events-api.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config();
+// Load .env from backend directory (works both in dev and production)
+const backendDir = path.join(__dirname, '..');
+dotenv.config({ path: path.join(backendDir, '.env') });
 
 // Configure multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
