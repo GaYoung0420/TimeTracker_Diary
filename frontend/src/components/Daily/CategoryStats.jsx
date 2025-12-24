@@ -1,13 +1,13 @@
 function CategoryStats({ events }) {
   // 고정된 카테고리 정의 (순서대로)
   const FIXED_CATEGORIES = [
-    { name: '① 낭비시간', color: '#D13F3F', number: 1 },
-    { name: '② 사회적', color: '#A78400', number: 2 },
-    { name: '③ 지적', color: '#1E7B34', number: 3 },
-    { name: '④ 영적', color: '#C46C00', number: 4 },
-    { name: '⑤ 잠', color: '#4A4AC4', number: 5 },
-    { name: '⑥ 운동', color: '#008C99', number: 6 },
-    { name: '⑦ 기타', color: '#654321', number: 7 }
+    { name: '① 낭비시간', color: '#D13F3F', number: 1, id: 'waste' },
+    { name: '② 사회적', color: '#A78400', number: 2, id: 'social' },
+    { name: '③ 지적', color: '#1E7B34', number: 3, id: 'intellectual' },
+    { name: '④ 영적', color: '#C46C00', number: 4, id: 'spiritual' },
+    { name: '⑤ 잠', color: '#4A4AC4', number: 5, id: 'sleep' },
+    { name: '⑥ 운동', color: '#008C99', number: 6, id: 'exercise' },
+    { name: '⑦ 기타', color: '#654321', number: 7, id: 'other' }
   ];
 
   // 카테고리별 시간 계산
@@ -25,14 +25,19 @@ function CategoryStats({ events }) {
     // 이벤트가 있으면 시간 계산
     if (events && events.length > 0) {
       events.forEach(event => {
-        const calendarName = event.calendarName || 'Unknown';
-        const start = new Date(event.start);
-        const end = new Date(event.end);
-        const duration = (end - start) / (1000 * 60 * 60); // 시간 단위
+        // Supabase events have category field with category ID
+        const categoryId = event.category;
 
-        // 매칭되는 카테고리가 있으면 시간 추가
-        if (stats[calendarName]) {
-          stats[calendarName].hours += duration;
+        // Find matching category
+        const matchedCategory = FIXED_CATEGORIES.find(cat => cat.id === categoryId);
+
+        if (matchedCategory) {
+          // Parse start and end times from ISO format
+          const start = new Date(event.start);
+          const end = new Date(event.end);
+          const duration = (end - start) / (1000 * 60 * 60); // 시간 단위
+
+          stats[matchedCategory.name].hours += duration;
         }
       });
     }

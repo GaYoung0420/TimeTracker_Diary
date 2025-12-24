@@ -203,16 +203,16 @@ export function setupEventsAPI(app, supabase) {
      ======================================== */
   app.get('/api/events/categories', async (req, res) => {
     try {
-      // Return predefined categories
+      // Return predefined categories matching Google Calendar
       const categories = [
-        { id: 'work', name: '업무', color: '#4285F4' },
-        { id: 'personal', name: '개인', color: '#0B8043' },
-        { id: 'exercise', name: '운동', color: '#F4B400' },
-        { id: 'study', name: '공부', color: '#DB4437' },
-        { id: 'wake', name: '기상', color: '#FF6D00' },
-        { id: 'sleep', name: '취침', color: '#7B1FA2' },
-        { id: 'meal', name: '식사', color: '#E67C73' },
-        { id: 'other', name: '기타', color: '#9E9E9E' }
+        { id: 'plan', name: '계획', color: '#4285F4' },
+        { id: 'waste', name: '① 낭비시간', color: '#D13F3F' },
+        { id: 'social', name: '② 사회적', color: '#A78400' },
+        { id: 'intellectual', name: '③ 지적', color: '#1E7B34' },
+        { id: 'spiritual', name: '④ 영적', color: '#C46C00' },
+        { id: 'sleep', name: '⑤ 잠', color: '#4A4AC4' },
+        { id: 'exercise', name: '⑥ 운동', color: '#008C99' },
+        { id: 'other', name: '⑦ 기타', color: '#654321' }
       ];
 
       res.json({ success: true, categories });

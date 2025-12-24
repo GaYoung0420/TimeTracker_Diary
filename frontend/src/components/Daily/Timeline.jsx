@@ -82,7 +82,7 @@ function Timeline({ events, categories, loading, currentDate, onCreateEvent, onU
     const end_time = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00`;
 
     // Determine category based on column
-    const category = creatingColumn === 'plan' ? 'plan' : 'work';
+    const category = creatingColumn === 'plan' ? 'plan' : 'other';
 
     try {
       await onCreateEvent('새 이벤트', start_time, end_time, category, '');
