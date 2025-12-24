@@ -1,0 +1,106 @@
+.event-edit-popup {
+  background: white;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  padding: 16px;
+  min-width: 300px;
+  z-index: 2000;
+}
+
+.popup-row {
+  margin-bottom: 12px;
+}
+
+.popup-row:last-child {
+  margin-bottom: 0;
+}
+
+.popup-title-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 1px solid #dadce0;
+  font-size: 14px;
+  outline: none;
+}
+
+.popup-title-input:focus {
+  border-bottom-color: #4285f4;
+}
+
+.time-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.popup-time-input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-size: 13px;
+  outline: none;
+}
+
+.popup-time-input:focus {
+  border-color: #4285f4;
+}
+
+.time-separator {
+  color: #5f6368;
+  font-size: 14px;
+}
+
+.popup-category-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+  outline: none;
+  cursor: pointer;
+}
+
+.popup-category-select:focus {
+  border-color: #4285f4;
+}
+
+.popup-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #dadce0;
+}
+
+.popup-btn-delete,
+.popup-btn-save {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.popup-btn-delete {
+  background: transparent;
+  color: #d93025;
+}
+
+.popup-btn-delete:hover {
+  background: #fce8e6;
+}
+
+.popup-btn-save {
+  background: #4285f4;
+  color: white;
+}
+
+.popup-btn-save:hover {
+  background: #3367d6;
+}

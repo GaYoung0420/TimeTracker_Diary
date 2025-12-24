@@ -20,11 +20,18 @@ export const api = {
   },
 
   // Todos
-  async addTodo(date, text, category) {
+  async addTodo(date, text, category, todoCategoryId, scheduledTime, duration) {
     const res = await fetch(`${API_URL}/api/todos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, text, category })
+      body: JSON.stringify({ 
+        date, 
+        text, 
+        category, 
+        todo_category_id: todoCategoryId,
+        scheduled_time: scheduledTime,
+        duration
+      })
     });
     return res.json();
   },
@@ -102,11 +109,38 @@ export const api = {
     return res.json();
   },
 
-  // Events (Supabase-based, replaces Google Calendar)
+  // Categories (User-defined categories)
   async getCategories() {
-    const res = await fetch(`${API_URL}/api/events/categories`);
+    const res = await fetch(`${API_URL}/api/categories`);
     return res.json();
   },
+
+  async createCategory(name, color) {
+    const res = await fetch(`${API_URL}/api/categories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, color })
+    });
+    return res.json();
+  },
+
+  async updateCategory(id, updates) {
+    const res = await fetch(`${API_URL}/api/categories/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    return res.json();
+  },
+
+  async deleteCategory(id) {
+    const res = await fetch(`${API_URL}/api/categories/${id}`, {
+      method: 'DELETE'
+    });
+    return res.json();
+  },
+
+  // Events (Supabase-based, replaces Google Calendar)
 
   async getEvents(date) {
     const res = await fetch(`${API_URL}/api/events`, {
@@ -117,11 +151,11 @@ export const api = {
     return res.json();
   },
 
-  async createEvent(date, title, start_time, end_time, category, description) {
+  async createEvent(date, title, start_time, end_time, category_id, is_plan, description, end_date) {
     const res = await fetch(`${API_URL}/api/events/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, title, start_time, end_time, category, description })
+      body: JSON.stringify({ date, title, start_time, end_time, category_id, is_plan, description, end_date })
     });
     return res.json();
   },
@@ -206,6 +240,45 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date, time: '10:00' })
+    });
+    return res.json();
+  },
+
+  // Todo Categories
+  async getTodoCategories() {
+    const res = await fetch(`${API_URL}/api/todo-categories`);
+    return res.json();
+  },
+
+  async addTodoCategory(name, eventCategoryId, color) {
+    const res = await fetch(`${API_URL}/api/todo-categories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, event_category_id: eventCategoryId, color })
+    });
+    return res.json();
+  },
+
+  async updateTodoCategory(id, name, eventCategoryId, color) {
+    const res = await fetch(`${API_URL}/api/todo-categories/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, event_category_id: eventCategoryId, color })
+    });
+    return res.json();
+  },
+
+  async deleteTodoCategory(id) {
+    const res = await fetch(`${API_URL}/api/todo-categories/${id}`, {
+      method: 'DELETE'
+    });
+    return res.json();
+  },
+
+  async completeTodo(id) {
+    const res = await fetch(`${API_URL}/api/todos/${id}/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
     });
     return res.json();
   }

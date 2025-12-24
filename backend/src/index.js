@@ -10,6 +10,8 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { setupEventsAPI } from './events-api.js';
+import { setupCategoriesAPI } from './categories-api.js';
+import { setupTodoCategoriesAPI } from './todo-categories-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,6 +100,8 @@ passport.deserializeUser((user, done) => {
 // So we need to allow the deployed domain as well
 const allowedOrigins = [
   'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
   'http://localhost:5173',
   'http://localhost:5174',
   // Render frontend domain
@@ -346,7 +350,7 @@ app.get('/api/daily/:date', async (req, res) => {
     const { date } = req.params;
 
     const [todosResult, reflectionResult, imagesResult, routinesResult, checksResult] = await Promise.all([
-      supabase.from('todos').select('*').eq('date', date).order('id'),
+      supabase.from('todos').select('*, category:categories(id, name, color)').eq('date', date).order('order').order('id'),
       supabase.from('reflections').select('*').eq('date', date).single(),
       supabase.from('images').select('*').eq('date', date).order('id'),
       supabase.from('routines').select('*').eq('active', true).order('order'),
@@ -392,7 +396,9 @@ app.post('/api/daily/:date', async (req, res) => {
         const todosToInsert = todos.map(t => ({
           date,
           text: t.text,
-          completed: t.completed
+          completed: t.completed,
+          category_id: t.category_id || null,
+          order: t.order !== undefined ? t.order : 9999
         }));
         await supabase.from('todos').insert(todosToInsert);
       }
@@ -435,7 +441,7 @@ app.post('/api/daily/:date', async (req, res) => {
    ======================================== */
 app.post('/api/todos', async (req, res) => {
   try {
-    const { date, text, category } = req.body;
+    const { date, text, category, todo_category_id, scheduled_time, duration } = req.body;
 
     // Get the highest order for this date
     const { data: existingTodos } = await supabase
@@ -449,7 +455,16 @@ app.post('/api/todos', async (req, res) => {
 
     const { data, error } = await supabase
       .from('todos')
-      .insert({ date, text, category, completed: false, order: nextOrder })
+      .insert({ 
+        date, 
+        text, 
+        category, 
+        todo_category_id,
+        scheduled_time,
+        duration,
+        completed: false, 
+        order: nextOrder 
+      })
       .select()
       .single();
 
@@ -1022,196 +1037,167 @@ app.post('/api/monthly/stats', async (req, res) => {
   }
 });
 
-// Monthly Time Stats (Time Tracker Grid)
+// Monthly Time Stats (Time Tracker Grid) - Supabase based
 app.post('/api/monthly/time-stats', async (req, res) => {
   try {
     const { year, month } = req.body;
-    const user = req.user;
 
-    if (!user || !user.accessToken) {
-      return res.status(401).json({ success: false, error: 'Not authenticated' });
-    }
-
-    // Set up OAuth2 client
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET
-    );
-    oauth2Client.setCredentials({
-      access_token: user.accessToken,
-      refresh_token: user.refreshToken
-    });
-
-    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-
-    // Get all calendars
-    const calendarList = await calendar.calendarList.list();
-    const allCalendars = calendarList.data.items || [];
-
-    // Filter out "계획" calendar
-    const calendars = allCalendars.filter(cal => !cal.summary.includes('계획'));
-
-    // Calculate month range in Korea timezone
+    // Calculate month range
     const daysInMonth = new Date(year, month, 0).getDate();
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
 
-    // Start of month in Korea timezone (00:00 KST on the 1st)
-    const startOfMonth = new Date(Date.UTC(year, month - 1, 1, -9, 0, 0));
-    // End of month in Korea timezone (00:00 KST on the 1st of next month)
-    const endOfMonth = new Date(Date.UTC(year, month, 1, -9, 0, 0));
+    // Fetch all categories
+    const { data: categories, error: categoriesError } = await supabase
+      .from('categories')
+      .select('*')
+      .order('id');
 
-    // Fetch events for the entire month (병렬화)
-    const eventPromises = calendars.map(cal =>
-      calendar.events.list({
-        calendarId: cal.id,
-        timeMin: startOfMonth.toISOString(),
-        timeMax: endOfMonth.toISOString(),
-        singleEvents: true,
-        orderBy: 'startTime',
-        timeZone: 'Asia/Seoul'
-      })
-      .then(eventsResponse => ({
-        calendarId: cal.id,
-        calendarName: cal.summary,
-        color: cal.backgroundColor,
-        events: eventsResponse.data.items || []
-      }))
-      .catch(err => {
-        console.error(`Error fetching calendar ${cal.id}:`, err.message);
-        return { calendarId: cal.id, calendarName: cal.summary, color: cal.backgroundColor, events: [] };
-      })
-    );
+    if (categoriesError) throw categoriesError;
 
-    const calendarResults = await Promise.all(eventPromises);
+    // Fetch all actual events (is_plan = false) for the month, with category info
+    // We want events that overlap with the month.
+    // Overlap condition: start_time <= endTimestamp AND end_time >= startTimestamp
+    const startTimestamp = `${startDate}T00:00:00`;
+    const endTimestamp = `${endDate}T23:59:59.999`;
 
-    const allEvents = calendarResults.flatMap(result =>
-      result.events
-        .filter(event => event.start.dateTime && event.end.dateTime)
-        .map(event => ({
-          summary: event.summary,
-          start: event.start.dateTime,
-          end: event.end.dateTime,
-          calendarName: result.calendarName,
-          color: result.color
-        }))
-    );
+    const { data: allEvents, error: eventsError } = await supabase
+      .from('events')
+      .select(`
+        id,
+        title,
+        start_time,
+        end_time,
+        category_id,
+        is_plan,
+        category:categories(id, name, color)
+      `)
+      .lte('start_time', endTimestamp)
+      .gte('end_time', startTimestamp)
+      .eq('is_plan', false) // Only actual events
+      .order('start_time');
+
+    if (eventsError) throw eventsError;
 
     console.log(`\n=== Monthly Time Stats for ${year}-${month} ===`);
-    console.log(`Total events fetched: ${allEvents.length}`);
-    if (allEvents.length > 0) {
-      console.log('First event:', {
-        title: allEvents[0].summary,
-        start: allEvents[0].start,
-        end: allEvents[0].end
-      });
-    }
+    console.log(`Total actual events fetched: ${allEvents ? allEvents.length : 0}`);
 
-    // 이벤트를 날짜별로 그룹화 (다음날 넘어가는 이벤트 포함)
+    // Group events by date
     const eventsByDate = {};
     const categorySet = new Set();
 
-    allEvents.forEach(event => {
-      const eventStart = new Date(event.start);
-      const eventEnd = new Date(event.end);
+    (allEvents || []).forEach(event => {
+      if (!event.start_time || !event.end_time) return;
 
-      // Convert to Korea timezone and get date in YYYY-MM-DD format
-      const getKoreaDateString = (date) => {
-        // Convert to Korea timezone (UTC+9)
-        const koreaTime = new Date(date.getTime() + (9 * 60 * 60 * 1000));
-        const year = koreaTime.getUTCFullYear();
-        const month = String(koreaTime.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(koreaTime.getUTCDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      };
+      if (event.category) {
+        categorySet.add(event.category.name);
+      }
 
-      // 이벤트의 시작일과 종료일 사이의 모든 날짜에 이벤트 추가
-      const startDateStr = getKoreaDateString(eventStart);
-      const endDateStr = getKoreaDateString(eventEnd);
-
-      // Create date range in Korea timezone
-      const startParts = startDateStr.split('-').map(Number);
-      const endParts = endDateStr.split('-').map(Number);
-
-      const startDate = new Date(Date.UTC(startParts[0], startParts[1] - 1, startParts[2]));
-      const endDate = new Date(Date.UTC(endParts[0], endParts[1] - 1, endParts[2]));
-
-      let currentDate = new Date(startDate);
-      while (currentDate <= endDate) {
-        const dateKey = getKoreaDateString(currentDate);
-
+      // Handle events spanning multiple days
+      // We add the event to the bucket of every day it touches
+      const startDateStr = event.start_time.split('T')[0];
+      const endDateStr = event.end_time.split('T')[0];
+      
+      // Use UTC to avoid timezone shifts when calculating date keys
+      let currDate = new Date(`${startDateStr}T00:00:00Z`);
+      const lastDate = new Date(`${endDateStr}T00:00:00Z`);
+      
+      // Safety break to prevent infinite loops if dates are weird
+      let safetyCounter = 0;
+      
+      while (currDate <= lastDate && safetyCounter < 365) {
+        const dateKey = currDate.toISOString().split('T')[0];
+        
         if (!eventsByDate[dateKey]) {
           eventsByDate[dateKey] = [];
         }
-        eventsByDate[dateKey].push(event);
-        categorySet.add(event.calendarName || 'Unknown');
-
-        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+        
+        // Push the event as is. The day-renderer will handle clipping.
+        eventsByDate[dateKey].push({
+          ...event,
+          start: event.start_time,
+          end: event.end_time
+        });
+        
+        // Next day
+        currDate.setUTCDate(currDate.getUTCDate() + 1);
+        safetyCounter++;
       }
     });
 
-    // 각 날짜별 데이터 생성
+    // Generate data for each day
     const days = [];
     const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 
     for (let day = 1; day <= daysInMonth; day++) {
       const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const dayStart = new Date(Date.UTC(year, month - 1, day));
-      const weekday = weekdays[dayStart.getUTCDay()];
+      const date = new Date(year, month - 1, day);
+      const weekday = weekdays[date.getDay()];
 
       const dayEvents = eventsByDate[dateKey] || [];
 
-      const categories = {};
+      const categoryStats = {};
       const events = [];
 
       dayEvents.forEach(event => {
-        const calendarName = event.calendarName || 'Unknown';
+        const categoryName = event.category ? event.category.name : '기타';
 
-        const eventStart = new Date(event.start);
-        const eventEnd = new Date(event.end);
+        // Parse timestamps as local time (ignore timezone)
+        const parseLocalTime = (isoString) => {
+          if (!isoString) return new Date();
+          const localIso = isoString.split(/[+Z]/)[0];
+          return new Date(localIso);
+        };
 
-        // 해당 날짜 범위 계산 (Korea timezone 00:00 - 23:59:59)
-        // 00:00 KST = previous day 15:00 UTC
-        const dayStartTime = new Date(Date.UTC(year, month - 1, day, -9, 0, 0));
-        const dayEndTime = new Date(Date.UTC(year, month - 1, day + 1, -9, 0, 0));
+        const eventStart = parseLocalTime(event.start);
+        const eventEnd = parseLocalTime(event.end);
 
-        // 이벤트가 해당 날짜에서 실제로 차지하는 시간 계산
-        const effectiveStart = eventStart > dayStartTime ? eventStart : dayStartTime;
-        const effectiveEnd = eventEnd < dayEndTime ? eventEnd : dayEndTime;
+        // Calculate day boundaries
+        const dayStart = new Date(year, month - 1, day, 0, 0, 0);
+        const dayEnd = new Date(year, month - 1, day + 1, 0, 0, 0);
+
+        // Calculate effective time within this day
+        const effectiveStart = eventStart > dayStart ? eventStart : dayStart;
+        const effectiveEnd = eventEnd < dayEnd ? eventEnd : dayEnd;
         const duration = (effectiveEnd - effectiveStart) / (1000 * 60 * 60); // hours
 
-        if (!categories[calendarName]) {
-          categories[calendarName] = 0;
-        }
-        categories[calendarName] += duration;
+        if (duration > 0) {
+          if (!categoryStats[categoryName]) {
+            categoryStats[categoryName] = 0;
+          }
+          categoryStats[categoryName] += duration;
 
-        // Add full event data for time tracker rendering
-        events.push({
-          title: event.summary,
-          start: event.start,
-          end: event.end,
-          calendarName: event.calendarName,
-          color: event.color
-        });
+          // Add event for rendering
+          events.push({
+            title: event.title,
+            start: event.start,
+            end: event.end,
+            calendarName: categoryName,
+            color: event.category ? event.category.color : '#9E9E9E',
+            is_plan: event.is_plan
+          });
+        }
       });
 
       days.push({
         date: day,
         dateKey,
         weekday,
-        categories,
+        categories: categoryStats,
         events
       });
     }
 
-    // Build category list with colors
-    const categories = Array.from(categorySet).map(name => {
-      const event = allEvents.find(e => e.calendarName === name);
+    // Build category list
+    const categoryList = Array.from(categorySet).map(name => {
+      const category = categories.find(c => c.name === name);
       return {
         name,
-        color: event ? event.color : '#9e9e9e'
+        color: category ? category.color : '#9E9E9E'
       };
     }).sort((a, b) => a.name.localeCompare(b.name));
 
-    res.json({ success: true, data: { days, categories } });
+    res.json({ success: true, data: { days, categories: categoryList } });
   } catch (error) {
     console.error('Error loading monthly time stats:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -1435,6 +1421,16 @@ app.post('/api/calendar/create-wake', async (req, res) => {
    Events API (Supabase-based)
    ======================================== */
 setupEventsAPI(app, supabase);
+
+/* ========================================
+   Categories API (User-defined categories)
+   ======================================== */
+setupCategoriesAPI(app, supabase);
+
+/* ========================================
+   Todo Categories API
+   ======================================== */
+setupTodoCategoriesAPI(app);
 
 /* ========================================
    SPA Fallback

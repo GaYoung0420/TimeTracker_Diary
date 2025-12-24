@@ -59,8 +59,8 @@ export function useDailyData(currentDate) {
     }));
   }, []);
 
-  const addTodo = useCallback(async (text, category) => {
-    const result = await api.addTodo(dateKey, text, category);
+  const addTodo = useCallback(async (text, category, todoCategoryId, scheduledTime, duration) => {
+    const result = await api.addTodo(dateKey, text, category, todoCategoryId, scheduledTime, duration);
     if (result.success) {
       await loadData();
     }

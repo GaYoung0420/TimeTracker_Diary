@@ -13,21 +13,22 @@ export function useEvents(currentDate) {
 
   const dateKey = getLocalDateString(currentDate);
 
+  // Load categories
+  const loadCategories = useCallback(async () => {
+    try {
+      const result = await api.getCategories();
+      if (result.success) {
+        setCategories(result.categories);
+      }
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  }, []);
+
   // Load categories once on mount
   useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const result = await api.getCategories();
-        if (result.success) {
-          setCategories(result.categories);
-        }
-      } catch (error) {
-        console.error('Failed to load categories:', error);
-      }
-    };
-
     loadCategories();
-  }, []);
+  }, [loadCategories]);
 
   // Load events when date changes
   useEffect(() => {
@@ -72,9 +73,9 @@ export function useEvents(currentDate) {
   };
 
   // Create new event
-  const createEvent = useCallback(async (title, start_time, end_time, category, description = '') => {
+  const createEvent = useCallback(async (title, start_time, end_time, category, description = '', end_date = null) => {
     try {
-      const result = await api.createEvent(dateKey, title, start_time, end_time, category, description);
+      const result = await api.createEvent(dateKey, title, start_time, end_time, category, description, end_date);
       if (result.success) {
         // Optimistically update UI - backend now returns formatted event
         setEvents(prev => [...prev, result.event]);
@@ -151,6 +152,7 @@ export function useEvents(currentDate) {
     events,
     loading,
     reload,
+    reloadCategories: loadCategories,
     createEvent,
     updateEvent,
     deleteEvent,

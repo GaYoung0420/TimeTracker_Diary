@@ -3,28 +3,49 @@ import PomodoroTimer from './PomodoroTimer';
 import { api } from '../../utils/api';
 import pomoSvg from './pomo.svg';
 
-const TODO_CATEGORIES = [
-  { name: '🐰 영적', emoji: '🐰', color: '#f29baeff' },
-  { name: '💡 IAE LAB', emoji: '💡', color: '#C4B4FF' },
-  { name: '💻 취업 준비', emoji: '💻', color: '#bada55' },
-  { name: '😊 개인', emoji: '😊', color: '#f7eb0c' },
-  { name: '🏢 회사', emoji: '🏢', color: '#89c1f6ff' }
-];
-
-function TodoList({ todos, onAdd, onUpdate, onDelete, onReorder }) {
+function TodoList({ todos, categories, todoCategories, currentDate, onAdd, onUpdate, onDelete, onReorder, onOpenTodoCategoryManager }) {
   const [inputValue, setInputValue] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [showSettingsPopup, setShowSettingsPopup] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+  const [selectedTodoCategoryId, setSelectedTodoCategoryId] = useState(null);
+  const [scheduledTime, setScheduledTime] = useState('');
+  const [duration, setDuration] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editingText, setEditingText] = useState('');
-  const [editingCategory, setEditingCategory] = useState(null);
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
+  const [editingTodoCategoryId, setEditingTodoCategoryId] = useState(null);
+  const [editingScheduledTime, setEditingScheduledTime] = useState('');
+  const [editingDuration, setEditingDuration] = useState('');
   const [draggedItem, setDraggedItem] = useState(null);
   const [activePomodoroId, setActivePomodoroId] = useState(null);
 
+  const isOverdue = (todo) => {
+    if (!currentDate || todo.completed) return false;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const viewDate = new Date(currentDate);
+    viewDate.setHours(0, 0, 0, 0);
+    
+    return viewDate < today;
+  };
+
   const handleAdd = () => {
     if (inputValue.trim()) {
-      onAdd(inputValue.trim(), selectedCategory);
+      onAdd(
+        inputValue.trim(), 
+        null, 
+        selectedTodoCategoryId,
+        scheduledTime || null,
+        duration ? parseInt(duration) : null
+      );
       setInputValue('');
-      setSelectedCategory(null);
+      setSelectedCategoryId(null);
+      setSelectedTodoCategoryId(null);
+      setScheduledTime('');
+      setDuration('');
+      setShowSettingsPopup(false);
     }
   };
 
@@ -37,22 +58,37 @@ function TodoList({ todos, onAdd, onUpdate, onDelete, onReorder }) {
   const startEdit = (todo) => {
     setEditingId(todo.id);
     setEditingText(todo.text);
-    setEditingCategory(todo.category || null);
+    setEditingCategoryId(todo.category_id || null);
+    setEditingTodoCategoryId(todo.todo_category_id || null);
+    setEditingScheduledTime(todo.scheduled_time || '');
+    setEditingDuration(todo.duration || '');
   };
 
   const saveEdit = (id) => {
     if (editingText.trim()) {
-      onUpdate(id, { text: editingText.trim(), category: editingCategory });
+      onUpdate(id, { 
+        text: editingText.trim(), 
+        category_id: editingCategoryId,
+        todo_category_id: editingTodoCategoryId,
+        scheduled_time: editingScheduledTime || null,
+        duration: editingDuration ? parseInt(editingDuration) : null
+      });
     }
     setEditingId(null);
     setEditingText('');
-    setEditingCategory(null);
+    setEditingCategoryId(null);
+    setEditingTodoCategoryId(null);
+    setEditingScheduledTime('');
+    setEditingDuration('');
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditingText('');
-    setEditingCategory(null);
+    setEditingCategoryId(null);
+    setEditingTodoCategoryId(null);
+    setEditingScheduledTime('');
+    setEditingDuration('');
   };
 
   const handleEditKeyPress = (e, id) => {
@@ -112,9 +148,12 @@ function TodoList({ todos, onAdd, onUpdate, onDelete, onReorder }) {
   // Sort todos by order
   const sortedTodos = [...todos].sort((a, b) => a.order - b.order);
 
-  const getCategoryColor = (categoryName) => {
-    const category = TODO_CATEGORIES.find(c => c.name === categoryName);
-    return category ? category.color : '#a8a8a8';
+  const getCategoryById = (categoryId) => {
+    return categories.find(c => c.id === categoryId);
+  };
+
+  const getTodoCategoryById = (categoryId) => {
+    return todoCategories?.find(c => c.id === categoryId);
   };
 
   const handleStartPomodoro = (todoId) => {
@@ -130,6 +169,28 @@ function TodoList({ todos, onAdd, onUpdate, onDelete, onReorder }) {
       }
     } catch (error) {
       console.error('Failed to increment pomodoro:', error);
+    }
+  };
+
+  const handleCompleteTodo = async (todoId, completed) => {
+    if (completed) {
+      // 할일이 완료될 때 이벤트 생성
+      try {
+        const result = await api.completeTodo(todoId);
+        if (result.success && result.event) {
+          console.log('Event created:', result.event);
+          // 페이지 새로고침하여 타임라인에 표시
+          window.location.reload();
+        } else {
+          // 이벤트가 생성되지 않은 경우 (카테고리 없음)
+          onUpdate(todoId, { completed });
+        }
+      } catch (error) {
+        console.error('Failed to complete todo:', error);
+        onUpdate(todoId, { completed });
+      }
+    } else {
+      onUpdate(todoId, { completed });
     }
   };
 
@@ -158,9 +219,18 @@ function TodoList({ todos, onAdd, onUpdate, onDelete, onReorder }) {
 
   return (
     <div className="todo-container">
-      <div className="section-header">✅ 오늘 할 일</div>
+      <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>✅ 오늘 할 일</span>
+        <button 
+          className="btn-category-settings-small" 
+          onClick={onOpenTodoCategoryManager}
+          title="투두 카테고리 관리"
+        >
+          ⚙️
+        </button>
+      </div>
 
-      <div className="todo-input-group">
+      <div className="todo-input-group" style={{ position: 'relative' }}>
         <input
           type="text"
           className="todo-input"
@@ -169,23 +239,93 @@ function TodoList({ todos, onAdd, onUpdate, onDelete, onReorder }) {
           onChange={(e) => setInputValue(e.target.value)}
           onKeyPress={handleKeyPress}
         />
+        <button 
+          className="btn-settings-popup"
+          onClick={() => setShowSettingsPopup(!showSettingsPopup)}
+          style={{
+            background: showSettingsPopup ? '#f0f0f0' : 'white',
+            border: '1px solid #e9e9e7',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '16px',
+            color: '#666',
+            padding: '0 10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.2s'
+          }}
+          title="상세 설정"
+        >
+          ➕
+        </button>
         <button className="btn" onClick={handleAdd}>추가</button>
-      </div>
 
-      <div className="todo-category-selector">
-        {TODO_CATEGORIES.map((category) => (
-          <button
-            key={category.name}
-            className={`category-chip ${selectedCategory === category.name ? 'selected' : ''}`}
-            style={{
-              backgroundColor: selectedCategory === category.name ? category.color : '#f0f0f0',
-              color: selectedCategory === category.name ? '#ffffff' : '#666666'
-            }}
-            onClick={() => setSelectedCategory(selectedCategory === category.name ? null : category.name)}
-          >
-            {category.name}
-          </button>
-        ))}
+        {showSettingsPopup && (
+          <div className="todo-settings-popup" style={{
+            position: 'absolute',
+            top: '100%',
+            right: '0',
+            marginTop: '8px',
+            background: 'white',
+            border: '1px solid #e0e0e0',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            padding: '16px',
+            zIndex: 100,
+            width: '280px'
+          }}>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>투두 카테고리</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                {todoCategories && todoCategories.length > 0 ? (
+                  todoCategories.map((category) => (
+                    <button
+                      key={category.id}
+                      className={`category-chip-small ${selectedTodoCategoryId === category.id ? 'selected' : ''}`}
+                      style={{
+                        backgroundColor: selectedTodoCategoryId === category.id ? (category.color || '#4a9eff') : '#f0f0f0',
+                        color: '#37352f',
+                        border: 'none',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => setSelectedTodoCategoryId(selectedTodoCategoryId === category.id ? null : category.id)}
+                    >
+                      {category.name}
+                    </button>
+                  ))
+                ) : (
+                  <div style={{ fontSize: '11px', color: '#999' }}>카테고리 없음</div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>시작 시간</label>
+              <input
+                type="time"
+                value={scheduledTime}
+                onChange={(e) => setScheduledTime(e.target.value)}
+                style={{ width: '100%', padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>소요 시간 (분)</label>
+              <input
+                type="number"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+                placeholder="30"
+                min="1"
+                style={{ width: '100%', padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <ul className="todo-list">
@@ -205,40 +345,100 @@ function TodoList({ todos, onAdd, onUpdate, onDelete, onReorder }) {
               onDragEnd={handleDragEnd}
             >
               <span className="todo-drag-handle">⋮</span>
-              <input
-                type="checkbox"
-                className="todo-checkbox"
-                checked={todo.completed}
-                onChange={() => onUpdate(todo.id, { completed: !todo.completed })}
-              />
+              {isOverdue(todo) ? (
+                <div 
+                  className="todo-checkbox overdue-arrow"
+                  onClick={() => handleCompleteTodo(todo.id, !todo.completed)}
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    margin: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid #999',
+                    borderRadius: '3px',
+                    fontSize: '14px',
+                    color: '#fe7f65ff',
+                    background: '#fff',
+                    userSelect: 'none',
+                    fontWeight: 'bold'
+                  }}
+                  title="미완료 (클릭하여 완료)"
+                >
+                  →
+                </div>
+              ) : (
+                <input
+                  type="checkbox"
+                  className="todo-checkbox"
+                  checked={todo.completed}
+                  onChange={() => handleCompleteTodo(todo.id, !todo.completed)}
+                />
+              )}
               {editingId === todo.id ? (
-                <div className="todo-edit-container">
-                  <input
-                    type="text"
-                    className="todo-edit-input"
-                    value={editingText}
-                    onChange={(e) => setEditingText(e.target.value)}
-                    onKeyDown={(e) => handleEditKeyPress(e, todo.id)}
-                    onBlur={() => saveEdit(todo.id)}
-                    autoFocus
-                  />
-                  <div className="todo-edit-categories">
-                    {TODO_CATEGORIES.map((category) => (
-                      <button
-                        key={category.name}
-                        className={`category-chip-small ${editingCategory === category.name ? 'selected' : ''}`}
-                        style={{
-                          backgroundColor: editingCategory === category.name ? category.color : '#f0f0f0',
-                          color: editingCategory === category.name ? '#ffffff' : '#666666'
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingCategory(editingCategory === category.name ? null : category.name);
-                        }}
-                      >
-                        {category.name}
-                      </button>
-                    ))}
+                <div className="todo-edit-card compact">
+                  <div className="todo-edit-top-row">
+                    <input
+                      type="text"
+                      className="todo-edit-input-compact"
+                      value={editingText}
+                      onChange={(e) => setEditingText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          saveEdit(todo.id);
+                        }
+                      }}
+                      autoFocus
+                      placeholder="할 일 입력"
+                    />
+                    <button className="btn-save-compact" onClick={() => saveEdit(todo.id)}>저장</button>
+                  </div>
+                  
+                  <div className="todo-edit-bottom-row">
+                    <div className="todo-category-scroll">
+                      {todoCategories && todoCategories.length > 0 ? (
+                        todoCategories.map((category) => (
+                          <button
+                            key={category.id}
+                            className={`category-chip-micro ${editingTodoCategoryId === category.id ? 'selected' : ''}`}
+                            style={editingTodoCategoryId === category.id ? { backgroundColor: category.color || '#4a9eff', color: '#37352f', borderColor: category.color || '#4a9eff' } : {}}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingTodoCategoryId(editingTodoCategoryId === category.id ? null : category.id);
+                            }}
+                            title={category.name}
+                          >
+                            {category.name}
+                          </button>
+                        ))
+                      ) : (
+                        <span className="no-cat-msg">카테고리 없음</span>
+                      )}
+                    </div>
+
+                    <div className="todo-time-compact-group">
+                      <input
+                        type="time"
+                        className="todo-edit-time-compact"
+                        value={editingScheduledTime}
+                        onChange={(e) => setEditingScheduledTime(e.target.value)}
+                        title="시작 시간"
+                      />
+                      <div className="duration-wrapper">
+                        <input
+                          type="number"
+                          className="todo-edit-duration-compact"
+                          value={editingDuration}
+                          onChange={(e) => setEditingDuration(e.target.value)}
+                          placeholder="분"
+                          title="소요 시간(분)"
+                        />
+                        <span className="unit-text">m</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -248,13 +448,37 @@ function TodoList({ todos, onAdd, onUpdate, onDelete, onReorder }) {
                     onDoubleClick={() => startEdit(todo)}
                   >
                     {todo.text}
+                    {todo.scheduled_time && (
+                      <span style={{ marginLeft: '8px', fontSize: '11px', color: '#666' }}>
+                        ⏰ {todo.scheduled_time.slice(0, 5)}
+                      </span>
+                    )}
+                    {todo.duration && (
+                      <span style={{ marginLeft: '4px', fontSize: '11px', color: '#666' }}>
+                        ({todo.duration}분)
+                      </span>
+                    )}
                   </span>
-                  {todo.category && (
+                  {todo.category_id && getCategoryById(todo.category_id) && (
                     <span
                       className="todo-category-badge"
-                      style={{ backgroundColor: getCategoryColor(todo.category) }}
+                      style={{
+                        backgroundColor: getCategoryById(todo.category_id).color,
+                        color: '#37352f'
+                      }}
                     >
-                      {todo.category}
+                      {getCategoryById(todo.category_id).name}
+                    </span>
+                  )}
+                  {todo.todo_category_id && getTodoCategoryById(todo.todo_category_id) && (
+                    <span
+                      className="todo-category-badge"
+                      style={{
+                        backgroundColor: getTodoCategoryById(todo.todo_category_id).color || '#4a9eff',
+                        color: '#37352f'
+                      }}
+                    >
+                      {getTodoCategoryById(todo.todo_category_id).name}
                     </span>
                   )}
                   {renderTomatoIcons(todo.pomodoro_count)}

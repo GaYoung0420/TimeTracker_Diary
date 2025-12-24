@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import './EventEditModal.css';
 
 function RoutineGrid({ routines, routineChecks, onToggle, onAdd, onUpdate, onDelete }) {
   const [newRoutine, setNewRoutine] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
 
@@ -9,6 +11,7 @@ function RoutineGrid({ routines, routineChecks, onToggle, onAdd, onUpdate, onDel
     if (newRoutine.trim()) {
       onAdd(newRoutine.trim());
       setNewRoutine('');
+      setShowAddModal(false);
     }
   };
 
@@ -46,20 +49,15 @@ function RoutineGrid({ routines, routineChecks, onToggle, onAdd, onUpdate, onDel
 
   return (
     <div className="routine-container">
-      <div className="section-header">
+      <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span>🔁 오늘의 루틴</span>
-      </div>
-
-      <div className="routine-input-group">
-        <input
-          type="text"
-          className="routine-input"
-          placeholder="새 루틴 추가..."
-          value={newRoutine}
-          onChange={(e) => setNewRoutine(e.target.value)}
-          onKeyPress={handleKeyPress}
-        />
-        <button className="btn" onClick={handleAdd}>추가</button>
+        <button 
+          className="btn-category-settings-small" 
+          onClick={() => setShowAddModal(true)}
+          title="새 루틴 추가"
+        >
+          +
+        </button>
       </div>
 
       <div className="routine-grid">
@@ -123,6 +121,30 @@ function RoutineGrid({ routines, routineChecks, onToggle, onAdd, onUpdate, onDel
           })
         )}
       </div>
+
+      {showAddModal && (
+        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '16px' }}>새 루틴 추가</h3>
+            <div className="form-group">
+              <input
+                type="text"
+                className="routine-input"
+                placeholder="루틴 이름 입력..."
+                value={newRoutine}
+                onChange={(e) => setNewRoutine(e.target.value)}
+                onKeyPress={handleKeyPress}
+                autoFocus
+                style={{ width: '100%', padding: '8px', marginBottom: '16px', border: '1px solid #ddd', borderRadius: '4px', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div className="form-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button className="btn-cancel" onClick={() => setShowAddModal(false)} style={{ padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', background: '#b4b4b4ff' }}>취소</button>
+              <button className="btn-save" onClick={handleAdd} style={{ padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', background: '#4CAF50', color: 'white' }}>추가</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

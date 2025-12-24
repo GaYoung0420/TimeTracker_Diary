@@ -287,7 +287,26 @@
   color: #37352f;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
+}
+
+.btn-category-settings-small {
+  background: none;
+  border: 1px solid #e9e9e7;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  color: #37352f;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-category-settings-small:hover {
+  background: #f7f6f3;
 }
 
 /* ========================================
@@ -302,6 +321,34 @@
   padding: 8px 0;
 }
 
+/* ========================================
+   카테고리 관리 모달
+   ======================================== */
+.category-manager-modal {
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.btn-close-modal {
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px;
+  background: #f7f6f3;
+  color: #37352f;
+  border: 1px solid #e9e9e7;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-close-modal:hover {
+  background: #efedea;
+  border-color: #d3d1cb;
+}
+
 .time-tracker-date-header .current-date {
   font-size: 20px;
   font-weight: 700;
@@ -310,7 +357,8 @@
   line-height: 1.2;
 }
 
-.time-tracker-date-header .date-nav-btn {
+.time-tracker-date-header .date-nav-btn,
+.time-tracker-date-header .btn-category-settings {
   width: 44px;
   height: 44px;
   padding: 0;
@@ -319,6 +367,20 @@
   align-items: center;
   justify-content: center;
   border-radius: 10px;
+  background: none;
+  border: 1px solid #e9e9e7;
+  cursor: pointer;
+  color: #37352f;
+  transition: all 0.2s;
+}
+
+.time-tracker-date-header .date-nav-btn:hover,
+.time-tracker-date-header .btn-category-settings:hover {
+  background: #f7f6f3;
+}
+
+.time-tracker-date-header .btn-category-settings {
+  font-size: 20px;
 }
 
 /* ========================================
@@ -473,14 +535,14 @@
 .time-marker-row.wake-hour .time-marker-label {
   color: #eb5757;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 16px;
   background: #fff5f5;
 }
 
 .time-marker-row.sleep-hour .time-marker-label {
   color: #2383e2;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 16px;
   background: #f0f7ff;
 }
 
@@ -2560,4 +2622,261 @@
   .mood-line-graph {
     min-width: 400px;
   }
+}
+
+/* Todo Edit Card Styles */
+.todo-edit-card {
+  background: #ffffff;
+  border: 1px solid #2383e2;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(35, 131, 226, 0.15);
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.todo-edit-input-styled {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 14px;
+  margin-bottom: 12px;
+  transition: border-color 0.2s;
+}
+
+.todo-edit-input-styled:focus {
+  outline: none;
+  border-color: #2383e2;
+}
+
+.todo-edit-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.todo-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.todo-edit-label {
+  font-size: 12px;
+  color: #787774;
+  font-weight: 500;
+  min-width: 50px;
+}
+
+.todo-category-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.category-chip-tiny {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  border: 1px solid #e9e9e7;
+  background: #f7f6f3;
+  color: #37352f;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.category-chip-tiny:hover {
+  background: #efedea;
+}
+
+.category-chip-tiny.selected {
+  background: #4a9eff;
+  color: white;
+  border-color: #4a9eff;
+}
+
+.todo-time-input-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.todo-edit-time,
+.todo-edit-duration {
+  padding: 4px 8px;
+  border: 1px solid #e9e9e7;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #37352f;
+}
+
+.todo-edit-duration {
+  width: 60px;
+}
+
+.unit {
+  font-size: 12px;
+  color: #787774;
+}
+
+.todo-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 10px;
+}
+
+.btn-save-edit {
+  background: #2383e2;
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-save-edit:hover {
+  background: #1a6cb8;
+}
+
+.no-cat-msg {
+  font-size: 11px;
+  color: #999;
+  font-style: italic;
+}
+
+/* Compact Todo Edit Card Styles */
+.todo-edit-card.compact {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.todo-edit-top-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.todo-edit-input-compact {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.todo-edit-input-compact:focus {
+  outline: none;
+  border-color: #2383e2;
+}
+
+.btn-save-compact {
+  background: #2383e2;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-save-compact:hover {
+  background: #1a6cb8;
+}
+
+.todo-edit-bottom-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.todo-category-scroll {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  flex: 1;
+  /* Hide scrollbar for cleaner look */
+  scrollbar-width: none; 
+  -ms-overflow-style: none;
+}
+
+.todo-category-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.category-chip-micro {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  border: 1px solid #e9e9e7;
+  background: #f7f6f3;
+  color: #37352f;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.category-chip-micro:hover {
+  background: #efedea;
+}
+
+.category-chip-micro.selected {
+  background: #4a9eff;
+  color: white;
+  border-color: #4a9eff;
+}
+
+.todo-time-compact-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.todo-edit-time-compact {
+  padding: 2px 4px;
+  border: 1px solid #e9e9e7;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #37352f;
+  height: 24px;
+}
+
+.duration-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.todo-edit-duration-compact {
+  width: 70px;
+  padding: 2px 4px;
+  padding-right: 16px;
+  border: 1px solid #e9e9e7;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #37352f;
+  height: 24px;
+  text-align: center;
+}
+
+.unit-text {
+  position: absolute;
+  right: 4px;
+  font-size: 10px;
+  color: #999;
+  pointer-events: none;
 }

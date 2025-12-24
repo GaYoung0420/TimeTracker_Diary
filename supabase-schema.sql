@@ -91,6 +91,17 @@ CREATE TABLE IF NOT EXISTS feedbacks (
 CREATE INDEX idx_feedbacks_date ON feedbacks(date);
 
 -- ========================================
+-- Categories Table (user-defined categories)
+-- ========================================
+CREATE TABLE IF NOT EXISTS categories (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  color VARCHAR(7) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ========================================
 -- Events Table (replaces Google Calendar)
 -- ========================================
 CREATE TABLE IF NOT EXISTS events (
@@ -99,14 +110,16 @@ CREATE TABLE IF NOT EXISTS events (
   title TEXT NOT NULL,
   start_time TIME NOT NULL,
   end_time TIME NOT NULL,
-  category VARCHAR(50),
+  category_id BIGINT REFERENCES categories(id) ON DELETE SET NULL,
+  is_plan BOOLEAN DEFAULT FALSE,
   description TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_events_date ON events(date);
-CREATE INDEX idx_events_category ON events(category);
+CREATE INDEX idx_events_category_id ON events(category_id);
+CREATE INDEX idx_events_is_plan ON events(is_plan);
 
 -- ========================================
 -- Auto-update updated_at trigger
@@ -131,6 +144,9 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_routine_checks_updated_at BEFORE UPDATE ON routine_checks
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_categories_updated_at BEFORE UPDATE ON categories
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER update_events_updated_at BEFORE UPDATE ON events
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -145,6 +161,7 @@ ALTER TABLE images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE routines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE routine_checks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feedbacks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 
 -- Allow all operations for authenticated users (simple policy for single-user app)
@@ -154,4 +171,5 @@ CREATE POLICY "Allow all for authenticated users" ON images FOR ALL USING (true)
 CREATE POLICY "Allow all for authenticated users" ON routines FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated users" ON routine_checks FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated users" ON feedbacks FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated users" ON categories FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated users" ON events FOR ALL USING (true);

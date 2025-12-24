@@ -75,10 +75,19 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
     let wakeHour = null;
     let sleepHour = null;
 
+    // Helper to parse ISO string as local time (ignoring timezone)
+    const parseLocalTime = (isoString) => {
+      if (!isoString) return new Date();
+      // Remove timezone part to force local interpretation
+      // e.g. "2025-12-24T05:00:00+00:00" -> "2025-12-24T05:00:00"
+      const localIso = isoString.split(/[+Z]/)[0];
+      return new Date(localIso);
+    };
+
     allEvents.forEach(event => {
       if (event.title === '잠') {
-        const start = new Date(event.start);
-        const end = new Date(event.end);
+        const start = parseLocalTime(event.start);
+        const end = parseLocalTime(event.end);
         const startDateStr = getLocalDateString(start);
         const endDateStr = getLocalDateString(end);
 
@@ -133,9 +142,17 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
     const dayStart = new Date(year, month, dayNumber, 0, 0, 0, 0);
     const dayEnd = new Date(year, month, dayNumber + 1, 0, 0, 0, 0);
 
-    events.forEach(event => {
-      const start = new Date(event.start);
-      const end = new Date(event.end);
+    // Helper to parse ISO string as local time (ignoring timezone)
+    const parseLocalTime = (isoString) => {
+      if (!isoString) return new Date();
+      const localIso = isoString.split(/[+Z]/)[0];
+      return new Date(localIso);
+    };
+
+    // Filter out any plan events just in case, and render
+    events.filter(e => e.is_plan === false).forEach(event => {
+      const start = parseLocalTime(event.start);
+      const end = parseLocalTime(event.end);
 
       // Clamp event times to current day boundaries
       const effectiveStart = start < dayStart ? dayStart : start;

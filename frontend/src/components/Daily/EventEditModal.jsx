@@ -5,16 +5,24 @@ function EventEditModal({ event, categories, onUpdate, onDelete, onClose }) {
   const [title, setTitle] = useState(event.title);
   const [startTime, setStartTime] = useState(event.start_time || event.start.split('T')[1].substring(0, 5));
   const [endTime, setEndTime] = useState(event.end_time || event.end.split('T')[1].substring(0, 5));
-  const [category, setCategory] = useState(event.category);
+  const [categoryId, setCategoryId] = useState(event.category_id);
   const [description, setDescription] = useState(event.description || '');
+
+  // is_plan field indicates whether this is a plan or actual event
+  const isPlanEvent = event.is_plan;
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    // startTime and endTime are in HH:MM format from time input
+    // Need to add seconds for database
+    const formattedStartTime = startTime.length === 5 ? `${startTime}:00` : startTime;
+    const formattedEndTime = endTime.length === 5 ? `${endTime}:00` : endTime;
+
     onUpdate(event.id, {
       title,
-      start_time: `${startTime}:00`,
-      end_time: `${endTime}:00`,
-      category,
+      start_time: formattedStartTime,
+      end_time: formattedEndTime,
+      category_id: categoryId,
       description
     });
   };
@@ -66,7 +74,7 @@ function EventEditModal({ event, categories, onUpdate, onDelete, onClose }) {
 
           <div className="form-group">
             <label>카테고리</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value)}>
+            <select value={categoryId} onChange={(e) => setCategoryId(parseInt(e.target.value))}>
               {categories.map(cat => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
