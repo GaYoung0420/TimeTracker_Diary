@@ -1077,15 +1077,11 @@ app.post('/api/monthly/time-stats', async (req, res) => {
     if (categoriesError) throw categoriesError;
 
     // Fetch all actual events (is_plan = false) for the month, with category info
-    // We want events that overlap with the month.
-    // Overlap condition: start_time <= endTimestamp AND end_time >= startTimestamp
-    const startTimestamp = `${startDate}T00:00:00`;
-    const endTimestamp = `${endDate}T23:59:59.999`;
-
-    const { data: allEvents, error: eventsError } = await supabase
+    const { data: allEvents, error: eventsError} = await supabase
       .from('events')
       .select(`
         id,
+        date,
         title,
         start_time,
         end_time,
@@ -1093,9 +1089,10 @@ app.post('/api/monthly/time-stats', async (req, res) => {
         is_plan,
         category:categories(id, name, color)
       `)
-      .lte('start_time', endTimestamp)
-      .gte('end_time', startTimestamp)
+      .gte('date', startDate)
+      .lte('date', endDate)
       .eq('is_plan', false) // Only actual events
+      .order('date')
       .order('start_time');
 
     if (eventsError) throw eventsError;
@@ -1108,42 +1105,24 @@ app.post('/api/monthly/time-stats', async (req, res) => {
     const categorySet = new Set();
 
     (allEvents || []).forEach(event => {
-      if (!event.start_time || !event.end_time) return;
+      if (!event.date || !event.start_time || !event.end_time) return;
 
       if (event.category) {
         categorySet.add(event.category.name);
       }
 
-      // Handle events spanning multiple days
-      // We add the event to the bucket of every day it touches
-      const startDateStr = event.start_time.split('T')[0];
-      const endDateStr = event.end_time.split('T')[0];
-      
-      // Use UTC to avoid timezone shifts when calculating date keys
-      let currDate = new Date(`${startDateStr}T00:00:00Z`);
-      const lastDate = new Date(`${endDateStr}T00:00:00Z`);
-      
-      // Safety break to prevent infinite loops if dates are weird
-      let safetyCounter = 0;
-      
-      while (currDate <= lastDate && safetyCounter < 365) {
-        const dateKey = currDate.toISOString().split('T')[0];
-        
-        if (!eventsByDate[dateKey]) {
-          eventsByDate[dateKey] = [];
-        }
-        
-        // Push the event as is. The day-renderer will handle clipping.
-        eventsByDate[dateKey].push({
-          ...event,
-          start: event.start_time,
-          end: event.end_time
-        });
-        
-        // Next day
-        currDate.setUTCDate(currDate.getUTCDate() + 1);
-        safetyCounter++;
+      const dateKey = event.date;
+
+      if (!eventsByDate[dateKey]) {
+        eventsByDate[dateKey] = [];
       }
+
+      // Combine date + time for frontend compatibility
+      eventsByDate[dateKey].push({
+        ...event,
+        start: `${event.date}T${event.start_time}`,
+        end: `${event.date}T${event.end_time}`
+      });
     });
 
     // Generate data for each day
