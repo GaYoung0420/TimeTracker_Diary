@@ -9,28 +9,61 @@ export function setupEventsAPI(app, supabase) {
     try {
       const { date } = req.body;
 
+      // Get events from previous day and current day to handle overnight events
+      const d = new Date(date);
+      const prevDate = new Date(d);
+      prevDate.setDate(d.getDate() - 1);
+      const prevDateStr = prevDate.toISOString().split('T')[0];
+
       const { data, error } = await supabase
         .from('events')
         .select(`
           *,
           category:categories(id, name, color)
         `)
-        .eq('date', date)
+        .in('date', [prevDateStr, date])
+        .order('date')
         .order('start_time');
 
       if (error) throw error;
 
-      // Format events to match frontend expected format (ISO-like string)
-      const events = (data || []).map(event => ({
-        id: event.id,
-        title: event.title,
-        start: `${event.date}T${event.start_time}`, // Combine date + time
-        end: `${event.date}T${event.end_time}`,     // Combine date + time
-        category_id: event.category_id,
-        category: event.category,
-        is_plan: event.is_plan,
-        description: event.description || ''
-      }));
+      // Format events and filter those that overlap with the target date
+      const targetDayStart = `${date}T00:00:00`;
+      const targetDayEnd = `${date}T23:59:59`;
+
+      const events = (data || [])
+        .map(event => {
+          const start = `${event.date}T${event.start_time}`;
+          const end = `${event.date}T${event.end_time}`;
+
+          // Handle overnight events: if end_time < start_time, event ends next day
+          const [startHour] = event.start_time.split(':').map(Number);
+          const [endHour] = event.end_time.split(':').map(Number);
+
+          let actualEnd = end;
+          if (endHour < startHour) {
+            // Event spans to next day
+            const nextDay = new Date(event.date);
+            nextDay.setDate(nextDay.getDate() + 1);
+            actualEnd = `${nextDay.toISOString().split('T')[0]}T${event.end_time}`;
+          }
+
+          return {
+            id: event.id,
+            title: event.title,
+            start,
+            end: actualEnd,
+            category_id: event.category_id,
+            category: event.category,
+            is_plan: event.is_plan,
+            description: event.description || ''
+          };
+        })
+        .filter(event => {
+          // Check if event overlaps with target day
+          // Overlap: event.start <= targetDayEnd AND event.end >= targetDayStart
+          return event.start <= targetDayEnd && event.end >= targetDayStart;
+        });
 
       res.json({ success: true, events });
     } catch (error) {
