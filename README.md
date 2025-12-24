@@ -367,6 +367,119 @@ If the timeline is blank or events are not showing:
    ```
    Should return `{ success: true, user: {...} }`
 
+## Oracle Cloud Server Deployment
+
+현재 프로젝트는 Oracle Cloud 서버에 배포되어 있습니다.
+
+### 배포 방법
+
+#### 1. 코드 수정 후 커밋 & 푸시
+
+```bash
+# 1. 변경사항 확인
+git status
+
+# 2. 파일 추가 (수정된 파일들)
+git add .
+
+# 3. 커밋 메시지 작성
+git commit -m "커밋 메시지"
+
+# 4. GitHub에 푸시
+git push
+```
+
+#### 2. 서버 배포 (자동화)
+
+```bash
+# 서버 접속 + 코드 업데이트 + 프론트엔드 빌드
+ssh -i ~/.ssh/oracle_key ubuntu@140.238.17.14 "cd TimeTracker_Diary && git pull && source ~/.nvm/nvm.sh && nvm use 20 && cd frontend && npm run build"
+```
+
+이 명령어가 하는 일:
+- `git pull`: 최신 코드 가져오기
+- `nvm use 20`: Node.js 20 버전 활성화
+- `npm run build`: 프론트엔드 빌드 (frontend/dist/ 생성)
+
+#### 3. 백엔드 재시작 (백엔드 코드 변경 시에만)
+
+```bash
+# 백엔드 코드가 변경된 경우에만 실행
+ssh -i ~/.ssh/oracle_key ubuntu@140.238.17.14 "source ~/.nvm/nvm.sh && nvm use 20 && cd TimeTracker_Diary/backend && pm2 restart timetracker-backend"
+```
+
+### 배포 시나리오별 가이드
+
+#### 프론트엔드만 수정한 경우 (React 컴포넌트, CSS 등)
+
+```bash
+# 1. 커밋 & 푸시
+git add .
+git commit -m "Update frontend UI"
+git push
+
+# 2. 서버 배포 (빌드만)
+ssh -i ~/.ssh/oracle_key ubuntu@140.238.17.14 "cd TimeTracker_Diary && git pull && source ~/.nvm/nvm.sh && nvm use 20 && cd frontend && npm run build"
+```
+
+#### 백엔드만 수정한 경우 (API, DB 로직 등)
+
+```bash
+# 1. 커밋 & 푸시
+git add .
+git commit -m "Update backend API"
+git push
+
+# 2. 서버 배포 (백엔드 재시작)
+ssh -i ~/.ssh/oracle_key ubuntu@140.238.17.14 "cd TimeTracker_Diary && git pull && source ~/.nvm/nvm.sh && nvm use 20 && cd backend && pm2 restart timetracker-backend"
+```
+
+#### 둘 다 수정한 경우
+
+```bash
+# 1. 커밋 & 푸시
+git add .
+git commit -m "Update both frontend and backend"
+git push
+
+# 2. 서버 배포 (빌드 + 재시작)
+ssh -i ~/.ssh/oracle_key ubuntu@140.238.17.14 "cd TimeTracker_Diary && git pull && source ~/.nvm/nvm.sh && nvm use 20 && cd frontend && npm run build && cd ../backend && pm2 restart timetracker-backend"
+```
+
+### 서버 상태 확인
+
+```bash
+# PM2 프로세스 상태 확인
+ssh -i ~/.ssh/oracle_key ubuntu@140.238.17.14 "source ~/.nvm/nvm.sh && nvm use 20 && pm2 list"
+
+# 로그 확인
+ssh -i ~/.ssh/oracle_key ubuntu@140.238.17.14 "source ~/.nvm/nvm.sh && nvm use 20 && pm2 logs timetracker-backend --lines 50"
+```
+
+### 주의사항
+
+1. **SSH 키 경로**: `~/.ssh/oracle_key` 파일이 있어야 합니다.
+2. **Node 버전**: 서버는 nvm으로 Node.js를 관리하므로 `source ~/.nvm/nvm.sh && nvm use 20`이 필요합니다.
+3. **PM2**: 백엔드는 PM2로 관리되며, 프로세스 이름은 `timetracker-backend`입니다.
+4. **빌드 파일**: 프론트엔드 빌드 결과는 `frontend/dist/`에 생성되며, 백엔드가 이를 static 파일로 서빙합니다.
+
+### 환경 변수 설정 (서버)
+
+서버의 환경 변수는 다음 위치에 있습니다:
+
+```bash
+# 백엔드 환경 변수
+~/TimeTracker_Diary/backend/.env
+
+# PM2 ecosystem 파일 (환경 변수 포함)
+~/TimeTracker_Diary/backend/ecosystem.config.js
+```
+
+환경 변수 수정 후에는 반드시 PM2 재시작:
+```bash
+pm2 restart timetracker-backend
+```
+
 ## License
 
 ISC
