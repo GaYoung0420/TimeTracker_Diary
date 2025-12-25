@@ -553,6 +553,23 @@ app.post('/api/todos/:id/pomodoro', async (req, res) => {
 /* ========================================
    Images
    ======================================== */
+// Debug endpoint to check images table schema
+app.get('/api/images/schema', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('images')
+      .select('*')
+      .limit(1);
+
+    if (error) throw error;
+
+    const schema = data && data.length > 0 ? Object.keys(data[0]) : [];
+    res.json({ success: true, schema, sample: data[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.post('/api/images/upload', upload.single('image'), async (req, res) => {
   try {
     console.log('=== Image Upload Request ===');
