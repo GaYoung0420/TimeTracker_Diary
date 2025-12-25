@@ -273,10 +273,10 @@ export function setupEventsAPI(app, supabase) {
         }
       }
 
-      // Find sleep time: start_time of a sleep event on the target date (not next day)
-      // This represents when the person went to bed on this date
+      // Find sleep time: start_time of a sleep event on the NEXT day
+      // This represents when the person went to bed on this date (which starts the next day's sleep event)
       for (const event of sleepEvents) {
-        if (event.date === date) {
+        if (event.date === nextDateStr) {
           sleepTime = event.start_time.substring(0, 5);
           break;
         }
