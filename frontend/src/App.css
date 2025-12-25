@@ -2702,6 +2702,43 @@ html, body {
 
 /* Responsive */
 @media (max-width: 768px) {
+  .monthly-container {
+    padding: 12px;
+  }
+
+  .monthly-header {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .monthly-grid {
+    gap: 1px;
+    border-radius: 6px;
+  }
+
+  .monthly-day-header {
+    padding: 8px 4px;
+    font-size: 11px;
+  }
+
+  .monthly-day-cell {
+    padding: 8px;
+    min-height: 100px;
+    gap: 6px;
+  }
+
+  .monthly-date-num {
+    font-size: 14px;
+  }
+
+  .monthly-day-cell.today .monthly-date-num {
+    font-size: 15px;
+  }
+
+  .monthly-thumbnail {
+    height: 60px;
+  }
+
   .monthly-stats-wrapper {
     padding: 12px;
   }
