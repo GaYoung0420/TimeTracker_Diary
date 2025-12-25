@@ -2141,11 +2141,21 @@ html, body {
 
 @media (max-width: 768px) {
   .monthly-timetracker-wrapper {
-    height: calc(100vh - 150px);
+    height: calc(100vh - 180px);
+    min-height: 600px;
+    max-height: none;
+  }
+
+  .monthly-timetracker {
+    min-width: 1200px;
   }
 
   .tt-date-header {
     gap: 2px;
+  }
+
+  .tt-time-column {
+    width: 50px;
   }
 }
 
