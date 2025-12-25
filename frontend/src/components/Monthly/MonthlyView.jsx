@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../../utils/api';
 import MonthlyTimeGrid from './MonthlyTimeGrid';
 import MonthlyStats from './MonthlyStats';
@@ -9,10 +9,41 @@ function MonthlyView({ goToDate }) {
   const [monthlyData, setMonthlyData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('calendar'); // 'calendar', 'time', or 'stats'
+  const [loadedImages, setLoadedImages] = useState(new Set());
+  const observerRef = useRef(null);
 
   useEffect(() => {
     loadMonthlyData();
   }, [currentMonth]);
+
+  useEffect(() => {
+    // Setup Intersection Observer for lazy loading
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const img = entry.target;
+            const src = img.dataset.src;
+            if (src && !loadedImages.has(src)) {
+              img.src = src;
+              setLoadedImages(prev => new Set([...prev, src]));
+              observerRef.current.unobserve(img);
+            }
+          }
+        });
+      },
+      {
+        rootMargin: '50px', // Preload images 50px before they enter viewport
+        threshold: 0.01
+      }
+    );
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [loadedImages]);
 
   const loadMonthlyData = async () => {
     setLoading(true);
@@ -41,6 +72,12 @@ function MonthlyView({ goToDate }) {
     const month = currentMonth.getMonth() + 1;
     return `${year}년 ${month}월`;
   };
+
+  const imageRefCallback = useCallback((node) => {
+    if (node && observerRef.current) {
+      observerRef.current.observe(node);
+    }
+  }, []);
 
   const renderCalendarGrid = () => {
     const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
@@ -81,10 +118,16 @@ function MonthlyView({ goToDate }) {
                 <div className="monthly-date-num">{day}</div>
                 {img && (
                   <img
-                    src={img.thumbnailUrl}
+                    ref={imageRefCallback}
+                    data-src={img.thumbnailUrl}
                     className="monthly-thumbnail"
                     alt="Daily thumbnail"
-                    loading="lazy"
+                    style={{
+                      width: '100%',
+                      height: 'auto',
+                      objectFit: 'cover',
+                      backgroundColor: '#f0f0f0'
+                    }}
                   />
                 )}
               </div>
