@@ -96,9 +96,12 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
   };
 
   const handleEventStart = (e, event) => {
+    // Disable event dragging on mobile
+    if (isMobile()) return;
+
     // Don't start dragging if already resizing
     if (isResizing) return;
-    
+
     e.stopPropagation(); // Prevent creating new event
     e.preventDefault(); // Prevent scrolling on touch
 
@@ -138,6 +141,9 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
   };
 
   const handleResizeStart = (e, event, edge) => {
+    // Disable event resizing on mobile
+    if (isMobile()) return;
+
     e.stopPropagation();
     e.preventDefault();
 
