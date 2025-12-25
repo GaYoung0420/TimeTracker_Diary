@@ -18,32 +18,33 @@ function MonthlyView({ goToDate }) {
 
   useEffect(() => {
     // Setup Intersection Observer for lazy loading
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const img = entry.target;
-            const src = img.dataset.src;
-            if (src && !loadedImages.has(src)) {
-              img.src = src;
-              setLoadedImages(prev => new Set([...prev, src]));
-              observerRef.current.unobserve(img);
+    if (viewMode === 'calendar') {
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              const img = entry.target;
+              const src = img.dataset.src;
+              if (src && !img.src) {
+                img.src = src;
+                observerRef.current.unobserve(img);
+              }
             }
-          }
-        });
-      },
-      {
-        rootMargin: '50px', // Preload images 50px before they enter viewport
-        threshold: 0.01
-      }
-    );
+          });
+        },
+        {
+          rootMargin: '50px', // Preload images 50px before they enter viewport
+          threshold: 0.01
+        }
+      );
 
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
-  }, [loadedImages]);
+      return () => {
+        if (observerRef.current) {
+          observerRef.current.disconnect();
+        }
+      };
+    }
+  }, [viewMode]);
 
   const loadMonthlyData = async () => {
     setLoading(true);
