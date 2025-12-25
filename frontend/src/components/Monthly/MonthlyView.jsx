@@ -122,12 +122,6 @@ function MonthlyView({ goToDate }) {
                     data-src={img.thumbnailUrl}
                     className="monthly-thumbnail"
                     alt="Daily thumbnail"
-                    style={{
-                      width: '100%',
-                      height: 'auto',
-                      objectFit: 'cover',
-                      backgroundColor: '#f0f0f0'
-                    }}
                   />
                 )}
               </div>
