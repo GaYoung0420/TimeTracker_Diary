@@ -16,10 +16,16 @@
   box-sizing: border-box;
 }
 
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 .App {
   width: 100%;
   min-height: 100vh;
   background: #ffffff;
+  overflow-x: hidden;
 }
 
 /* ========================================
@@ -440,6 +446,34 @@
 
 .add-event-button-mobile:active {
   transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .wake-sleep-container {
+    flex-wrap: nowrap;
+    gap: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+  }
+  
+  .wake-sleep-container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+
+  .wake-sleep-item {
+    padding: 4px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .add-event-button-mobile {
+    padding: 6px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
 }
 
 /* ========================================
@@ -2104,13 +2138,17 @@
 @media (max-width: 820px), (hover: none) and (pointer: coarse) and (orientation: portrait) {
   .main-container {
     grid-template-columns: 1fr !important;
-    gap: 12px;
+    gap: 0;
     max-width: 100%;
+    width: 100%;
+    margin: 0;
+    border-radius: 0;
   }
 
   .left-panel,
   .right-panel {
     padding: 16px;
+    border-radius: 0;
   }
 }
 
