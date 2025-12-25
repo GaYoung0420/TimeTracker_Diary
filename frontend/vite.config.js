@@ -11,5 +11,28 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'monthly': [
+            './src/components/Monthly/MonthlyView.jsx',
+            './src/components/Monthly/MonthlyStats.jsx',
+            './src/components/Monthly/MonthlyTimeGrid.jsx'
+          ]
+        }
+      }
+    },
+    chunkSizeWarningLimit: 600,
+    cssCodeSplit: true,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.logs in production
+        drop_debugger: true
+      }
+    }
   }
 })

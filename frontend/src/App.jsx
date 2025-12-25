@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import './App.css';
 import DailyView from './components/Daily/DailyView';
-import MonthlyView from './components/Monthly/MonthlyView';
+
+// Lazy load MonthlyView since it's not needed initially
+const MonthlyView = lazy(() => import('./components/Monthly/MonthlyView'));
 
 function App() {
   const [currentView, setCurrentView] = useState('daily');
@@ -50,7 +52,9 @@ function App() {
 
       <div className={`view-container ${currentView === 'monthly' ? 'active' : ''}`}>
         {currentView === 'monthly' && (
-          <MonthlyView goToDate={goToDate} />
+          <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>로딩 중...</div>}>
+            <MonthlyView goToDate={goToDate} />
+          </Suspense>
         )}
       </div>
     </div>
