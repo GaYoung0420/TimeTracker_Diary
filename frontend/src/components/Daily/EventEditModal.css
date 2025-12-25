@@ -213,3 +213,106 @@
   background: #fecaca;
   color: #b91c1c;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .modal-content {
+    width: 95%;
+    max-width: none;
+    padding: 24px 20px;
+    border-radius: 12px;
+    max-height: 85vh;
+  }
+
+  .modal-content h2 {
+    font-size: 20px;
+    margin-bottom: 20px;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-group label {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .form-group input[type="text"],
+  .form-group input[type="time"],
+  .form-group select,
+  .form-group textarea {
+    padding: 10px 14px;
+    font-size: 16px; /* Prevent zoom on iOS */
+    border-radius: 8px;
+  }
+
+  .form-group textarea {
+    min-height: 60px;
+  }
+
+  .form-row {
+    gap: 12px;
+  }
+
+  .checkbox-text {
+    font-size: 14px;
+  }
+
+  .modal-actions {
+    margin-top: 24px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .modal-actions-right {
+    gap: 8px;
+  }
+
+  .btn-submit,
+  .btn-cancel,
+  .btn-delete {
+    padding: 12px 20px;
+    font-size: 14px;
+    border-radius: 8px;
+  }
+
+  /* Make buttons full width on very small screens */
+  @media (max-width: 400px) {
+    .modal-actions {
+      flex-direction: column;
+    }
+
+    .modal-actions-right {
+      width: 100%;
+      flex-direction: column;
+    }
+
+    .btn-submit,
+    .btn-cancel,
+    .btn-delete {
+      width: 100%;
+    }
+  }
+}
+
+/* Landscape mobile orientation */
+@media (max-width: 768px) and (orientation: landscape) {
+  .modal-content {
+    max-height: 90vh;
+    padding: 16px 20px;
+  }
+
+  .modal-content h2 {
+    font-size: 18px;
+    margin-bottom: 16px;
+  }
+
+  .form-group {
+    margin-bottom: 12px;
+  }
+
+  .modal-actions {
+    margin-top: 16px;
+  }
+}
