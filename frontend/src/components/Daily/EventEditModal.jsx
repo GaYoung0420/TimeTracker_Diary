@@ -42,67 +42,69 @@ function EventEditModal({ event, categories, onUpdate, onDelete, onClose }) {
         <h2>{isNewEvent ? '이벤트 추가' : '이벤트 수정'}</h2>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>제목</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="이벤트 제목"
-              required
-            />
-          </div>
-
-          <div className="form-row">
+          <div className="modal-scroll-content">
             <div className="form-group">
-              <label>시작 시간</label>
+              <label>제목</label>
               <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="이벤트 제목"
                 required
               />
             </div>
 
+            <div className="form-row">
+              <div className="form-group">
+                <label>시작 시간</label>
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>종료 시간</label>
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
             <div className="form-group">
-              <label>종료 시간</label>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                required
+              <label>카테고리</label>
+              <select value={categoryId} onChange={(e) => setCategoryId(parseInt(e.target.value))}>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group checkbox-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={isPlan}
+                  onChange={(e) => setIsPlan(e.target.checked)}
+                />
+                <span className="checkbox-text">계획 이벤트로 추가</span>
+              </label>
+            </div>
+
+            <div className="form-group">
+              <label>설명</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="이벤트 설명 (선택사항)"
+                rows={3}
               />
             </div>
-          </div>
-
-          <div className="form-group">
-            <label>카테고리</label>
-            <select value={categoryId} onChange={(e) => setCategoryId(parseInt(e.target.value))}>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group checkbox-group">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={isPlan}
-                onChange={(e) => setIsPlan(e.target.checked)}
-              />
-              <span className="checkbox-text">계획 이벤트로 추가</span>
-            </label>
-          </div>
-
-          <div className="form-group">
-            <label>설명</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="이벤트 설명 (선택사항)"
-              rows={3}
-            />
           </div>
 
           <div className="modal-actions">
