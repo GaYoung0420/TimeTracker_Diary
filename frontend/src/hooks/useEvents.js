@@ -73,9 +73,9 @@ export function useEvents(currentDate) {
   };
 
   // Create new event
-  const createEvent = useCallback(async (title, start_time, end_time, category, description = '', end_date = null) => {
+  const createEvent = useCallback(async (title, start_time, end_time, category_id, is_plan = false, description = '', end_date = null) => {
     try {
-      const result = await api.createEvent(dateKey, title, start_time, end_time, category, description, end_date);
+      const result = await api.createEvent(dateKey, title, start_time, end_time, category_id, is_plan, description, end_date);
       if (result.success) {
         // Optimistically update UI - backend now returns formatted event
         setEvents(prev => [...prev, result.event]);
