@@ -35,14 +35,11 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
     const formattedStartTime = startTime.length === 5 ? `${startTime}:00` : startTime;
     const formattedEndTime = endTime.length === 5 ? `${endTime}:00` : endTime;
 
-    // Construct full ISO timestamps
-    const startIso = `${startDate}T${formattedStartTime}`;
-    const endIso = `${endDate}T${formattedEndTime}`;
-
     onUpdate(event.id, {
       title,
-      start_time: startIso,
-      end_time: endIso,
+      start_time: formattedStartTime,
+      end_time: formattedEndTime,
+      date: startDate,
       category_id: categoryId
     });
   };

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { formatKoreanTime, getCategoryColorByName, getCategoryTextColorByName, hexToRgba, getLocalDateString } from '../../utils/helpers';
 import EventEditModal from './EventEditModal';
 import EventEditPopup from './EventEditPopup';
@@ -28,6 +28,15 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
   const lastDragEndRef = useRef(null);
   const eventDragRafRef = useRef(null);
   const resizeRafRef = useRef(null);
+
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(new Date());
+    }, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, []);
 
   // Get coordinates from mouse or touch event
   const getEventCoordinates = (e) => {
@@ -883,6 +892,33 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
               );
             })}
           </div>
+
+          {getLocalDateString(currentDate) === getLocalDateString(now) && (
+            <div
+              className="current-time-indicator"
+              style={{
+                position: 'absolute',
+                top: `${(now.getHours() * 60 + now.getMinutes()) / 60 * hourHeight}px`,
+                left: 0,
+                right: 0,
+                height: '2px',
+                backgroundColor: 'red',
+                opacity: 0.2,
+                zIndex: 20,
+                pointerEvents: 'none'
+              }}
+            >
+              <div style={{
+                position: 'absolute',
+                left: '-5px',
+                top: '-4px',
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                backgroundColor: 'red'
+              }} />
+            </div>
+          )}
         </div>
       </div>
 
