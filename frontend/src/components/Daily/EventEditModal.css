@@ -216,12 +216,18 @@
 
 /* Mobile Responsive Styles */
 @media (max-width: 768px) {
+  .modal-overlay {
+    align-items: flex-start;
+    padding: 20px 0;
+  }
+
   .modal-content {
-    width: 95%;
+    width: 100%;
     max-width: none;
-    padding: 24px 20px;
-    border-radius: 12px;
-    max-height: 85vh;
+    padding: 20px 16px;
+    border-radius: 16px 16px 0 0;
+    max-height: 90vh;
+    margin-top: auto;
   }
 
   .modal-content h2 {
