@@ -491,16 +491,23 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
   const handleEventClick = (event, e) => {
     if (!timelineRef.current) return;
 
-    const rect = timelineRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-
     setSelectedEvent(event);
-    setPopupPosition({
-      x: clickX + 10 > rect.width / 2 ? clickX + 150 : clickX + 10,
-      y: clickY + 220 > rect.height ? clickY - 30 : clickY + 10
-    });
-    setShowEditPopup(true);
+
+    // On mobile, open modal instead of popup
+    if (isMobile()) {
+      setShowEditModal(true);
+    } else {
+      // On desktop, open popup at click position
+      const rect = timelineRef.current.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+
+      setPopupPosition({
+        x: clickX + 10 > rect.width / 2 ? clickX + 150 : clickX + 10,
+        y: clickY + 220 > rect.height ? clickY - 30 : clickY + 10
+      });
+      setShowEditPopup(true);
+    }
   };
 
   const handleEventUpdate = async (id, updates) => {
