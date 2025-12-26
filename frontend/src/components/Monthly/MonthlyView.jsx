@@ -71,6 +71,8 @@ function MonthlyView({ goToDate }) {
             const day = idx + 1;
             const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const img = imagesMap[day];
+            // Safari optimization: use loading="lazy" for images after first week
+            const shouldLazyLoad = idx >= 7;
 
             return (
               <div
@@ -84,6 +86,7 @@ function MonthlyView({ goToDate }) {
                     src={img.thumbnailUrl}
                     className="monthly-thumbnail"
                     alt="Daily thumbnail"
+                    loading={shouldLazyLoad ? "lazy" : "eager"}
                     decoding="async"
                   />
                 )}
