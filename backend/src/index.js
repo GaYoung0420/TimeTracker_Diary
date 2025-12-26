@@ -7,6 +7,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { createClient } from '@supabase/supabase-js';
 import { google } from 'googleapis';
 import multer from 'multer';
+import sharp from 'sharp';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { setupEventsAPI } from './events-api.js';
@@ -594,10 +595,23 @@ app.post('/api/images/upload', upload.single('image'), async (req, res) => {
     const fileExt = file.originalname.split('.').pop();
     const fileName = `${date}_${timestamp}.${fileExt}`;
     const filePath = `${date}/${fileName}`;
+    const thumbnailFileName = `${date}_${timestamp}_thumb.jpeg`;
+    const thumbnailPath = `${date}/${thumbnailFileName}`;
 
     console.log('Uploading to Supabase Storage:', filePath);
 
-    // Upload to Supabase Storage
+    // Create thumbnail using sharp (200x200, 80% quality)
+    const thumbnailBuffer = await sharp(file.buffer)
+      .resize(200, 200, {
+        fit: 'cover',
+        position: 'center'
+      })
+      .jpeg({ quality: 80 })
+      .toBuffer();
+
+    console.log('Thumbnail created:', thumbnailBuffer.length, 'bytes');
+
+    // Upload original image
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('diary-images')
       .upload(filePath, file.buffer, {
@@ -610,18 +624,34 @@ app.post('/api/images/upload', upload.single('image'), async (req, res) => {
       throw uploadError;
     }
 
+    // Upload thumbnail
+    const { data: thumbUploadData, error: thumbUploadError } = await supabase.storage
+      .from('diary-images')
+      .upload(thumbnailPath, thumbnailBuffer, {
+        contentType: 'image/jpeg',
+        upsert: false
+      });
+
+    if (thumbUploadError) {
+      console.error('Thumbnail upload error:', thumbUploadError);
+      // Don't throw - continue with original image
+    }
+
     console.log('Upload successful:', uploadData);
 
-    // Get public URL
+    // Get public URLs
     const { data: urlData } = supabase.storage
       .from('diary-images')
       .getPublicUrl(filePath);
 
-    console.log('Public URL:', urlData.publicUrl);
+    const { data: thumbUrlData } = supabase.storage
+      .from('diary-images')
+      .getPublicUrl(thumbnailPath);
 
-    // Generate thumbnail URL using Supabase image transformation
-    // https://supabase.com/docs/guides/storage/serving/image-transformations
-    const thumbnailUrl = `${urlData.publicUrl}?width=200&height=200&resize=cover&quality=80`;
+    console.log('Public URL:', urlData.publicUrl);
+    console.log('Thumbnail URL:', thumbUrlData.publicUrl);
+
+    const thumbnailUrl = thumbUploadError ? urlData.publicUrl : thumbUrlData.publicUrl;
 
     // Save to database
     const { data: dbData, error: dbError } = await supabase
