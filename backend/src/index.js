@@ -619,6 +619,10 @@ app.post('/api/images/upload', upload.single('image'), async (req, res) => {
 
     console.log('Public URL:', urlData.publicUrl);
 
+    // Generate thumbnail URL using Supabase image transformation
+    // https://supabase.com/docs/guides/storage/serving/image-transformations
+    const thumbnailUrl = `${urlData.publicUrl}?width=200&height=200&resize=cover&quality=80`;
+
     // Save to database
     const { data: dbData, error: dbError } = await supabase
       .from('images')
@@ -626,7 +630,7 @@ app.post('/api/images/upload', upload.single('image'), async (req, res) => {
         date,
         file_id: fileName,
         file_name: file.originalname,
-        thumbnail_url: urlData.publicUrl,
+        thumbnail_url: thumbnailUrl,
         view_url: urlData.publicUrl
       })
       .select()
