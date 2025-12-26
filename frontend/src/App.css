@@ -24,7 +24,7 @@ html, body {
 .App {
   width: 100%;
   min-height: 100vh;
-  background: #ffffff;
+  background: var(--background-color);
   overflow-x: hidden;
 }
 
@@ -37,66 +37,10 @@ html, body {
   align-items: center;
   min-height: 100vh;
   font-size: 18px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
-.login-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.login-card {
-  background: white;
-  padding: 48px 40px;
-  border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-  text-align: center;
-  max-width: 400px;
-  width: 90%;
-}
-
-.login-card h1 {
-  margin: 0 0 12px 0;
-  font-size: 28px;
-  color: #333;
-}
-
-.login-card p {
-  margin: 0 0 32px 0;
-  color: #666;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.google-login-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 24px;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.google-login-btn:hover {
-  background: #f8f9fa;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  transform: translateY(-1px);
-}
-
-.google-login-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
+/* Login styles moved to Auth.css */
 
 /* ========================================
    페이지 래퍼
@@ -115,21 +59,24 @@ html, body {
 .header {
   padding: 12px 24px;
   padding-right: 0;
-  border-bottom: 1px solid #e9e9e7;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #ffffff;
+  background: var(--surface-color);
   position: sticky;
   top: 0;
   z-index: 100;
+  box-shadow: var(--shadow-sm);
 }
 
 .header-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #37352f;
+  font-family: 'Outfit', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
   white-space: nowrap;
+  letter-spacing: -0.5px;
 }
 
 .header-actions {
@@ -145,27 +92,31 @@ html, body {
   align-items: center;
   gap: 12px;
   padding-left: 24px;
-  border-left: 1px solid #e9e9e7;
+  border-left: 1px solid var(--border-color);
 }
 
 .user-email {
-  font-size: 13px;
-  color: #666;
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .logout-btn {
-  padding: 6px 12px;
-  background: #f1f1ef;
-  border: none;
-  border-radius: 6px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
   cursor: pointer;
   font-size: 13px;
-  color: #37352f;
-  transition: all 0.2s;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: var(--transition-base);
 }
 
 .logout-btn:hover {
-  background: #e3e2df;
+  background: #f1f5f9;
+  color: var(--text-primary);
+  border-color: #cbd5e1;
 }
 
 /* ========================================
@@ -180,25 +131,27 @@ html, body {
 }
 
 .date-nav-btn {
-  background: none;
-  border: 1px solid #e9e9e7;
-  padding: 6px 12px;
-  border-radius: 6px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  padding: 8px 16px;
+  border-radius: var(--border-radius-sm);
   cursor: pointer;
   font-size: 13px;
-  color: #37352f;
-  transition: all 0.2s;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: var(--transition-base);
   white-space: nowrap;
 }
 
 .date-nav-btn:hover {
-  background: #f7f6f3;
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
 
 .date-nav-btn.active {
-  background: #2383e2;
-  color: #ffffff;
-  border-color: #2383e2;
+  background: var(--primary-color);
+  color: var(--text-on-primary);
+  border-color: var(--primary-color);
 }
 
 .current-date {
@@ -220,9 +173,9 @@ html, body {
 }
 
 .view-toggle-btn.active {
-  background: #2383e2;
-  color: #ffffff;
-  border-color: #2383e2;
+  background: var(--primary-color);
+  color: var(--text-on-primary);
+  border-color: var(--primary-color);
 }
 
 /* ========================================
@@ -513,6 +466,18 @@ html, body {
   background: #ffffff;
   width: 100%;
   overflow-x: hidden;
+}
+
+.timeline-hover-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px dotted var(--primary-color);
+  pointer-events: none;
+  z-index: 100;
+  display: none;
+  opacity: 0.8;
 }
 
 .timeline-loading {
@@ -817,8 +782,8 @@ html, body {
 }
 
 .routine-card.completed .routine-check {
-  background: #4caf50;
-  border-color: #4caf50;
+  background: var(--success-color);
+  border-color: var(--success-color);
   color: #fff;
 }
 
@@ -838,7 +803,7 @@ html, body {
 
 .routine-input:focus {
   outline: none;
-  border-color: #2383e2;
+  border-color: var(--primary-color);
 }
 
 .routine-actions {
@@ -913,12 +878,12 @@ html, body {
 }
 
 .routine-edit-btn.save {
-  background: #4caf50;
-  color: white;
+  background: var(--primary-color);
+  color: var(--text-on-primary);
 }
 
 .routine-edit-btn.save:hover {
-  background: #45a049;
+  background: var(--primary-dark);
 }
 
 .routine-edit-btn.cancel {
@@ -1705,22 +1670,20 @@ html, body {
 }
 
 .monthly-day-cell:hover {
-  background: #f7f6f3;
-  border-color: #2383e2;
+  border-color: var(--primary-color);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(35, 131, 226, 0.15);
   z-index: 10;
 }
 
 .monthly-day-cell.empty {
-  background: #fafafa;
   cursor: default;
   pointer-events: none;
 }
 
 .monthly-day-cell.today {
-  border-color: #2383e2;
-  background: #e3f2fd;
+  border-color: var(--primary-color);
+  
 }
 
 .monthly-date-num {
@@ -1730,7 +1693,7 @@ html, body {
 }
 
 .monthly-day-cell.today .monthly-date-num {
-  color: #2383e2;
+  color: var(--primary-color);
   font-size: 18px;
 }
 
@@ -1793,9 +1756,9 @@ html, body {
 }
 
 .view-mode-btn.active {
-  background: #2383e2;
-  border-color: #2383e2;
-  color: white;
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--text-on-primary);
 }
 
 /* Monthly Time Tracker Grid - Google Apps Script Style */
@@ -1810,6 +1773,17 @@ html, body {
   background: #ffffff;
 }
 
+.tt-hover-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px dotted var(--primary-color);
+  pointer-events: none;
+  z-index: 100;
+  display: none;
+  opacity: 0.8;
+}
 
 .monthly-timetracker-wrapper .loading {
   position: absolute;
@@ -1832,6 +1806,10 @@ html, body {
   border: 1px solid #e9e9e7;
   border-radius: 8px;
   overflow: visible;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 /* 시간 라벨 열 */

@@ -13,6 +13,57 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
     loadTimeData();
   }, [currentMonth]);
 
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const hoverLine = document.getElementById('tt-hover-line');
+      const wrapper = document.querySelector('.monthly-timetracker-wrapper');
+      const tracker = trackerRef.current;
+
+      if (!hoverLine || !wrapper || !tracker) {
+        console.log('Missing elements:', { hoverLine: !!hoverLine, wrapper: !!wrapper, tracker: !!tracker });
+        return;
+      }
+
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const trackerRect = tracker.getBoundingClientRect();
+
+      const mouseY = e.clientY;
+      const relativeY = mouseY - wrapperRect.top + wrapper.scrollTop;
+
+      // Always show the line when mouse is over the wrapper
+      hoverLine.style.top = relativeY + 'px';
+      hoverLine.style.display = 'block';
+    };
+
+    const handleMouseLeave = () => {
+      const hoverLine = document.getElementById('tt-hover-line');
+      if (hoverLine) {
+        hoverLine.style.display = 'none';
+      }
+    };
+
+    // Add a small delay to ensure DOM is ready
+    const timeoutId = setTimeout(() => {
+      const wrapper = document.querySelector('.monthly-timetracker-wrapper');
+      if (wrapper) {
+        wrapper.addEventListener('mousemove', handleMouseMove);
+        wrapper.addEventListener('mouseleave', handleMouseLeave);
+        console.log('Hover line events attached');
+      } else {
+        console.log('Wrapper not found');
+      }
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      const wrapper = document.querySelector('.monthly-timetracker-wrapper');
+      if (wrapper) {
+        wrapper.removeEventListener('mousemove', handleMouseMove);
+        wrapper.removeEventListener('mouseleave', handleMouseLeave);
+      }
+    };
+  }, [timeData]);
+
   const loadTimeData = async () => {
     setLoading(true);
     setError(null);
@@ -51,13 +102,38 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
     // 전체 월의 모든 이벤트 수집
     const allEvents = days.flatMap(dayData => dayData.events || []);
 
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+
+    // Parse ISO string as local time (ignoring timezone)
+    const parseLocalTime = (isoString) => {
+      if (!isoString) return new Date();
+      const localIso = isoString.split(/[+Z]/)[0];
+      return new Date(localIso);
+    };
+
     days.forEach((dayData) => {
       const dayColumn = dayColumns[dayData.date - 1];
       if (!dayColumn) return;
 
-      if (dayData.events && dayData.events.length > 0) {
-        console.log(`${dayData.date}일: ${dayData.events.length}개 이벤트 렌더링`);
-        renderDayEventsAbsolute(dayColumn, dayData.events);
+      // Collect all events that overlap with this day
+      const eventsForThisDay = [];
+
+      allEvents.forEach(event => {
+        const eventStart = parseLocalTime(event.start);
+        const eventEnd = parseLocalTime(event.end);
+        const dayStart = new Date(year, month, dayData.date, 0, 0, 0, 0);
+        const dayEnd = new Date(year, month, dayData.date + 1, 0, 0, 0, 0);
+
+        // Check if event overlaps with this day
+        if (eventStart < dayEnd && eventEnd > dayStart) {
+          eventsForThisDay.push(event);
+        }
+      });
+
+      if (eventsForThisDay.length > 0) {
+        console.log(`${dayData.date}일: ${eventsForThisDay.length}개 이벤트 렌더링`);
+        renderDayEventsAbsolute(dayColumn, eventsForThisDay);
       }
 
       // 기상/취침 시간 마커 추가
@@ -222,6 +298,7 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
 
     return (
       <div className="monthly-timetracker-wrapper">
+        <div className="tt-hover-line" id="tt-hover-line"></div>
         <div className="monthly-timetracker" ref={trackerRef}>
           {/* 시간 열 */}
           <div className="tt-time-column">

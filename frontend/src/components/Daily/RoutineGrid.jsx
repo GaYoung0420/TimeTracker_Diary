@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './EventEditModal.css';
+import './RoutineGrid.css';
 
 function RoutineGrid({ routines, routineChecks, onToggle, onAdd, onUpdate, onDelete, onReorder }) {
   const [newRoutine, setNewRoutine] = useState('');
@@ -175,24 +176,23 @@ function RoutineGrid({ routines, routineChecks, onToggle, onAdd, onUpdate, onDel
       </div>
 
       {showAddModal && (
-        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '16px' }}>새 루틴 추가</h3>
+        <div className="routine-modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="routine-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3 className="routine-modal-title">새 루틴 추가</h3>
             <div className="form-group">
               <input
                 type="text"
-                className="routine-input"
+                className="routine-modal-input"
                 placeholder="루틴 이름 입력..."
                 value={newRoutine}
                 onChange={(e) => setNewRoutine(e.target.value)}
                 onKeyPress={handleKeyPress}
                 autoFocus
-                style={{ width: '100%', padding: '8px', marginBottom: '16px', border: '1px solid #ddd', borderRadius: '4px', boxSizing: 'border-box' }}
               />
             </div>
-            <div className="form-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button className="btn-cancel" onClick={() => setShowAddModal(false)} style={{ padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', background: '#b4b4b4ff' }}>취소</button>
-              <button className="btn-save" onClick={handleAdd} style={{ padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', background: '#4CAF50', color: 'white' }}>추가</button>
+            <div className="routine-modal-actions">
+              <button className="routine-btn-cancel" onClick={() => setShowAddModal(false)}>취소</button>
+              <button className="routine-btn-save" onClick={handleAdd}>추가</button>
             </div>
           </div>
         </div>

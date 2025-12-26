@@ -1,0 +1,92 @@
+.routine-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.routine-modal-content {
+  background: var(--surface-color);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 32px;
+  width: 90%;
+  max-width: 400px;
+  animation: slideUp 0.3s ease-out;
+}
+
+.routine-modal-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.routine-modal-input {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 16px;
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  outline: none;
+  transition: var(--transition-base);
+  background-color: #f8fafc;
+  color: var(--text-primary);
+  margin-bottom: 32px;
+}
+
+.routine-modal-input:focus {
+  border-color: var(--primary-color);
+  background-color: var(--surface-color);
+  box-shadow: 0 0 0 4px rgba(183, 229, 205, 0.2);
+}
+
+.routine-modal-actions {
+  display: flex;
+  justify-content: stretch;
+  gap: 12px;
+}
+
+.routine-btn-cancel,
+.routine-btn-save {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: var(--border-radius-md);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-base);
+}
+
+.routine-btn-cancel {
+  background-color: #f1f5f9;
+  color: var(--text-secondary);
+}
+
+.routine-btn-cancel:hover {
+  background-color: #e2e8f0;
+  color: var(--text-primary);
+}
+
+.routine-btn-save {
+  background-color: var(--primary-color);
+  color: var(--text-on-primary);
+  box-shadow: 0 4px 6px rgba(183, 229, 205, 0.2);
+}
+
+.routine-btn-save:hover {
+  background-color: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(183, 229, 205, 0.3);
+}

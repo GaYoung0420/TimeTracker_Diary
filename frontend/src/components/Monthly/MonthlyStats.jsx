@@ -97,7 +97,7 @@ function MonthlyStats({ currentMonth, goToDate }) {
                       className={`status-cell ${isWeekend ? 'weekend' : ''} ${isFuture ? 'future' : ''}`}
                       onClick={() => goToDate(dateKey)}
                     >
-                      {isFuture ? '' : (isChecked ? '⭕' : '❌')}
+                      {isFuture ? '' : (isChecked ? '🔵' : '❌')}
                     </td>
                   );
                 })}

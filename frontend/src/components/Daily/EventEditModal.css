@@ -199,15 +199,14 @@
 }
 
 .btn-submit {
-  background: #b0a291;
-  color: white;
-  box-shadow: 0 4px 12px rgba(212, 184, 150, 0.3);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  color: var(--text-on-primary);
+  box-shadow: 0 4px 12px rgba(183, 229, 205, 0.3);
 }
 
 .btn-submit:hover {
-  background: #C9A882;
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(201, 168, 130, 0.4);
+  box-shadow: 0 6px 16px rgba(183, 229, 205, 0.4);
 }
 
 .btn-submit:active {

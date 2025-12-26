@@ -10,3 +10,5 @@ yarn-error.log*
 # Don't ignore frontend/dist - we need it for deployment
 # dist/
 build/
+*.db
+.claude/
