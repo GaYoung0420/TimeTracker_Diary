@@ -601,7 +601,9 @@ app.post('/api/images/upload', upload.single('image'), async (req, res) => {
     console.log('Uploading to Supabase Storage:', filePath);
 
     // Create thumbnail using sharp (200x200, 80% quality)
+    // rotate() auto-rotates based on EXIF orientation
     const thumbnailBuffer = await sharp(file.buffer)
+      .rotate() // Auto-rotate based on EXIF orientation
       .resize(200, 200, {
         fit: 'cover',
         position: 'center'

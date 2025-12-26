@@ -38,12 +38,8 @@ async function generateThumbnails() {
 
     for (const image of images) {
       try {
-        // Check if thumbnail already exists as separate file
-        if (image.thumbnail_url && image.thumbnail_url.includes('_thumb.jpeg')) {
-          console.log(`Skipping image ${image.id} - already has thumbnail file`);
-          skipped++;
-          continue;
-        }
+        // Force regenerate all thumbnails to fix rotation issues
+        // (Previously we skipped existing thumbnails, but now we need to regenerate with EXIF rotation)
 
         // Download original image
         console.log(`Processing image ${image.id}...`);
@@ -55,8 +51,9 @@ async function generateThumbnails() {
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        // Create thumbnail
+        // Create thumbnail with auto-rotation based on EXIF
         const thumbnailBuffer = await sharp(buffer)
+          .rotate() // Auto-rotate based on EXIF orientation
           .resize(200, 200, {
             fit: 'cover',
             position: 'center'
