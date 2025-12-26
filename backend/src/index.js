@@ -1140,34 +1140,33 @@ app.post('/api/monthly/time-stats', async (req, res) => {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
 
-    // Fetch all categories
-    const { data: categories, error: categoriesError } = await supabase
-      .from('categories')
-      .select('*')
-      .order('id');
+    // Fetch categories and events in parallel for better performance
+    const [categoriesResult, eventsResult] = await Promise.all([
+      supabase
+        .from('categories')
+        .select('id, name, color')
+        .order('id'),
+      supabase
+        .from('events')
+        .select(`
+          date,
+          title,
+          start_time,
+          end_time,
+          category:categories(name, color)
+        `)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .eq('is_plan', false)
+        .order('date')
+        .order('start_time')
+    ]);
 
-    if (categoriesError) throw categoriesError;
+    if (categoriesResult.error) throw categoriesResult.error;
+    if (eventsResult.error) throw eventsResult.error;
 
-    // Fetch all actual events (is_plan = false) for the month, with category info
-    const { data: allEvents, error: eventsError} = await supabase
-      .from('events')
-      .select(`
-        id,
-        date,
-        title,
-        start_time,
-        end_time,
-        category_id,
-        is_plan,
-        category:categories(id, name, color)
-      `)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .eq('is_plan', false) // Only actual events
-      .order('date')
-      .order('start_time');
-
-    if (eventsError) throw eventsError;
+    const categories = categoriesResult.data;
+    const allEvents = eventsResult.data;
 
     console.log(`\n=== Monthly Time Stats for ${year}-${month} ===`);
     console.log(`Total actual events fetched: ${allEvents ? allEvents.length : 0}`);
