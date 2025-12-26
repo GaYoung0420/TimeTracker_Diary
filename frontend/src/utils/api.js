@@ -294,23 +294,66 @@ export const api = {
 
   // Auth
   async register(email, password, username) {
-    const res = await fetch(`${API_URL}/api/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ email, password, username })
-    });
-    return res.json();
+    try {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password, username })
+      });
+
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        return await res.json();
+      }
+
+      if (!res.ok) {
+        return { 
+          success: false, 
+          message: `서버 오류가 발생했습니다. (${res.status})` 
+        };
+      }
+
+      return { success: false, message: '서버 응답 형식이 올바르지 않습니다.' };
+    } catch (error) {
+      console.error('Register API Error:', error);
+      return { 
+        success: false, 
+        message: '서버와 연결할 수 없습니다. 네트워크 상태를 확인해주세요.' 
+      };
+    }
   },
 
   async login(email, password) {
-    const res = await fetch(`${API_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ email, password })
-    });
-    return res.json();
+    try {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password })
+      });
+
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        return await res.json();
+      }
+
+      // If response is not JSON (e.g. 404 HTML, 500 text)
+      if (!res.ok) {
+        return { 
+          success: false, 
+          message: `서버 오류가 발생했습니다. (${res.status})` 
+        };
+      }
+
+      return { success: false, message: '서버 응답 형식이 올바르지 않습니다.' };
+    } catch (error) {
+      console.error('Login API Error:', error);
+      return { 
+        success: false, 
+        message: '서버와 연결할 수 없습니다. 네트워크 상태를 확인해주세요.' 
+      };
+    }
   },
 
   async logout() {
