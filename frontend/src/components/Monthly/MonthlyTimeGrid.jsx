@@ -77,17 +77,21 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
         setTimeData(result.data.days);
         setCategories(result.data.categories || []);
 
-        // DOM 렌더링 완료 후 이벤트 렌더링
+        // DOM 렌더링 완료 후 이벤트 렌더링하고 로딩 완료
         requestAnimationFrame(() => {
           renderAllEvents(result.data.days);
+          // 이벤트 렌더링 후 약간의 딜레이를 주고 로딩 완료
+          setTimeout(() => {
+            setLoading(false);
+          }, 100);
         });
       } else {
         setError(result.error || '데이터 로드 실패');
+        setLoading(false);
       }
     } catch (error) {
       console.error('Failed to load monthly time data:', error);
       setError(error.message || '데이터를 불러올 수 없습니다');
-    } finally {
       setLoading(false);
     }
   };

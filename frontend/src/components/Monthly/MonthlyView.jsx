@@ -7,15 +7,17 @@ import { getLocalDateString } from '../../utils/helpers';
 function MonthlyView({ goToDate }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [monthlyData, setMonthlyData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [calendarLoading, setCalendarLoading] = useState(true);
   const [viewMode, setViewMode] = useState('calendar'); // 'calendar', 'time', or 'stats'
 
   useEffect(() => {
-    loadMonthlyData();
-  }, [currentMonth]);
+    if (viewMode === 'calendar') {
+      loadMonthlyData();
+    }
+  }, [currentMonth, viewMode]);
 
   const loadMonthlyData = async () => {
-    setLoading(true);
+    setCalendarLoading(true);
     try {
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth() + 1;
@@ -26,7 +28,7 @@ function MonthlyView({ goToDate }) {
     } catch (error) {
       console.error('Failed to load monthly data:', error);
     } finally {
-      setLoading(false);
+      setCalendarLoading(false);
     }
   };
 
@@ -124,18 +126,18 @@ function MonthlyView({ goToDate }) {
         </div>
       </div>
 
-      {loading ? (
-        <div className="monthly-loading-overlay">
-          <div className="loading-spinner"></div>
-          <div className="loading-text">데이터를 불러오는 중...</div>
-        </div>
-      ) : (
-        <>
-          {viewMode === 'calendar' && renderCalendarGrid()}
-          {viewMode === 'time' && <MonthlyTimeGrid currentMonth={currentMonth} goToDate={goToDate} />}
-          {viewMode === 'stats' && <MonthlyStats currentMonth={currentMonth} goToDate={goToDate} />}
-        </>
+      {viewMode === 'calendar' && (
+        calendarLoading ? (
+          <div className="monthly-loading-overlay">
+            <div className="loading-spinner"></div>
+            <div className="loading-text">캘린더 데이터를 불러오는 중...</div>
+          </div>
+        ) : (
+          renderCalendarGrid()
+        )
       )}
+      {viewMode === 'time' && <MonthlyTimeGrid currentMonth={currentMonth} goToDate={goToDate} />}
+      {viewMode === 'stats' && <MonthlyStats currentMonth={currentMonth} goToDate={goToDate} />}
     </div>
   );
 }
