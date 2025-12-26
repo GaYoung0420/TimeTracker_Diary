@@ -1027,6 +1027,9 @@ app.post('/api/monthly/stats', async (req, res) => {
     const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
     const cached = monthlyStatsCache.get(cacheKey);
     if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
+      // Add cache headers for browser caching
+      res.set('Cache-Control', 'public, max-age=300'); // 5 minutes
+      res.set('ETag', `"${cacheKey}-${cached.ts}"`);
       return res.json({ success: true, year, month, data: cached.data });
     }
 
@@ -1067,7 +1070,12 @@ app.post('/api/monthly/stats', async (req, res) => {
     }
 
     // Cache the monthly data (short TTL)
-    monthlyStatsCache.set(cacheKey, { data: monthlyData, ts: Date.now() });
+    const timestamp = Date.now();
+    monthlyStatsCache.set(cacheKey, { data: monthlyData, ts: timestamp });
+
+    // Add cache headers for browser caching
+    res.set('Cache-Control', 'public, max-age=300'); // 5 minutes
+    res.set('ETag', `"${cacheKey}-${timestamp}"`);
 
     res.json({ success: true, year, month, data: monthlyData });
   } catch (error) {

@@ -16,6 +16,25 @@ function MonthlyView({ goToDate }) {
     loadMonthlyData();
   }, [currentMonth]);
 
+  // Prefetch images when data is loaded
+  useEffect(() => {
+    if (viewMode === 'calendar' && monthlyData.length > 0) {
+      // Prefetch visible images immediately
+      const imagesToPrefetch = monthlyData
+        .filter(d => d.firstImage && d.firstImage.thumbnailUrl)
+        .slice(0, 14) // First two weeks
+        .map(d => d.firstImage.thumbnailUrl);
+
+      imagesToPrefetch.forEach(url => {
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.as = 'image';
+        link.href = url;
+        document.head.appendChild(link);
+      });
+    }
+  }, [monthlyData, viewMode]);
+
   useEffect(() => {
     // Setup Intersection Observer for lazy loading
     if (viewMode === 'calendar') {
@@ -26,14 +45,23 @@ function MonthlyView({ goToDate }) {
               const img = entry.target;
               const src = img.dataset.src;
               if (src && !img.src) {
-                img.src = src;
+                // Create a new Image object to preload
+                const preloadImg = new Image();
+                preloadImg.onload = () => {
+                  img.src = src;
+                  img.classList.add('loaded');
+                };
+                preloadImg.onerror = () => {
+                  img.classList.add('error');
+                };
+                preloadImg.src = src;
                 observerRef.current.unobserve(img);
               }
             }
           });
         },
         {
-          rootMargin: '50px', // Preload images 50px before they enter viewport
+          rootMargin: '300px', // Preload images 300px before they enter viewport (increased for Safari)
           threshold: 0.01
         }
       );
@@ -123,6 +151,8 @@ function MonthlyView({ goToDate }) {
                     data-src={img.thumbnailUrl}
                     className="monthly-thumbnail"
                     alt="Daily thumbnail"
+                    loading="lazy"
+                    decoding="async"
                   />
                 )}
               </div>
