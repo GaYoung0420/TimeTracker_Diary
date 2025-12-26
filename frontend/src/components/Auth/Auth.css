@@ -27,78 +27,228 @@
   height: 100%;
   z-index: 0;
   pointer-events: none;
+  overflow: hidden;
 }
 
-.graphic-circle {
+/* Dynamic Background Gradient Blob */
+.graphic-bg-gradient {
   position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.4) 0%, transparent 60%);
+  animation: rotate-bg 20s linear infinite;
+}
+
+@keyframes rotate-bg {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Abstract Clock Face */
+.graphic-clock-face {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(700px, 55vmin);
+  height: min(700px, 55vmin);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  animation: float 20s infinite ease-in-out;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+  box-shadow: 0 0 60px rgba(0,0,0,0.05);
 }
 
-.circle-1 {
-  width: 400px;
-  height: 400px;
-  top: -100px;
-  left: -100px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.05) 100%);
-  animation-delay: 0s;
+.graphic-clock-face::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 70%;
+  height: 70%;
+  border: 1px dashed rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
 }
 
-.circle-2 {
-  width: 500px;
-  height: 500px;
-  bottom: -150px;
-  right: -150px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%);
-  animation-delay: -5s;
+.clock-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2.4%;
+  height: 2.4%;
+  background: #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 10px rgba(255,255,255,0.5);
+  z-index: 2;
 }
 
-.circle-3 {
-  width: 200px;
-  height: 200px;
-  top: 30%;
+.clock-hand {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: linear-gradient(to top, #ffffff, rgba(255,255,255,0.2));
+  transform-origin: bottom center;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.hour-hand {
+  width: 1.2%;
+  height: 24%;
+  margin-left: -0.6%;
+  margin-top: -24%;
+  animation: clock-spin 120s linear infinite;
+}
+
+.minute-hand {
+  width: 0.8%;
+  height: 36%;
+  margin-left: -0.4%;
+  margin-top: -36%;
+  opacity: 0.9;
+  animation: clock-spin 20s linear infinite;
+}
+
+@keyframes clock-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Floating Glass Cards */
+.graphic-cards-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.glass-card {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: min(24px, 2.5vmin);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: min(24px, 2.5vmin);
+  gap: min(12px, 1.2vmin);
+  animation: float-card-vertical 6s ease-in-out infinite;
+}
+
+.card-top {
+  width: min(220px, 18vmin);
+  height: min(140px, 11vmin);
+  top: 20%;
   right: 15%;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.1) 100%);
-  animation-delay: -10s;
+  animation-delay: 0s;
+  transform: rotate(5deg);
 }
 
-@keyframes float {
-  0% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  33% {
-    transform: translate(30px, -50px) rotate(120deg);
-  }
-  66% {
-    transform: translate(-20px, 20px) rotate(240deg);
-  }
-  100% {
-    transform: translate(0, 0) rotate(360deg);
-  }
+.card-middle {
+  width: min(190px, 16vmin);
+  height: min(190px, 16vmin);
+  top: 45%;
+  left: 15%;
+  animation-delay: -2s;
+  transform: rotate(-5deg);
+  align-items: center;
 }
+
+.card-bottom {
+  width: min(250px, 20vmin);
+  height: min(160px, 13vmin);
+  bottom: 15%;
+  right: 20%;
+  animation-delay: -4s;
+  transform: rotate(3deg);
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-around;
+  padding-bottom: min(30px, 3vmin);
+}
+
+/* Card Inner Content Styling */
+.card-line {
+  height: min(10px, 1vmin);
+  background: rgba(255,255,255,0.6);
+  border-radius: 4px;
+  width: 100%;
+}
+
+.card-line.short {
+  width: 60%;
+}
+
+.card-icon {
+  width: min(50px, 4.5vmin);
+  height: min(50px, 4.5vmin);
+  border-radius: 50%;
+  background: rgba(255,255,255,0.6);
+  margin-bottom: min(12px, 1.2vmin);
+}
+
+.card-content {
+  width: 80%;
+  height: min(10px, 1vmin);
+  background: rgba(255,255,255,0.5);
+  border-radius: 4px;
+}
+
+.card-chart-bar {
+  width: min(28px, 2.5vmin);
+  background: linear-gradient(to top, #ffffff, rgba(255,255,255,0.4));
+  border-radius: 4px;
+}
+
+.card-chart-bar:nth-child(1) { height: 40%; }
+.card-chart-bar:nth-child(2) { height: 70%; }
+.card-chart-bar:nth-child(3) { height: 50%; }
+
+@keyframes float-card-vertical {
+  0%, 100% { transform: translateY(0) rotate(var(--rotation, 0deg)); }
+  50% { transform: translateY(-20px) rotate(var(--rotation, 0deg)); }
+}
+
+/* Update rotation for animation */
+.card-top { --rotation: 5deg; }
+.card-middle { --rotation: -5deg; }
+.card-bottom { --rotation: 3deg; }
 
 .auth-brand-content {
   max-width: 480px;
   z-index: 1;
   animation: fadeIn 0.8s ease-out;
+  position: relative; /* Reset position */
+  bottom: auto;
+  left: auto;
+  text-align: center;
 }
 
 .auth-brand-title {
+  display: block; /* Show title again */
   font-family: 'Outfit', sans-serif;
-  font-size: 64px;
+  font-size: 56px;
   font-weight: 800;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   line-height: 1.1;
-  letter-spacing: -2px;
+  letter-spacing: -1px;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .auth-brand-subtitle {
-  font-size: 20px;
+  font-size: 18px;
   opacity: 0.9;
   line-height: 1.6;
   font-weight: 500;
+  max-width: 100%;
+  text-shadow: none;
 }
 
 .auth-form-section {

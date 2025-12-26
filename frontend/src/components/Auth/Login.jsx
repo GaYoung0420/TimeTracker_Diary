@@ -33,9 +33,27 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
     <div className="auth-container">
       <div className="auth-brand-section">
         <div className="auth-brand-graphics">
-          <div className="graphic-circle circle-1"></div>
-          <div className="graphic-circle circle-2"></div>
-          <div className="graphic-circle circle-3"></div>
+          <div className="graphic-bg-gradient"></div>
+          <div className="graphic-clock-face">
+            <div className="clock-hand hour-hand"></div>
+            <div className="clock-hand minute-hand"></div>
+            <div className="clock-center"></div>
+          </div>
+          <div className="graphic-cards-container">
+            <div className="glass-card card-top">
+              <div className="card-line"></div>
+              <div className="card-line short"></div>
+            </div>
+            <div className="glass-card card-middle">
+              <div className="card-icon"></div>
+              <div className="card-content"></div>
+            </div>
+            <div className="glass-card card-bottom">
+              <div className="card-chart-bar"></div>
+              <div className="card-chart-bar"></div>
+              <div className="card-chart-bar"></div>
+            </div>
+          </div>
         </div>
         <div className="auth-brand-content">
           <h1 className="auth-brand-title">TimeTracker<br/>Diary</h1>
