@@ -16,11 +16,15 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
   // timeData가 변경되면 이벤트 렌더링
   useEffect(() => {
     if (timeData.length > 0 && !loading) {
+      console.log('🎯 Rendering events, timeData length:', timeData.length);
       // DOM이 완전히 렌더링된 후 이벤트 추가
       const timer = setTimeout(() => {
+        console.log('⏰ Timer fired, calling renderAllEvents');
         renderAllEvents(timeData);
       }, 50);
       return () => clearTimeout(timer);
+    } else {
+      console.log('❌ Not rendering events - timeData:', timeData.length, 'loading:', loading);
     }
   }, [timeData, loading]);
 
@@ -101,14 +105,18 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
   };
 
   const renderAllEvents = (days) => {
-    if (!trackerRef.current) return;
+    console.log('📍 renderAllEvents called with days:', days.length);
+    if (!trackerRef.current) {
+      console.log('❌ trackerRef.current is null');
+      return;
+    }
 
     const dayColumns = trackerRef.current.querySelectorAll('.tt-day-column');
-
-    console.log(`총 ${days.length}일 데이터, ${dayColumns.length}개 컬럼`);
+    console.log(`✅ 총 ${days.length}일 데이터, ${dayColumns.length}개 컬럼`);
 
     // 전체 월의 모든 이벤트 수집
     const allEvents = days.flatMap(dayData => dayData.events || []);
+    console.log(`📊 총 이벤트 수: ${allEvents.length}`);
 
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
