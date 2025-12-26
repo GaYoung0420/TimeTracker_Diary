@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
 import MonthlyTimeGrid from './MonthlyTimeGrid';
 import MonthlyStats from './MonthlyStats';
@@ -9,70 +9,10 @@ function MonthlyView({ goToDate }) {
   const [monthlyData, setMonthlyData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('calendar'); // 'calendar', 'time', or 'stats'
-  const [loadedImages, setLoadedImages] = useState(new Set());
-  const observerRef = useRef(null);
 
   useEffect(() => {
     loadMonthlyData();
   }, [currentMonth]);
-
-  // Prefetch images when data is loaded
-  useEffect(() => {
-    if (viewMode === 'calendar' && monthlyData.length > 0) {
-      // Prefetch visible images immediately
-      const imagesToPrefetch = monthlyData
-        .filter(d => d.firstImage && d.firstImage.thumbnailUrl)
-        .slice(0, 14) // First two weeks
-        .map(d => d.firstImage.thumbnailUrl);
-
-      imagesToPrefetch.forEach(url => {
-        const link = document.createElement('link');
-        link.rel = 'prefetch';
-        link.as = 'image';
-        link.href = url;
-        document.head.appendChild(link);
-      });
-    }
-  }, [monthlyData, viewMode]);
-
-  useEffect(() => {
-    // Setup Intersection Observer for lazy loading
-    if (viewMode === 'calendar') {
-      observerRef.current = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              const img = entry.target;
-              const src = img.dataset.src;
-              if (src && !img.src) {
-                // Create a new Image object to preload
-                const preloadImg = new Image();
-                preloadImg.onload = () => {
-                  img.src = src;
-                  img.classList.add('loaded');
-                };
-                preloadImg.onerror = () => {
-                  img.classList.add('error');
-                };
-                preloadImg.src = src;
-                observerRef.current.unobserve(img);
-              }
-            }
-          });
-        },
-        {
-          rootMargin: '300px', // Preload images 300px before they enter viewport (increased for Safari)
-          threshold: 0.01
-        }
-      );
-
-      return () => {
-        if (observerRef.current) {
-          observerRef.current.disconnect();
-        }
-      };
-    }
-  }, [viewMode]);
 
   const loadMonthlyData = async () => {
     setLoading(true);
@@ -101,12 +41,6 @@ function MonthlyView({ goToDate }) {
     const month = currentMonth.getMonth() + 1;
     return `${year}년 ${month}월`;
   };
-
-  const imageRefCallback = useCallback((node) => {
-    if (node && observerRef.current) {
-      observerRef.current.observe(node);
-    }
-  }, []);
 
   const renderCalendarGrid = () => {
     const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
@@ -147,11 +81,9 @@ function MonthlyView({ goToDate }) {
                 <div className="monthly-date-num">{day}</div>
                 {img && (
                   <img
-                    ref={imageRefCallback}
-                    data-src={img.thumbnailUrl}
+                    src={img.thumbnailUrl}
                     className="monthly-thumbnail"
                     alt="Daily thumbnail"
-                    loading="lazy"
                     decoding="async"
                   />
                 )}

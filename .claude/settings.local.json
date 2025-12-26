@@ -32,7 +32,9 @@
       "Bash(ssh:*)",
       "Bash(cat:*)",
       "Bash(sqlite3:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(nslookup:*)",
+      "Bash(dig:*)"
     ]
   }
 }
