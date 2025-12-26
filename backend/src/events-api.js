@@ -191,6 +191,9 @@ export function setupEventsAPI(app, supabase, cache) {
 
       if (error) throw error;
 
+      // Invalidate monthly cache
+      invalidateMonthlyCache(data.date);
+
       // Format event to match getEvents format
       const start = `${data.date}T${data.start_time}`;
       const end = `${data.date}T${data.end_time}`;
