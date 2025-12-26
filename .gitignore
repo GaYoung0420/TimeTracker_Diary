@@ -12,3 +12,6 @@ yarn-error.log*
 build/
 *.db
 .claude/
+
+# DuckDNS token (configure on server)
+duckdns-update.sh
