@@ -13,6 +13,17 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
     loadTimeData();
   }, [currentMonth]);
 
+  // timeData가 변경되면 이벤트 렌더링
+  useEffect(() => {
+    if (timeData.length > 0 && !loading) {
+      // DOM이 완전히 렌더링된 후 이벤트 추가
+      const timer = setTimeout(() => {
+        renderAllEvents(timeData);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [timeData, loading]);
+
   useEffect(() => {
     const handleMouseMove = (e) => {
       const hoverLine = document.getElementById('tt-hover-line');
@@ -76,15 +87,8 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
       if (result.success) {
         setTimeData(result.data.days);
         setCategories(result.data.categories || []);
-
-        // DOM 렌더링 완료 후 이벤트 렌더링하고 로딩 완료
-        requestAnimationFrame(() => {
-          renderAllEvents(result.data.days);
-          // 이벤트 렌더링 후 약간의 딜레이를 주고 로딩 완료
-          setTimeout(() => {
-            setLoading(false);
-          }, 100);
-        });
+        // 데이터 설정 후 로딩 완료 (이벤트 렌더링은 useEffect에서)
+        setLoading(false);
       } else {
         setError(result.error || '데이터 로드 실패');
         setLoading(false);
