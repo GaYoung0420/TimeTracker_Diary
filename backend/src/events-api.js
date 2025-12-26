@@ -1,6 +1,15 @@
 // Events API - Supabase implementation (replaces Google Calendar)
 
-export function setupEventsAPI(app, supabase) {
+export function setupEventsAPI(app, supabase, cache) {
+
+  // Helper to invalidate monthly cache when events change
+  const invalidateMonthlyCache = (date) => {
+    if (!cache || !date) return;
+    const monthKey = date.slice(0, 7); // 'YYYY-MM'
+    const timeKey = `time-${monthKey}`;
+    cache.delete(monthKey);
+    cache.delete(timeKey);
+  };
 
   /* ========================================
      Get Events for a Date
@@ -105,6 +114,9 @@ export function setupEventsAPI(app, supabase) {
         .single();
 
       if (error) throw error;
+
+      // Invalidate monthly cache
+      invalidateMonthlyCache(date);
 
       // Format event to match getEvents format
       const start = `${data.date}T${data.start_time}`;
@@ -220,12 +232,24 @@ export function setupEventsAPI(app, supabase) {
     try {
       const { id } = req.params;
 
+      // Get event date before deleting (for cache invalidation)
+      const { data: event } = await supabase
+        .from('events')
+        .select('date')
+        .eq('id', id)
+        .single();
+
       const { error } = await supabase
         .from('events')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
+
+      // Invalidate monthly cache
+      if (event && event.date) {
+        invalidateMonthlyCache(event.date);
+      }
 
       res.json({ success: true });
     } catch (error) {

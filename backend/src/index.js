@@ -1125,6 +1125,16 @@ app.post('/api/monthly/time-stats', async (req, res) => {
   try {
     const { year, month } = req.body;
 
+    // Check cache first
+    const cacheKey = `time-${year}-${String(month).padStart(2, '0')}`;
+    const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+    const cached = monthlyStatsCache.get(cacheKey);
+    if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
+      res.set('Cache-Control', 'public, max-age=300');
+      res.set('ETag', `"${cacheKey}-${cached.ts}"`);
+      return res.json({ success: true, data: cached.data });
+    }
+
     // Calculate month range
     const daysInMonth = new Date(year, month, 0).getDate();
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
@@ -1275,7 +1285,17 @@ app.post('/api/monthly/time-stats', async (req, res) => {
       };
     }).sort((a, b) => a.name.localeCompare(b.name));
 
-    res.json({ success: true, data: { days, categories: categoryList } });
+    const resultData = { days, categories: categoryList };
+
+    // Cache the result
+    const timestamp = Date.now();
+    monthlyStatsCache.set(cacheKey, { data: resultData, ts: timestamp });
+
+    // Add cache headers
+    res.set('Cache-Control', 'public, max-age=300');
+    res.set('ETag', `"${cacheKey}-${timestamp}"`);
+
+    res.json({ success: true, data: resultData });
   } catch (error) {
     console.error('Error loading monthly time stats:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -1515,7 +1535,7 @@ app.post('/api/calendar/create-wake', async (req, res) => {
 /* ========================================
    Events API (Supabase-based)
    ======================================== */
-setupEventsAPI(app, supabase);
+setupEventsAPI(app, supabase, monthlyStatsCache);
 
 /* ========================================
    Categories API (User-defined categories)
