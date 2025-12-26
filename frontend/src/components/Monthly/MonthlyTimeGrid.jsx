@@ -80,20 +80,28 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
   }, [timeData]);
 
   const loadTimeData = async () => {
+    console.log('🔄 loadTimeData 시작');
     setLoading(true);
     setError(null);
 
     try {
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth() + 1;
+      console.log(`📅 데이터 요청: ${year}년 ${month}월`);
       const result = await api.getMonthlyTimeStats(year, month);
+      console.log('📦 API 응답:', result);
 
       if (result.success) {
+        console.log('✅ 데이터 로드 성공:', result.data.days.length, '일');
+        const totalEvents = result.data.days.reduce((sum, day) => sum + (day.events?.length || 0), 0);
+        console.log('📊 총 이벤트 수:', totalEvents);
         setTimeData(result.data.days);
         setCategories(result.data.categories || []);
         // 데이터 설정 후 로딩 완료 (이벤트 렌더링은 useEffect에서)
+        console.log('⏱️ setLoading(false) 호출');
         setLoading(false);
       } else {
+        console.error('❌ API 오류:', result.error);
         setError(result.error || '데이터 로드 실패');
         setLoading(false);
       }
