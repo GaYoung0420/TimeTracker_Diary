@@ -3,7 +3,7 @@ import { formatKoreanTime, getCategoryColorByName, getCategoryTextColorByName, h
 import EventEditModal from './EventEditModal';
 import EventEditPopup from './EventEditPopup';
 
-function Timeline({ events, todos, categories, todoCategories, loading, currentDate, onCreateEvent, onUpdateEvent, onDeleteEvent, getWakeSleepTimes }) {
+function Timeline({ events, todos, categories, todoCategories, loading, currentDate, onCreateEvent, onUpdateEvent, onDeleteEvent, wakeSleepInfo }) {
   const hourHeight = 40;
   const [isCreating, setIsCreating] = useState(false);
   const [creatingColumn, setCreatingColumn] = useState(null); // 'plan' or 'actual'
@@ -23,6 +23,7 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
   const [resizingEvent, setResizingEvent] = useState(null);
   const [newResizeStart, setNewResizeStart] = useState(null);
   const [newResizeEnd, setNewResizeEnd] = useState(null);
+  const [dragTooltip, setDragTooltip] = useState(null); // { x, y, startTime, endTime }
   const timelineRef = useRef(null);
   const rafRef = useRef(null);
   const lastDragEndRef = useRef(null);
@@ -37,6 +38,64 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
     }, 60000); // Update every minute
     return () => clearInterval(interval);
   }, []);
+
+  // Hover line effect for each column
+  useEffect(() => {
+    const handleColumnMouseMove = (columnType) => (e) => {
+      const hoverLine = document.getElementById(`timeline-hover-line-${columnType}`);
+      const wrapper = timelineRef.current;
+
+      if (!hoverLine || !wrapper) return;
+
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const mouseY = e.clientY;
+      const relativeY = mouseY - wrapperRect.top + wrapper.scrollTop;
+
+      hoverLine.style.top = relativeY + 'px';
+      hoverLine.style.display = 'block';
+    };
+
+    const handleColumnMouseLeave = (columnType) => () => {
+      const hoverLine = document.getElementById(`timeline-hover-line-${columnType}`);
+      if (hoverLine) {
+        hoverLine.style.display = 'none';
+      }
+    };
+
+    // Add a small delay to ensure DOM is ready
+    const timeoutId = setTimeout(() => {
+      const planColumn = document.querySelector('.plan-column');
+      const actualColumn = document.querySelector('.actual-column');
+
+      if (planColumn) {
+        planColumn.addEventListener('mousemove', handleColumnMouseMove('plan'));
+        planColumn.addEventListener('mouseleave', handleColumnMouseLeave('plan'));
+      }
+
+      if (actualColumn) {
+        actualColumn.addEventListener('mousemove', handleColumnMouseMove('actual'));
+        actualColumn.addEventListener('mouseleave', handleColumnMouseLeave('actual'));
+      }
+
+      console.log('Timeline column hover events attached');
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      const planColumn = document.querySelector('.plan-column');
+      const actualColumn = document.querySelector('.actual-column');
+
+      if (planColumn) {
+        planColumn.removeEventListener('mousemove', handleColumnMouseMove('plan'));
+        planColumn.removeEventListener('mouseleave', handleColumnMouseLeave('plan'));
+      }
+
+      if (actualColumn) {
+        actualColumn.removeEventListener('mousemove', handleColumnMouseMove('actual'));
+        actualColumn.removeEventListener('mouseleave', handleColumnMouseLeave('actual'));
+      }
+    };
+  }, [events, loading]);
 
   // Get coordinates from mouse or touch event
   const getEventCoordinates = (e) => {
@@ -74,7 +133,7 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
   };
 
   const renderWakeSleepTimes = () => {
-    const { wakeTime, sleepTime } = getWakeSleepTimes();
+    const { wakeTime, sleepTime } = wakeSleepInfo;
 
     return (
       <div className="wake-sleep-container">
@@ -105,6 +164,11 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
     e.stopPropagation(); // Prevent creating new event
     e.preventDefault(); // Prevent scrolling on touch
 
+    // Close edit popup/modal when starting to drag
+    setShowEditPopup(false);
+    setShowEditModal(false);
+    setSelectedEvent(null);
+
     const rect = timelineRef.current.getBoundingClientRect();
     const { clientY } = getEventCoordinates(e);
     const y = clientY - rect.top;
@@ -112,12 +176,12 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
     const currentDayStr = getLocalDateString(currentDate);
     const [startDateStr, timeStr] = event.start.split('T');
     const [startHour, startMinute] = timeStr.split(':').map(Number);
-    
+
     // Calculate actual duration in minutes from event start to end (regardless of date boundaries)
     const eventStart = new Date(event.start);
     const eventEnd = new Date(event.end);
     const actualDuration = Math.round((eventEnd - eventStart) / (1000 * 60));
-    
+
     // Calculate start minutes relative to current day view
     let eventStartMinutes;
     if (startDateStr < currentDayStr) {
@@ -127,7 +191,7 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
     } else {
       eventStartMinutes = startHour * 60 + startMinute;
     }
-    
+
     const eventTopPosition = (eventStartMinutes / 60) * hourHeight;
 
     // Calculate offset from event top
@@ -146,6 +210,11 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
 
     e.stopPropagation();
     e.preventDefault();
+
+    // Close edit popup/modal when starting to resize
+    setShowEditPopup(false);
+    setShowEditModal(false);
+    setSelectedEvent(null);
 
     const currentDayStr = getLocalDateString(currentDate);
     const [startDateStr, startTimeStr] = event.start.split('T');
@@ -223,11 +292,41 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
           // Resizing top edge (changing start time)
           if (clampedMinutes < newResizeEnd - 10) { // Minimum 10 minutes
             setNewResizeStart(clampedMinutes);
+
+            // Update tooltip for resize
+            const startHour = Math.floor(clampedMinutes / 60);
+            const startMinute = clampedMinutes % 60;
+            const endHour = Math.floor(newResizeEnd / 60);
+            const endMinute = newResizeEnd % 60;
+            const startTime = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
+            const endTime = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
+
+            setDragTooltip({
+              x: e.clientX || (e.touches && e.touches[0].clientX),
+              y: e.clientY || (e.touches && e.touches[0].clientY),
+              startTime,
+              endTime
+            });
           }
         } else if (resizeEdge === 'bottom') {
           // Resizing bottom edge (changing end time)
           if (clampedMinutes > newResizeStart + 10) { // Minimum 10 minutes
             setNewResizeEnd(clampedMinutes);
+
+            // Update tooltip for resize
+            const startHour = Math.floor(newResizeStart / 60);
+            const startMinute = newResizeStart % 60;
+            const endHour = Math.floor(clampedMinutes / 60);
+            const endMinute = clampedMinutes % 60;
+            const startTime = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
+            const endTime = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
+
+            setDragTooltip({
+              x: e.clientX || (e.touches && e.touches[0].clientX),
+              y: e.clientY || (e.touches && e.touches[0].clientY),
+              startTime,
+              endTime
+            });
           }
         }
       });
@@ -253,6 +352,22 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
 
         if (newEventPosition !== clampedMinutes) {
           setNewEventPosition(clampedMinutes);
+
+          // Update tooltip for dragging
+          const endMinutes = clampedMinutes + originalEventDuration;
+          const startHour = Math.floor(clampedMinutes / 60);
+          const startMinute = clampedMinutes % 60;
+          const endHour = Math.floor(endMinutes / 60);
+          const endMinute = endMinutes % 60;
+          const startTime = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
+          const endTime = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
+
+          setDragTooltip({
+            x: e.clientX || (e.touches && e.touches[0].clientX),
+            y: e.clientY || (e.touches && e.touches[0].clientY),
+            startTime,
+            endTime
+          });
         }
       });
       return;
@@ -282,9 +397,12 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
         setDragEnd(snappedMinutes);
       }
     });
-  }, [isCreating, isDraggingEvent, isResizing, resizeEdge, newResizeStart, newResizeEnd, hourHeight, dragOffset, newEventPosition]);
+  }, [isCreating, isDraggingEvent, isResizing, resizeEdge, newResizeStart, newResizeEnd, hourHeight, dragOffset, newEventPosition, originalEventDuration]);
 
   const handleMouseUp = useCallback(async () => {
+    // Clear tooltip on mouse up
+    setDragTooltip(null);
+
     // Handle event resizing completion
     if (isResizing && resizingEvent) {
       if (resizeRafRef.current) {
@@ -591,9 +709,9 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
     // If this is the event being dragged, use the new position
     const isBeingDragged = isDraggingEvent && draggingEvent && draggingEvent.id === event.id;
     const isBeingResized = isResizing && resizingEvent && resizingEvent.id === event.id;
-    
+
     let displayStartMinutes, displayEndMinutes;
-    
+
     if (isBeingResized) {
       displayStartMinutes = newResizeStart;
       displayEndMinutes = newResizeEnd;
@@ -604,7 +722,7 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
       displayStartMinutes = startMinutes;
       displayEndMinutes = endMinutes;
     }
-    
+
     const displayDuration = displayEndMinutes - displayStartMinutes;
     const topPosition = (displayStartMinutes / 60) * hourHeight;
     const height = (displayDuration / 60) * hourHeight;
@@ -614,8 +732,19 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
     const blockColor = categoryInfo.color;
     const bgColor = isBeingDragged ? hexToRgba(blockColor, 0.6) : isTodo ? hexToRgba(blockColor, 0.25) : hexToRgba(blockColor, 0.35);
 
-    const displayStartTime = timeStr.substring(0, 5);
-    const displayEndTime = endTimeStr.substring(0, 5);
+    // Calculate display times based on current position (for dragging/resizing)
+    let displayStartTime, displayEndTime;
+    if (isBeingDragged || isBeingResized) {
+      const startHour = Math.floor(displayStartMinutes / 60);
+      const startMinute = displayStartMinutes % 60;
+      const endHour = Math.floor(displayEndMinutes / 60);
+      const endMinute = displayEndMinutes % 60;
+      displayStartTime = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
+      displayEndTime = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
+    } else {
+      displayStartTime = timeStr.substring(0, 5);
+      displayEndTime = endTimeStr.substring(0, 5);
+    }
 
     const durationHours = Math.floor(durationMinutes / 60);
     const durationMins = durationMinutes % 60;
@@ -623,7 +752,7 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
       ? `${durationHours}시간 ${durationMins}분`
       : `${durationMins}분`;
 
-    const isSmallEvent = durationMinutes <= 30;
+    const isSmallEvent = durationMinutes <= 50;
 
     return (
       <div
@@ -719,6 +848,17 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
     const topPosition = (start / 60) * hourHeight;
     const height = ((end - start) / 60) * hourHeight;
 
+    // Calculate display times
+    const startHour = Math.floor(start / 60);
+    const startMinute = start % 60;
+    const endHour = Math.floor(end / 60);
+    const endMinute = end % 60;
+    const displayStartTime = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
+    const displayEndTime = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
+
+    const durationMinutes = end - start;
+    const isSmallEvent = durationMinutes <= 50;
+
     return (
       <div
         className="event-block-absolute"
@@ -727,10 +867,32 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
           border: '2px dashed #4285F4',
           top: `${topPosition}px`,
           height: `${Math.max(height, 20)}px`,
-          pointerEvents: 'none'
+          pointerEvents: 'none',
+          padding: isSmallEvent ? '1px 4px' : '6px 8px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: isSmallEvent ? 'center' : 'flex-start'
         }}
       >
-        <div className="event-title">새 이벤트</div>
+        <div className="event-title" style={{
+          fontSize: isSmallEvent ? '10px' : '11px',
+          lineHeight: isSmallEvent ? '1.1' : '1.4',
+          whiteSpace: isSmallEvent ? 'nowrap' : 'normal',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
+        }}>
+          새 이벤트
+          {isSmallEvent && (
+            <span style={{ marginLeft: '4px', fontSize: '9px', opacity: 0.8, fontWeight: 'normal' }}>
+              {displayStartTime}-{displayEndTime}
+            </span>
+          )}
+        </div>
+        {!isSmallEvent && (
+          <div className="event-time">
+            {displayStartTime} - {displayEndTime}
+          </div>
+        )}
       </div>
     );
   };
@@ -818,6 +980,29 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
     <>
       {renderWakeSleepTimes()}
 
+      {/* Drag tooltip - temporarily hidden */}
+      {false && dragTooltip && (
+        <div
+          style={{
+            position: 'fixed',
+            left: `${dragTooltip.x + 15}px`,
+            top: `${dragTooltip.y - 10}px`,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            color: 'white',
+            padding: '8px 12px',
+            borderRadius: '6px',
+            fontSize: '13px',
+            fontWeight: 'bold',
+            pointerEvents: 'none',
+            zIndex: 10000,
+            whiteSpace: 'nowrap',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)'
+          }}
+        >
+          {dragTooltip.startTime} - {dragTooltip.endTime}
+        </div>
+      )}
+
       <div className="timeline-grid">
         <div className="timeline-header">
           <div>계획</div>
@@ -828,7 +1013,7 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
         <div
           ref={timelineRef}
           className="timeline-wrapper"
-          style={{ minHeight: `${24 * hourHeight}px` }}
+          style={{ minHeight: `${24 * hourHeight}px`, position: 'relative' }}
           onMouseMove={handleDragMove}
           onMouseUp={handleDragEnd}
           onTouchMove={handleDragMove}
@@ -856,6 +1041,7 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
             setResizingEvent(null);
             setNewResizeStart(null);
             setNewResizeEnd(null);
+            setDragTooltip(null);
             lastDragEndRef.current = null;
           }}
         >
@@ -864,7 +1050,9 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
               className="timeline-column plan-column"
               onMouseDown={(e) => handleDragStart(e, 'plan')}
               onTouchStart={(e) => handleDragStart(e, 'plan')}
+              style={{ position: 'relative' }}
             >
+              <div className="timeline-hover-line" id="timeline-hover-line-plan"></div>
               {planEvents.map(event => renderEventBlock(event, event.is_todo))}
               {isCreating && creatingColumn === 'plan' && renderDragPreview()}
             </div>
@@ -873,7 +1061,9 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
               className="timeline-column actual-column"
               onMouseDown={(e) => handleDragStart(e, 'actual')}
               onTouchStart={(e) => handleDragStart(e, 'actual')}
+              style={{ position: 'relative' }}
             >
+              <div className="timeline-hover-line" id="timeline-hover-line-actual"></div>
               {actualEvents.map(event => renderEventBlock(event, false))}
               {isCreating && creatingColumn === 'actual' && renderDragPreview()}
             </div>
@@ -881,17 +1071,55 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
 
           <div className="time-markers">
             {Array.from({ length: 24 }, (_, hour) => {
-              const { wakeTime, sleepTime } = getWakeSleepTimes();
-              const wakeHour = wakeTime && wakeTime !== '-' ? parseInt(wakeTime.split(':')[0]) : null;
-              const sleepHour = sleepTime && sleepTime !== '-' ? parseInt(sleepTime.split(':')[0]) : null;
+              const { wakeTime, wakeDateTime } = wakeSleepInfo;
 
-              const isWakeHour = wakeHour === hour;
-              const isSleepHour = sleepHour === hour;
+              // Debug log (only log once per render, at hour 0)
+              if (hour === 0) {
+                console.log('Wake/Sleep Times:', wakeSleepInfo);
+              }
+
+              // Check if wake/sleep times are on the current date
+              const currentDateStr = getLocalDateString(currentDate);
+
+              let isWakeHour = false;
+              if (wakeDateTime && wakeDateTime !== '-' && wakeDateTime !== null) {
+                const wakeDate = wakeDateTime.split('T')[0];
+                const wakeHour = parseInt(wakeDateTime.split('T')[1].split(':')[0]);
+                isWakeHour = wakeDate === currentDateStr && wakeHour === hour;
+              }
+
+              // Check if this hour matches any actual sleep event's start time
+              let isSleepHour = false;
+              const sleepEvents = events.filter(event =>
+                event.title === '잠' &&
+                event.category && event.category.name && event.category.name.includes('잠') &&
+                event.is_plan === false
+              );
+
+              for (const sleepEvent of sleepEvents) {
+                // Extract hour from start time (format: "YYYY-MM-DDTHH:mm:ss" or "HH:mm:ss")
+                let eventHour;
+                if (sleepEvent.start && sleepEvent.start.includes('T')) {
+                  // Format: "YYYY-MM-DDTHH:mm:ss"
+                  eventHour = parseInt(sleepEvent.start.split('T')[1].split(':')[0]);
+                } else if (sleepEvent.start_time) {
+                  // Format: "HH:mm:ss"
+                  eventHour = parseInt(sleepEvent.start_time.split(':')[0]);
+                }
+
+                if (eventHour === hour) {
+                  isSleepHour = true;
+                  break;
+                }
+              }
 
               const labelStyle = {
                 color: isWakeHour ? '#e03131' : isSleepHour ? '#1971c2' : undefined,
                 fontWeight: isWakeHour || isSleepHour ? 'bold' : undefined,
                 fontSize: isWakeHour || isSleepHour ? 16 : undefined,
+                backgroundColor: isWakeHour ? '#ffe0e0' : isSleepHour ? '#e0f2ff' : undefined,
+                borderRadius: isWakeHour || isSleepHour ? '4px' : undefined,
+                padding: isWakeHour || isSleepHour ? '2px 4px' : undefined,
               };
 
               return (

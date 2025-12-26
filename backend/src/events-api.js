@@ -251,38 +251,86 @@ export function setupEventsAPI(app, supabase) {
 
       const { data, error } = await supabase
         .from('events')
-        .select('*')
+        .select('*, category:categories(id, name, color)')
         .gte('date', prevDateStr)
         .lte('date', nextDateStr)
-        .eq('title', '잠')
-        .eq('is_plan', false) // Only actual events
         .order('date')
         .order('start_time');
 
       if (error) throw error;
 
-      const sleepEvents = data || [];
+      // Filter for sleep events: title must be "잠" AND category name contains "잠" AND is_plan = false (actual events only)
+      const allEvents = data || [];
+      const sleepEvents = allEvents.filter(event =>
+        event.title === '잠' &&
+        event.category && event.category.name && event.category.name.includes('잠') &&
+        event.is_plan === false
+      );
+
+      console.log(`[Wake/Sleep] Found ${sleepEvents.length} ACTUAL sleep events for date ${date}:`);
+      sleepEvents.forEach(e => {
+        console.log(`  - ${e.date} ${e.start_time}-${e.end_time} (is_plan: ${e.is_plan})`);
+      });
+
       let wakeTime = null;
+      let wakeDateTime = null;
       let sleepTime = null;
+      let sleepDateTime = null;
 
-      // Find wake time: end_time of a sleep event on the target date
+      // Find wake time: end_time of the LAST sleep event that ends on the target date
+      let latestWakeEvent = null;
       for (const event of sleepEvents) {
-        if (event.date === date) {
-          wakeTime = event.end_time.substring(0, 5);
-          break;
+        // Calculate the actual end date based on start/end times
+        let actualEndDate = event.date;
+
+        // If end_time < start_time, event spans to next day
+        if (event.end_time < event.start_time) {
+          const endDateObj = new Date(event.date);
+          endDateObj.setDate(endDateObj.getDate() + 1);
+          actualEndDate = endDateObj.toISOString().split('T')[0];
+          console.log(`  Multi-day event: ${event.date} ${event.start_time}-${event.end_time} ends on ${actualEndDate}`);
+        }
+
+        // Check if wake up time is on the target date
+        if (actualEndDate === date) {
+          // Keep the latest wake time (event with largest end_time)
+          if (!latestWakeEvent || event.end_time > latestWakeEvent.end_time) {
+            latestWakeEvent = { ...event, actualEndDate };
+          }
         }
       }
 
-      // Find sleep time: start_time of a sleep event on the NEXT day
-      // This represents when the person went to bed on this date (which starts the next day's sleep event)
+      if (latestWakeEvent) {
+        wakeTime = latestWakeEvent.end_time.substring(0, 5);
+        wakeDateTime = `${latestWakeEvent.actualEndDate}T${latestWakeEvent.end_time}`;
+        console.log(`  ✓ Found wake time (latest): ${wakeDateTime}`);
+      }
+
+      // Find sleep time: start_time of the next sleep event after waking up today
+      // This could be on the same day (if sleeping early) or the next day
       for (const event of sleepEvents) {
-        if (event.date === nextDateStr) {
+        // Skip events that ended before or at wake time on the target date
+        if (event.date === date && wakeTime && event.end_time <= wakeTime) {
+          console.log(`  Skip (ended before wake): ${event.date} ${event.start_time}-${event.end_time}`);
+          continue;
+        }
+
+        // Find the first sleep event that starts on or after the target date
+        if (event.date >= date) {
+          // If it's on the target date, it should start after wake time
+          if (event.date === date && wakeTime && event.start_time <= wakeTime) {
+            console.log(`  Skip (starts before wake): ${event.date} ${event.start_time}-${event.end_time}`);
+            continue;
+          }
           sleepTime = event.start_time.substring(0, 5);
+          sleepDateTime = `${event.date}T${event.start_time}`;
+          console.log(`  ✓ Found sleep time: ${sleepDateTime}`);
           break;
         }
       }
 
-      res.json({ success: true, wakeTime, sleepTime });
+      console.log(`[Wake/Sleep API] Date: ${date}, Wake: ${wakeTime} (${wakeDateTime}), Sleep: ${sleepTime} (${sleepDateTime})`);
+      res.json({ success: true, wakeTime, wakeDateTime, sleepTime, sleepDateTime });
     } catch (error) {
       console.error('Error fetching wake/sleep events:', error);
       res.status(500).json({ success: false, error: error.message });

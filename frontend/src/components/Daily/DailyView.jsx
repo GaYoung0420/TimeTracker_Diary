@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useDailyData } from '../../hooks/useDailyData';
 import { useEvents } from '../../hooks/useEvents';
 import Timeline from './Timeline';
@@ -17,14 +17,9 @@ function DailyView({ currentDate, setCurrentDate }) {
   const [showTodoCategoryManager, setShowTodoCategoryManager] = useState(false);
   const [todoCategories, setTodoCategories] = useState([]);
   const { dailyData, loading, addTodo, updateTodo, deleteTodo, reorderTodos, updateRoutineCheck, addRoutine, updateRoutine, deleteRoutine, reorderRoutines, saveData, addImageToState, removeImageFromState } = useDailyData(currentDate);
-  const { categories, events, loading: eventsLoading, reloadCategories, createEvent, updateEvent, deleteEvent, getWakeSleepTimes } = useEvents(currentDate);
+  const { categories, events, loading: eventsLoading, reloadCategories, createEvent, updateEvent, deleteEvent, wakeSleepInfo } = useEvents(currentDate);
 
-  // 투두 카테고리 로드
-  useEffect(() => {
-    loadTodoCategories();
-  }, []);
-
-  const loadTodoCategories = async () => {
+  const loadTodoCategories = useCallback(async () => {
     try {
       const result = await api.getTodoCategories();
       if (result.success) {
@@ -33,7 +28,12 @@ function DailyView({ currentDate, setCurrentDate }) {
     } catch (error) {
       console.error('Failed to load todo categories:', error);
     }
-  };
+  }, []);
+
+  // 투두 카테고리 로드
+  useEffect(() => {
+    loadTodoCategories();
+  }, [loadTodoCategories]);
 
   const handleAddTodoCategory = async (name, eventCategoryId, color) => {
     try {
@@ -118,7 +118,7 @@ function DailyView({ currentDate, setCurrentDate }) {
           onCreateEvent={createEvent}
           onUpdateEvent={updateEvent}
           onDeleteEvent={deleteEvent}
-          getWakeSleepTimes={getWakeSleepTimes}
+          wakeSleepInfo={wakeSleepInfo}
         />
       </div>
 

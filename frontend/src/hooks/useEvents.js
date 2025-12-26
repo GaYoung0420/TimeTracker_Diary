@@ -9,6 +9,12 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 export function useEvents(currentDate) {
   const [categories, setCategories] = useState([]);
   const [events, setEvents] = useState([]);
+  const [wakeSleepInfo, setWakeSleepInfo] = useState({
+    wakeTime: '-',
+    wakeDateTime: null,
+    sleepTime: '-',
+    sleepDateTime: null
+  });
   const [loading, setLoading] = useState(true);
 
   const dateKey = getLocalDateString(currentDate);
@@ -30,17 +36,20 @@ export function useEvents(currentDate) {
     loadCategories();
   }, [loadCategories]);
 
-  // Load events when date changes
-  useEffect(() => {
-    loadEvents();
-  }, [dateKey]);
-
-  const loadEvents = async () => {
+  const loadEvents = useCallback(async () => {
     const cached = eventCache.get(dateKey);
 
     // Check cache
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
       setEvents(cached.events);
+      if (cached.wakeSleepInfo) {
+        setWakeSleepInfo({
+          wakeTime: cached.wakeSleepInfo.wakeTime || '-',
+          wakeDateTime: cached.wakeSleepInfo.wakeDateTime || null,
+          sleepTime: cached.wakeSleepInfo.sleepTime || '-',
+          sleepDateTime: cached.wakeSleepInfo.sleepDateTime || null
+        });
+      }
       setLoading(false);
       return;
     }
@@ -57,6 +66,18 @@ export function useEvents(currentDate) {
         allEvents = eventsResult.events;
       }
 
+      // Update wake/sleep info state
+      if (wakeSleepResult.success) {
+        const newWakeSleepInfo = {
+          wakeTime: wakeSleepResult.wakeTime || '-',
+          wakeDateTime: wakeSleepResult.wakeDateTime || null,
+          sleepTime: wakeSleepResult.sleepTime || '-',
+          sleepDateTime: wakeSleepResult.sleepDateTime || null
+        };
+        console.log('[useEvents] Setting wakeSleepInfo:', dateKey, newWakeSleepInfo);
+        setWakeSleepInfo(newWakeSleepInfo);
+      }
+
       // Cache the results
       eventCache.set(dateKey, {
         events: allEvents,
@@ -70,18 +91,35 @@ export function useEvents(currentDate) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateKey]);
+
+  // Load events when date changes
+  useEffect(() => {
+    loadEvents();
+  }, [loadEvents]);
 
   // Create new event
   const createEvent = useCallback(async (title, start_time, end_time, category_id, is_plan = false, description = '', end_date = null) => {
     try {
       const result = await api.createEvent(dateKey, title, start_time, end_time, category_id, is_plan, description, end_date);
       if (result.success) {
+        console.log('Event created:', result.event);
         // Optimistically update UI - backend now returns formatted event
-        setEvents(prev => [...prev, result.event]);
+        setEvents(prev => {
+          const updated = [...prev, result.event];
+          console.log('Updated events after create:', updated.length);
+          return updated;
+        });
 
-        // Invalidate cache
-        eventCache.delete(dateKey);
+        // If event spans multiple days or has end_date, clear all caches
+        if (end_date && end_date !== dateKey) {
+          console.log('Clearing all caches (multi-day event)');
+          eventCache.clear();
+        } else {
+          // Otherwise just invalidate current date cache
+          console.log('Deleting cache for', dateKey);
+          eventCache.delete(dateKey);
+        }
 
         return result.event;
       }
@@ -96,13 +134,44 @@ export function useEvents(currentDate) {
     try {
       const result = await api.updateEvent(id, updates);
       if (result.success) {
-        // Optimistically update UI - backend now returns formatted event
-        setEvents(prev => prev.map(evt =>
-          evt.id === id ? result.event : evt
-        ));
+        console.log('Event updated:', result.event);
+        console.log('Updates:', updates);
 
-        // Invalidate cache
-        eventCache.delete(dateKey);
+        // Check if the event's date changed by comparing the date portion of start times
+        const oldEvent = events.find(evt => evt.id === id);
+        let eventDateChanged = false;
+
+        if (oldEvent && updates.date) {
+          // Extract date from oldEvent.start (format: "YYYY-MM-DDTHH:mm:ss")
+          const oldDate = oldEvent.start ? oldEvent.start.split('T')[0] : null;
+          const newDate = updates.date;
+          eventDateChanged = oldDate && oldDate !== newDate;
+
+          console.log('Old event start date:', oldDate, 'New date:', newDate, 'Date changed:', eventDateChanged);
+        }
+
+        if (eventDateChanged) {
+          console.log('Event date changed, removing from current view');
+          // If event moved to a different date, remove it from current view
+          setEvents(prev => prev.filter(evt => evt.id !== id));
+
+          // Invalidate all caches since we don't know which dates are affected
+          eventCache.clear();
+        } else {
+          // Optimistically update UI - backend now returns formatted event
+          console.log('Updating event in place');
+          setEvents(prev => {
+            const updated = prev.map(evt =>
+              evt.id === id ? result.event : evt
+            );
+            console.log('Updated events after update:', updated.length);
+            console.log('Updated event:', updated.find(e => e.id === id));
+            return updated;
+          });
+
+          // Invalidate current date cache
+          eventCache.delete(dateKey);
+        }
 
         return result.event;
       }
@@ -110,7 +179,7 @@ export function useEvents(currentDate) {
       console.error('Failed to update event:', error);
       throw error;
     }
-  }, [dateKey]);
+  }, [dateKey, events]);
 
   // Delete event
   const deleteEvent = useCallback(async (id) => {
@@ -135,18 +204,6 @@ export function useEvents(currentDate) {
     await loadEvents();
   }, [dateKey]);
 
-  // Get wake/sleep times
-  const getWakeSleepTimes = useCallback(() => {
-    const cached = eventCache.get(dateKey);
-    if (cached && cached.wakeSleepInfo) {
-      return {
-        wakeTime: cached.wakeSleepInfo.wakeTime || '-',
-        sleepTime: cached.wakeSleepInfo.sleepTime || '-'
-      };
-    }
-    return { wakeTime: '-', sleepTime: '-' };
-  }, [dateKey]);
-
   return {
     categories,
     events,
@@ -156,6 +213,6 @@ export function useEvents(currentDate) {
     createEvent,
     updateEvent,
     deleteEvent,
-    getWakeSleepTimes
+    wakeSleepInfo
   };
 }

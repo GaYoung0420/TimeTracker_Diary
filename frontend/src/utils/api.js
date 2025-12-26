@@ -20,14 +20,14 @@ export const api = {
   },
 
   // Todos
-  async addTodo(date, text, category, todoCategoryId, scheduledTime, duration) {
+  async addTodo(date, text, categoryId, todoCategoryId, scheduledTime, duration) {
     const res = await fetch(`${API_URL}/api/todos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        date, 
-        text, 
-        category, 
+      body: JSON.stringify({
+        date,
+        text,
+        category_id: categoryId,
         todo_category_id: todoCategoryId,
         scheduled_time: scheduledTime,
         duration
@@ -288,6 +288,42 @@ export const api = {
     const res = await fetch(`${API_URL}/api/todos/${id}/complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
+    });
+    return res.json();
+  },
+
+  // Auth
+  async register(email, password, username) {
+    const res = await fetch(`${API_URL}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, password, username })
+    });
+    return res.json();
+  },
+
+  async login(email, password) {
+    const res = await fetch(`${API_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, password })
+    });
+    return res.json();
+  },
+
+  async logout() {
+    const res = await fetch(`${API_URL}/api/auth/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    return res.json();
+  },
+
+  async getCurrentUser() {
+    const res = await fetch(`${API_URL}/api/auth/me`, {
+      credentials: 'include'
     });
     return res.json();
   }

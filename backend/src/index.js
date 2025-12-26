@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import { setupEventsAPI } from './events-api.js';
 import { setupCategoriesAPI } from './categories-api.js';
 import { setupTodoCategoriesAPI } from './todo-categories-api.js';
+import { setupAuthAPI } from './auth-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -441,7 +442,7 @@ app.post('/api/daily/:date', async (req, res) => {
    ======================================== */
 app.post('/api/todos', async (req, res) => {
   try {
-    const { date, text, category, todo_category_id, scheduled_time, duration } = req.body;
+    const { date, text, category_id, todo_category_id, scheduled_time, duration } = req.body;
 
     // Get the highest order for this date
     const { data: existingTodos } = await supabase
@@ -455,17 +456,17 @@ app.post('/api/todos', async (req, res) => {
 
     const { data, error } = await supabase
       .from('todos')
-      .insert({ 
-        date, 
-        text, 
-        category, 
+      .insert({
+        date,
+        text,
+        category_id,
         todo_category_id,
         scheduled_time,
         duration,
-        completed: false, 
-        order: nextOrder 
+        completed: false,
+        order: nextOrder
       })
-      .select()
+      .select('*, category:categories(id, name, color)')
       .single();
 
     if (error) throw error;
@@ -1134,11 +1135,27 @@ app.post('/api/monthly/time-stats', async (req, res) => {
         eventsByDate[dateKey] = [];
       }
 
+      // Parse start and end times to detect multi-day events
+      const startTime = event.start_time;
+      const endTime = event.end_time;
+
+      // Calculate actual end date: if end_time < start_time, event spans to next day
+      let endDate = event.date;
+      const startHour = parseInt(startTime.split(':')[0]);
+      const endHour = parseInt(endTime.split(':')[0]);
+
+      if (endHour < startHour || (endHour === startHour && endTime < startTime)) {
+        // Event continues to next day
+        const nextDay = new Date(event.date);
+        nextDay.setDate(nextDay.getDate() + 1);
+        endDate = nextDay.toISOString().split('T')[0];
+      }
+
       // Combine date + time for frontend compatibility
       eventsByDate[dateKey].push({
         ...event,
         start: `${event.date}T${event.start_time}`,
-        end: `${event.date}T${event.end_time}`
+        end: `${endDate}T${event.end_time}`
       });
     });
 
@@ -1285,7 +1302,6 @@ app.post('/api/monthly/routine-mood-stats', async (req, res) => {
     // Fill in actual check data
     routineChecks.forEach(check => {
       if (routineStats[check.routine_id]) {
-        routineStats[check.routine_id].totalDays++;
         if (check.checked) {
           routineStats[check.routine_id].checkedDays++;
         }
@@ -1294,8 +1310,26 @@ app.post('/api/monthly/routine-mood-stats', async (req, res) => {
       }
     });
 
-    // Calculate percentages
+    // Calculate percentages (excluding future dates)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     Object.values(routineStats).forEach(stat => {
+      // Count total days excluding future dates
+      let totalDays = 0;
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const checkDate = new Date(year, month - 1, day);
+        checkDate.setHours(0, 0, 0, 0);
+
+        // Only count days up to today
+        if (checkDate <= today) {
+          totalDays++;
+        }
+      }
+
+      stat.totalDays = totalDays;
+
       if (stat.totalDays > 0) {
         stat.percentage = Math.round((stat.checkedDays / stat.totalDays) * 100);
       }
@@ -1448,6 +1482,11 @@ setupCategoriesAPI(app, supabase);
    Todo Categories API
    ======================================== */
 setupTodoCategoriesAPI(app);
+
+/* ========================================
+   Auth API (Email/Password Authentication)
+   ======================================== */
+setupAuthAPI(app, supabase);
 
 /* ========================================
    SPA Fallback
