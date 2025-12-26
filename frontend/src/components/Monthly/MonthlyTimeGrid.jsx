@@ -16,15 +16,11 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
   // timeData가 변경되면 이벤트 렌더링
   useEffect(() => {
     if (timeData.length > 0 && !loading) {
-      console.log('🎯 Rendering events, timeData length:', timeData.length);
       // DOM이 완전히 렌더링된 후 이벤트 추가
       const timer = setTimeout(() => {
-        console.log('⏰ Timer fired, calling renderAllEvents');
         renderAllEvents(timeData);
       }, 50);
       return () => clearTimeout(timer);
-    } else {
-      console.log('❌ Not rendering events - timeData:', timeData.length, 'loading:', loading);
     }
   }, [timeData, loading]);
 
@@ -35,7 +31,6 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
       const tracker = trackerRef.current;
 
       if (!hoverLine || !wrapper || !tracker) {
-        console.log('Missing elements:', { hoverLine: !!hoverLine, wrapper: !!wrapper, tracker: !!tracker });
         return;
       }
 
@@ -63,9 +58,6 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
       if (wrapper) {
         wrapper.addEventListener('mousemove', handleMouseMove);
         wrapper.addEventListener('mouseleave', handleMouseLeave);
-        console.log('Hover line events attached');
-      } else {
-        console.log('Wrapper not found');
       }
     }, 100);
 
@@ -80,28 +72,19 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
   }, [timeData]);
 
   const loadTimeData = async () => {
-    console.log('🔄 loadTimeData 시작');
     setLoading(true);
     setError(null);
 
     try {
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth() + 1;
-      console.log(`📅 데이터 요청: ${year}년 ${month}월`);
       const result = await api.getMonthlyTimeStats(year, month);
-      console.log('📦 API 응답:', result);
 
       if (result.success) {
-        console.log('✅ 데이터 로드 성공:', result.data.days.length, '일');
-        const totalEvents = result.data.days.reduce((sum, day) => sum + (day.events?.length || 0), 0);
-        console.log('📊 총 이벤트 수:', totalEvents);
         setTimeData(result.data.days);
         setCategories(result.data.categories || []);
-        // 데이터 설정 후 로딩 완료 (이벤트 렌더링은 useEffect에서)
-        console.log('⏱️ setLoading(false) 호출');
         setLoading(false);
       } else {
-        console.error('❌ API 오류:', result.error);
         setError(result.error || '데이터 로드 실패');
         setLoading(false);
       }
@@ -113,18 +96,14 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
   };
 
   const renderAllEvents = (days) => {
-    console.log('📍 renderAllEvents called with days:', days.length);
     if (!trackerRef.current) {
-      console.log('❌ trackerRef.current is null');
       return;
     }
 
     const dayColumns = trackerRef.current.querySelectorAll('.tt-day-column');
-    console.log(`✅ 총 ${days.length}일 데이터, ${dayColumns.length}개 컬럼`);
 
     // 전체 월의 모든 이벤트 수집
     const allEvents = days.flatMap(dayData => dayData.events || []);
-    console.log(`📊 총 이벤트 수: ${allEvents.length}`);
 
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -156,15 +135,12 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
       });
 
       if (eventsForThisDay.length > 0) {
-        console.log(`${dayData.date}일: ${eventsForThisDay.length}개 이벤트 렌더링`);
         renderDayEventsAbsolute(dayColumn, eventsForThisDay);
       }
 
       // 기상/취침 시간 마커 추가
       renderWakeSleepMarkers(dayColumn, dayData.date, allEvents);
     });
-
-    console.log(`✅ 타임트래커 렌더링 완료: ${days.length}일`);
   };
 
   const renderWakeSleepMarkers = (dayColumn, dayNumber, allEvents) => {
@@ -227,7 +203,9 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
     const headerElement = dayColumn.querySelector('.tt-date-header');
     const firstHourCell = dayColumn.querySelector('.tt-hour-cell');
 
-    if (!headerElement || !firstHourCell) return;
+    if (!headerElement || !firstHourCell) {
+      return;
+    }
 
     const headerHeight = headerElement.offsetHeight;
     const hourHeight = firstHourCell.offsetHeight;
@@ -249,8 +227,8 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
       return new Date(localIso);
     };
 
-    // Filter out any plan events just in case, and render
-    events.filter(e => e.is_plan === false).forEach(event => {
+    // Backend already filters out plan events, so no need to filter here
+    events.forEach(event => {
       const start = parseLocalTime(event.start);
       const end = parseLocalTime(event.end);
 
