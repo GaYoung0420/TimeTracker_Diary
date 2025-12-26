@@ -354,7 +354,10 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
   if (loading) {
     return (
       <div className="monthly-timetracker-wrapper">
-        <div className="loading">데이터 로딩 중...</div>
+        <div className="monthly-loading-overlay">
+          <div className="loading-spinner"></div>
+          <div className="loading-text">시간 추적 데이터를 불러오는 중...</div>
+        </div>
       </div>
     );
   }

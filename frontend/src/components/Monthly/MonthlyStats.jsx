@@ -502,7 +502,10 @@ function MonthlyStats({ currentMonth, goToDate }) {
   if (loading) {
     return (
       <div className="monthly-stats-wrapper">
-        <div className="loading">통계 로딩 중...</div>
+        <div className="monthly-loading-overlay">
+          <div className="loading-spinner"></div>
+          <div className="loading-text">통계 데이터를 불러오는 중...</div>
+        </div>
       </div>
     );
   }

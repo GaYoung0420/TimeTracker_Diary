@@ -124,8 +124,11 @@ function MonthlyView({ goToDate }) {
         </div>
       </div>
 
-      {loading && viewMode === 'calendar' ? (
-        <div className="loading">로딩 중...</div>
+      {loading ? (
+        <div className="monthly-loading-overlay">
+          <div className="loading-spinner"></div>
+          <div className="loading-text">데이터를 불러오는 중...</div>
+        </div>
       ) : (
         <>
           {viewMode === 'calendar' && renderCalendarGrid()}
