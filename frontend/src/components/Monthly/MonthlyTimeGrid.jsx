@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../../utils/api';
 import { getCategoryColorByName, getCategoryTextColorByName, hexToRgba, getLocalDateString } from '../../utils/helpers';
+import { getEventsForDate, formatEventTime } from '../../services/iCloudCalendar';
 
-function MonthlyTimeGrid({ currentMonth, goToDate }) {
+function MonthlyTimeGrid({ currentMonth, goToDate, calendarEvents = [] }) {
   const [timeData, setTimeData] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, events: [] });
   const trackerRef = useRef(null);
 
   useEffect(() => {
@@ -320,6 +322,8 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
             const weekday = date.getDay();
             const isToday = dateKey === today;
             const isWeekend = weekday === 0 || weekday === 6;
+            const dayEvents = getEventsForDate(calendarEvents, date);
+            const hasEvents = dayEvents.length > 0;
 
             return (
               <div
@@ -333,9 +337,22 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
                 <div
                   className={`tt-date-header ${isToday ? 'today' : ''} ${isWeekend ? 'weekend' : ''}`}
                   onClick={() => goToDate(dateKey)}
+                  onMouseEnter={(e) => {
+                    if (hasEvents) {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setTooltip({
+                        visible: true,
+                        x: rect.left + rect.width / 2,
+                        y: rect.bottom + 5,
+                        events: dayEvents
+                      });
+                    }
+                  }}
+                  onMouseLeave={() => setTooltip(prev => ({ ...prev, visible: false }))}
                 >
                   <div className="tt-date-day">{day}</div>
                   <div className="tt-date-weekday">{weekdayNames[weekday]}</div>
+                  {hasEvents && <div className="tt-has-events-dot"></div>}
                 </div>
 
                 {Array.from({ length: 24 }, (_, hour) => (
@@ -349,6 +366,33 @@ function MonthlyTimeGrid({ currentMonth, goToDate }) {
             );
           })}
         </div>
+
+        {/* Calendar Events Tooltip */}
+        {tooltip.visible && (
+          <div 
+            className="tt-calendar-tooltip"
+            style={{
+              position: 'fixed',
+              top: tooltip.y,
+              left: tooltip.x,
+              transform: 'translateX(-50%)',
+              zIndex: 1000
+            }}
+          >
+            {tooltip.events.map((event, idx) => (
+              <div key={idx} className="tt-tooltip-item">
+                <div 
+                  className="tt-tooltip-color" 
+                  style={{ backgroundColor: event.calendarColor || '#007bff' }}
+                ></div>
+                <div className="tt-tooltip-content">
+                  <div className="tt-tooltip-title">{event.title}</div>
+                  <div className="tt-tooltip-time">{formatEventTime(event)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   };

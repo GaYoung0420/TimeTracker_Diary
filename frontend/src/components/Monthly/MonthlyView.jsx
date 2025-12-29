@@ -2,19 +2,62 @@ import { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
 import MonthlyTimeGrid from './MonthlyTimeGrid';
 import MonthlyStats from './MonthlyStats';
-import { getLocalDateString } from '../../utils/helpers';
+import { getLocalDateString, hexToRgba } from '../../utils/helpers';
+import { fetchMultipleCalendars, getEventsForDate } from '../../services/iCloudCalendar';
 
 function MonthlyView({ goToDate }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [monthlyData, setMonthlyData] = useState([]);
+  const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [viewMode, setViewMode] = useState('calendar'); // 'calendar', 'time', or 'stats'
 
   useEffect(() => {
-    if (viewMode === 'calendar') {
-      loadMonthlyData();
+    if (viewMode === 'calendar' || viewMode === 'time') {
+      if (viewMode === 'calendar') {
+        loadMonthlyData();
+      }
+      loadCalendarEvents();
     }
   }, [currentMonth, viewMode]);
+
+  const loadCalendarEvents = async () => {
+    try {
+      let calendars = [];
+      
+      // 1. Try to fetch from API (user_calendars table)
+      try {
+        const result = await api.getCalendars();
+        if (result.success && Array.isArray(result.data)) {
+          calendars = result.data.filter(cal => cal.enabled);
+        }
+      } catch (err) {
+        console.error("Failed to fetch calendars from API:", err);
+      }
+
+      // 2. Fallback to localStorage if API returned nothing
+      if (calendars.length === 0) {
+        const savedCalendars = localStorage.getItem('iCloudCalendars');
+        if (savedCalendars) {
+          calendars = JSON.parse(savedCalendars).filter(cal => cal.enabled);
+        } else {
+          const legacyUrl = localStorage.getItem('iCloudCalendarUrl');
+          if (legacyUrl) {
+            calendars = [{ url: legacyUrl, color: '#007bff', name: 'Calendar', enabled: true }];
+          }
+        }
+      }
+
+      if (calendars.length > 0) {
+         const events = await fetchMultipleCalendars(calendars);
+         setCalendarEvents(events);
+      } else {
+         setCalendarEvents([]);
+      }
+    } catch (e) {
+        console.error("Failed to load calendar events", e);
+    }
+  };
 
   const loadMonthlyData = async () => {
     setCalendarLoading(true);
@@ -48,8 +91,69 @@ function MonthlyView({ goToDate }) {
     const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstDay = new Date(year, month, 1).getDay();
     const today = getLocalDateString(new Date());
+
+    // 1. Prepare days array
+    const days = [];
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(new Date(year, month, i));
+    }
+
+    // 2. Calculate layout
+    const isEventOnDate = (event, date) => {
+        const targetStart = new Date(date);
+        targetStart.setHours(0,0,0,0);
+        const targetEnd = new Date(targetStart);
+        targetEnd.setDate(targetEnd.getDate() + 1);
+        
+        const eventStart = new Date(event.startDate);
+        if (event.isAllDay) eventStart.setHours(0,0,0,0);
+        
+        let eventEnd;
+        if (event.endDate) {
+            eventEnd = new Date(event.endDate);
+            if (event.isAllDay) eventEnd.setHours(0,0,0,0);
+        } else {
+            eventEnd = new Date(eventStart);
+            if (event.isAllDay) eventEnd.setDate(eventEnd.getDate() + 1);
+            else eventEnd.setHours(23,59,59,999);
+        }
+        
+        return eventStart < targetEnd && eventEnd > targetStart;
+    };
+
+    const sortedEvents = [...calendarEvents].sort((a, b) => {
+        const startDiff = new Date(a.startDate) - new Date(b.startDate);
+        if (startDiff !== 0) return startDiff;
+        const durA = (a.endDate ? new Date(a.endDate) : new Date(a.startDate)) - new Date(a.startDate);
+        const durB = (b.endDate ? new Date(b.endDate) : new Date(b.startDate)) - new Date(b.startDate);
+        return durB - durA;
+    });
+
+    const daySlots = {};
+    days.forEach(d => daySlots[getLocalDateString(d)] = []);
+
+    sortedEvents.forEach(event => {
+        const coveredDays = days.filter(d => isEventOnDate(event, d));
+        if (coveredDays.length === 0) return;
+
+        let slotIndex = 0;
+        while (true) {
+            const isAvailable = coveredDays.every(d => {
+                const key = getLocalDateString(d);
+                return !daySlots[key][slotIndex];
+            });
+            if (isAvailable) break;
+            slotIndex++;
+        }
+
+        coveredDays.forEach(d => {
+            const key = getLocalDateString(d);
+            daySlots[key][slotIndex] = event;
+        });
+    });
 
     return (
       <div className="monthly-grid">
@@ -61,19 +165,29 @@ function MonthlyView({ goToDate }) {
           <div key={`empty-${i}`} className="monthly-day-cell empty"></div>
         ))}
 
-        {/* Render each day explicitly and look up image by numeric day to avoid formatting or timezone mismatches */}
-        {(() => {
-          const imagesMap = (monthlyData || []).reduce((acc, d) => {
-            // use numeric day as key (d.date) which is guaranteed by backend
-            acc[d.date] = d.firstImage;
-            return acc;
-          }, {});
+        {days.map((date, idx) => {
+            const day = date.getDate();
+            const dateKey = getLocalDateString(date);
+            const slots = daySlots[dateKey] || [];
+            const img = (monthlyData || []).find(d => d.date === day)?.firstImage;
+            
+            // Determine how many slots to render to maintain alignment but minimize height
+            let lastVisibleIndex = -1;
+            for (let i = 2; i >= 0; i--) {
+                if (slots[i]) {
+                    lastVisibleIndex = i;
+                    break;
+                }
+            }
+            
+            const renderSlots = [];
+            for (let i = 0; i <= lastVisibleIndex; i++) {
+                renderSlots.push(i);
+            }
 
-          return Array.from({ length: new Date(year, month + 1, 0).getDate() }, (_, idx) => {
-            const day = idx + 1;
-            const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const img = imagesMap[day];
-
+            const hiddenCount = slots.slice(3).filter(e => e !== null).length;
+            const hasMore = hiddenCount > 0;
+            
             return (
               <div
                 key={dateKey}
@@ -81,6 +195,50 @@ function MonthlyView({ goToDate }) {
                 onClick={() => goToDate(dateKey)}
               >
                 <div className="monthly-date-num">{day}</div>
+                
+                <div className="monthly-events-list">
+                  {renderSlots.map(i => {
+                      const event = slots[i];
+                      if (!event) return <div key={i} className="monthly-event-spacer"></div>;
+                      
+                      const eventStart = new Date(event.startDate);
+                      if (event.isAllDay) eventStart.setHours(0,0,0,0);
+                      const isStart = eventStart.getTime() >= date.getTime();
+                      
+                      let eventEnd;
+                      if (event.endDate) {
+                          eventEnd = new Date(event.endDate);
+                          if (event.isAllDay) eventEnd.setHours(0,0,0,0);
+                      } else {
+                          eventEnd = new Date(eventStart);
+                          if (event.isAllDay) eventEnd.setDate(eventEnd.getDate() + 1);
+                          else eventEnd.setHours(23,59,59,999);
+                      }
+                      
+                      const nextDay = new Date(date);
+                      nextDay.setDate(nextDay.getDate() + 1);
+                      const isEnd = eventEnd.getTime() <= nextDay.getTime();
+
+                      return (
+                        <div 
+                          key={i} 
+                          className={`monthly-event-item ${!isStart ? 'continuation-left' : ''} ${!isEnd ? 'continuation-right' : ''}`}
+                          style={{ 
+                            backgroundColor: hexToRgba(event.calendarColor || '#007bff', 0.12),
+                            color: '#000000',
+                            borderLeftColor: isStart ? (event.calendarColor || '#007bff') : 'transparent',
+                          }}
+                          title={event.title}
+                        >
+                          {isStart || day === 1 ? event.title : '\u00A0'}
+                        </div>
+                      );
+                  })}
+                  {hasMore && (
+                    <div className="monthly-event-more">+{hiddenCount}</div>
+                  )}
+                </div>
+
                 {img && (
                   <img
                     src={img.thumbnailUrl}
@@ -90,8 +248,7 @@ function MonthlyView({ goToDate }) {
                 )}
               </div>
             );
-          });
-        })()}
+        })}
       </div>
     );
   };
@@ -136,8 +293,8 @@ function MonthlyView({ goToDate }) {
           renderCalendarGrid()
         )
       )}
-      {viewMode === 'time' && <MonthlyTimeGrid currentMonth={currentMonth} goToDate={goToDate} />}
-      {viewMode === 'stats' && <MonthlyStats currentMonth={currentMonth} goToDate={goToDate} />}
+      {viewMode === 'time' && <MonthlyTimeGrid currentMonth={currentMonth} goToDate={goToDate} calendarEvents={calendarEvents} />}
+      {viewMode === 'stats' && <MonthlyStats currentMonth={currentMonth} goToDate={goToDate} calendarEvents={calendarEvents} />}
     </div>
   );
 }

@@ -10,10 +10,12 @@ import multer from 'multer';
 import sharp from 'sharp';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fetch from 'node-fetch';
 import { setupEventsAPI } from './events-api.js';
 import { setupCategoriesAPI } from './categories-api.js';
 import { setupTodoCategoriesAPI } from './todo-categories-api.js';
 import { setupAuthAPI } from './auth-api.js';
+import { setupCalendarsAPI } from './calendars-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,7 +57,7 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: 'lax', // Same domain, so lax is fine
+    sameSite: 'lax', // Same-origin via Vite proxy in dev, same domain in production
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   },
   proxy: true
@@ -749,7 +751,25 @@ app.get('/api/routines', async (req, res) => {
   try {
     const { data, error } = await supabase.from('routines').select('*').eq('active', true).order('order');
     if (error) throw error;
-    res.json({ success: true, data });
+
+    // Parse weekdays JSON string to array
+    const parsedData = data.map(routine => {
+      let parsedWeekdays = null;
+      if (routine.weekdays) {
+        try {
+          parsedWeekdays = JSON.parse(routine.weekdays);
+        } catch (e) {
+          console.error('Failed to parse weekdays for routine:', routine.id, routine.weekdays, e);
+          parsedWeekdays = null;
+        }
+      }
+      return {
+        ...routine,
+        weekdays: parsedWeekdays
+      };
+    });
+
+    res.json({ success: true, data: parsedData });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -757,8 +777,18 @@ app.get('/api/routines', async (req, res) => {
 
 app.post('/api/routines', async (req, res) => {
   try {
-    const { text, order } = req.body;
-    const { data, error } = await supabase.from('routines').insert({ text, active: true, order: order || 9999 }).select().single();
+    const { text, emoji, order, scheduled_time, duration, weekdays, start_date, end_date } = req.body;
+    const { data, error } = await supabase.from('routines').insert({
+      text,
+      emoji: emoji || '✓',
+      active: true,
+      order: order || 9999,
+      scheduled_time: scheduled_time || null,
+      duration: duration || 30,
+      weekdays: weekdays ? JSON.stringify(weekdays) : null,
+      start_date: start_date || null,
+      end_date: end_date || null
+    }).select().single();
     if (error) throw error;
     res.json({ success: true, data });
   } catch (error) {
@@ -769,10 +799,23 @@ app.post('/api/routines', async (req, res) => {
 app.patch('/api/routines/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const updates = { ...req.body };
+
+    // Convert weekdays array to JSON string if provided
+    if (updates.weekdays) {
+      updates.weekdays = JSON.stringify(updates.weekdays);
+    }
+
     const { data, error } = await supabase.from('routines').update(updates).eq('id', id).select().single();
     if (error) throw error;
-    res.json({ success: true, data });
+
+    // Parse weekdays back to array for response
+    const parsedData = {
+      ...data,
+      weekdays: data.weekdays ? JSON.parse(data.weekdays) : null
+    };
+
+    res.json({ success: true, data: parsedData });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -830,6 +873,9 @@ app.post('/api/routine-checks', async (req, res) => {
 /* ========================================
    Google Calendar - Get Calendars
    ======================================== */
+// DEPRECATED: This endpoint is replaced by /api/calendars from calendars-api.js
+// which supports iCloud, Google Calendar, Outlook, and other calendar types
+/*
 app.get('/api/calendars', async (req, res) => {
   try {
     console.log('=== /api/calendars request ===');
@@ -866,6 +912,7 @@ app.get('/api/calendars', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+*/
 
 /* ========================================
    Google Calendar - Get Events for Date
@@ -1317,6 +1364,13 @@ app.post('/api/monthly/routine-mood-stats', async (req, res) => {
 
     if (routinesError) throw routinesError;
 
+    // Fetch all categories
+    const { data: categories, error: categoriesError } = await supabase
+      .from('categories')
+      .select('*');
+
+    if (categoriesError) throw categoriesError;
+
     // Fetch all routine checks for the month
     const { data: routineChecks, error: checksError } = await supabase
       .from('routine_checks')
@@ -1335,6 +1389,16 @@ app.post('/api/monthly/routine-mood-stats', async (req, res) => {
 
     if (reflectionsError) throw reflectionsError;
 
+    // Fetch all events for the month
+    const { data: events, error: eventsError } = await supabase
+      .from('events')
+      .select('*')
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('start_time');
+
+    if (eventsError) throw eventsError;
+
     // Process routine statistics
     const routineStats = {};
     const dailyRoutineChecks = {};
@@ -1343,6 +1407,7 @@ app.post('/api/monthly/routine-mood-stats', async (req, res) => {
       routineStats[routine.id] = {
         id: routine.id,
         text: routine.text,
+        emoji: routine.emoji,
         totalDays: 0,
         checkedDays: 0,
         percentage: 0,
@@ -1431,6 +1496,70 @@ app.post('/api/monthly/routine-mood-stats', async (req, res) => {
         : 0;
     });
 
+    // Group events by date
+    const dailyEvents = {};
+    events.forEach(event => {
+      if (!dailyEvents[event.date]) {
+        dailyEvents[event.date] = [];
+      }
+      dailyEvents[event.date].push({
+        title: event.title,
+        start_time: event.start_time,
+        end_time: event.end_time,
+        is_plan: event.is_plan,
+        category_id: event.category_id
+      });
+    });
+
+    // Process category statistics
+    const categoryStatsMap = {};
+    const dailyCategoryStats = {}; // date -> { categoryId: minutes }
+
+    categories.forEach(cat => {
+      categoryStatsMap[cat.id] = {
+        id: cat.id,
+        name: cat.name,
+        color: cat.color,
+        totalMinutes: 0
+      };
+    });
+
+    events.forEach(event => {
+      // Only count actual events (is_plan = false)
+      if (event.category_id && categoryStatsMap[event.category_id] && !event.is_plan) {
+        // Parse time (HH:MM:SS or HH:MM)
+        const [startH, startM] = event.start_time.split(':').map(Number);
+        const [endH, endM] = event.end_time.split(':').map(Number);
+
+        const startMinutes = startH * 60 + startM;
+        const endMinutes = endH * 60 + endM;
+
+        let duration = endMinutes - startMinutes;
+        if (duration < 0) duration += 24 * 60;
+
+        if (duration > 0) {
+          categoryStatsMap[event.category_id].totalMinutes += duration;
+
+          // Add to daily stats
+          if (!dailyCategoryStats[event.date]) {
+            dailyCategoryStats[event.date] = {};
+          }
+          if (!dailyCategoryStats[event.date][event.category_id]) {
+            dailyCategoryStats[event.date][event.category_id] = 0;
+          }
+          dailyCategoryStats[event.date][event.category_id] += duration;
+        }
+      }
+    });
+
+    const totalMinutes = Object.values(categoryStatsMap).reduce((sum, cat) => sum + cat.totalMinutes, 0);
+    const categoryStats = Object.values(categoryStatsMap)
+      .map(cat => ({
+        ...cat,
+        percentage: totalMinutes > 0 ? Math.round((cat.totalMinutes / totalMinutes) * 100) : 0
+      }))
+      .sort((a, b) => b.totalMinutes - a.totalMinutes);
+
     res.json({
       success: true,
       data: {
@@ -1443,7 +1572,10 @@ app.post('/api/monthly/routine-mood-stats', async (req, res) => {
           total: totalMoodEntries,
           labels: moodLabels
         },
-        dailyMoods
+        dailyMoods,
+        dailyEvents,
+        categoryStats,
+        dailyCategoryStats
       }
     });
   } catch (error) {
@@ -1550,6 +1682,57 @@ setupTodoCategoriesAPI(app);
    Auth API (Email/Password Authentication)
    ======================================== */
 setupAuthAPI(app, supabase);
+
+/* ========================================
+   Calendars API (User Calendar Subscriptions)
+   ======================================== */
+setupCalendarsAPI(app, supabase);
+
+/* ========================================
+   iCloud Calendar Proxy
+   ======================================== */
+app.get('/api/icloud-calendar/proxy', async (req, res) => {
+  try {
+    const { url } = req.query;
+
+    if (!url) {
+      return res.status(400).json({ error: 'URL parameter is required' });
+    }
+
+    // Convert webcal:// to https://
+    const httpUrl = url.replace(/^webcal:\/\//i, 'https://');
+
+    // Validate URL
+    if (!httpUrl.startsWith('https://') && !httpUrl.startsWith('http://')) {
+      return res.status(400).json({ error: 'Invalid URL format' });
+    }
+
+    // Fetch the ICS file with headers to handle compression
+    const response = await fetch(httpUrl, {
+      headers: {
+        'Accept': 'text/calendar, text/plain, */*',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'User-Agent': 'Mozilla/5.0 (compatible; TimeTracker/1.0)'
+      }
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: `Failed to fetch calendar: ${response.statusText}`
+      });
+    }
+
+    // Node.js fetch should automatically decompress gzip/deflate/brotli
+    const icsData = await response.text();
+
+    // Set appropriate headers
+    res.set('Content-Type', 'text/calendar; charset=utf-8');
+    res.send(icsData);
+  } catch (error) {
+    console.error('Error proxying iCloud calendar:', error);
+    res.status(500).json({ error: 'Failed to fetch calendar data' });
+  }
+});
 
 /* ========================================
    SPA Fallback

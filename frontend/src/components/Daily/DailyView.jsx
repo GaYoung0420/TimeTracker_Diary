@@ -10,9 +10,10 @@ import ImageUpload from './ImageUpload';
 import CategoryStats from './CategoryStats';
 import CategoryManager from '../Settings/CategoryManager';
 import TodoCategoryManager from '../Settings/TodoCategoryManager';
+import ICloudEvents from './ICloudEvents';
 import { api } from '../../utils/api';
 
-function DailyView({ currentDate, setCurrentDate }) {
+function DailyView({ currentDate, setCurrentDate, onOpenSettings }) {
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showTodoCategoryManager, setShowTodoCategoryManager] = useState(false);
   const [todoCategories, setTodoCategories] = useState([]);
@@ -108,9 +109,13 @@ function DailyView({ currentDate, setCurrentDate }) {
           <button className="date-nav-btn" onClick={() => changeDate(1)}>▶</button>
         </div>
 
+        <ICloudEvents currentDate={currentDate} onOpenSettings={onOpenSettings} />
+
         <Timeline
           events={events}
           todos={dailyData.todos}
+          routines={dailyData.routines}
+          routineChecks={dailyData.routineChecks}
           categories={categories}
           todoCategories={todoCategories}
           loading={eventsLoading}
@@ -134,6 +139,7 @@ function DailyView({ currentDate, setCurrentDate }) {
         <RoutineGrid
           routines={dailyData.routines}
           routineChecks={dailyData.routineChecks}
+          currentDate={currentDate}
           onToggle={updateRoutineCheck}
           onAdd={addRoutine}
           onUpdate={updateRoutine}
@@ -178,10 +184,8 @@ function DailyView({ currentDate, setCurrentDate }) {
             <CategoryManager
               categories={categories}
               onCategoriesChange={reloadCategories}
+              onClose={() => setShowCategoryManager(false)}
             />
-            <button className="btn-close-modal" onClick={() => setShowCategoryManager(false)}>
-              닫기
-            </button>
           </div>
         </div>
       )}
@@ -196,10 +200,8 @@ function DailyView({ currentDate, setCurrentDate }) {
               onAdd={handleAddTodoCategory}
               onUpdate={handleUpdateTodoCategory}
               onDelete={handleDeleteTodoCategory}
+              onClose={() => setShowTodoCategoryManager(false)}
             />
-            <button className="btn-close-modal" onClick={() => setShowTodoCategoryManager(false)}>
-              닫기
-            </button>
           </div>
         </div>
       )}

@@ -66,42 +66,108 @@ export function useDailyData(currentDate) {
     }
   }, [dateKey, loadData]);
 
-  const updateTodo = useCallback(async (id, updates) => {
-    const result = await api.updateTodo(id, updates);
-    if (result.success) {
+  const updateTodo = useCallback(async (id, updates, options = {}) => {
+    // Optimistic update
+    setDailyData(prev => ({
+      ...prev,
+      todos: prev.todos.map(todo => 
+        todo.id === id ? { ...todo, ...updates } : todo
+      )
+    }));
+
+    if (options.skipApi) return;
+
+    try {
+      const result = await api.updateTodo(id, updates);
+      if (!result.success) {
+        await loadData();
+      }
+    } catch (error) {
+      console.error('Failed to update todo:', error);
       await loadData();
     }
   }, [loadData]);
 
   const deleteTodo = useCallback(async (id) => {
-    const result = await api.deleteTodo(id);
-    if (result.success) {
+    // Optimistic update
+    setDailyData(prev => ({
+      ...prev,
+      todos: prev.todos.filter(todo => todo.id !== id)
+    }));
+
+    try {
+      const result = await api.deleteTodo(id);
+      if (!result.success) {
+        await loadData();
+      }
+    } catch (error) {
+      console.error('Failed to delete todo:', error);
       await loadData();
     }
   }, [loadData]);
 
   const reorderTodos = useCallback(async (updates) => {
-    const result = await api.reorderTodos(updates);
-    if (result.success) {
+    // Optimistic update
+    setDailyData(prev => {
+      const newTodos = [...prev.todos];
+      updates.forEach(({ id, order }) => {
+        const todo = newTodos.find(t => t.id === id);
+        if (todo) todo.order = order;
+      });
+      return {
+        ...prev,
+        todos: newTodos.sort((a, b) => a.order - b.order)
+      };
+    });
+
+    try {
+      const result = await api.reorderTodos(updates);
+      if (!result.success) {
+        await loadData();
+      }
+    } catch (error) {
+      console.error('Failed to reorder todos:', error);
       await loadData();
     }
   }, [loadData]);
 
   const updateRoutineCheck = useCallback(async (routineId, checked) => {
-    const result = await api.updateRoutineCheck(dateKey, routineId, checked);
-    if (result.success) {
+    // Optimistic update
+    setDailyData(prev => ({
+      ...prev,
+      routineChecks: {
+        ...prev.routineChecks,
+        [routineId]: checked
+      }
+    }));
+
+    try {
+      const result = await api.updateRoutineCheck(dateKey, routineId, checked);
+      if (!result.success) {
+        // Revert on failure
+        setDailyData(prev => ({
+          ...prev,
+          routineChecks: {
+            ...prev.routineChecks,
+            [routineId]: !checked
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to update routine check:', error);
+      // Revert on error
       setDailyData(prev => ({
         ...prev,
         routineChecks: {
           ...prev.routineChecks,
-          [routineId]: checked
+          [routineId]: !checked
         }
       }));
     }
   }, [dateKey]);
 
-  const addRoutine = useCallback(async (text) => {
-    const result = await api.addRoutine(text);
+  const addRoutine = useCallback(async (text, emoji = '✓', order, scheduled_time, duration, weekdays, start_date, end_date) => {
+    const result = await api.addRoutine(text, emoji, order, scheduled_time, duration, weekdays, start_date, end_date);
     if (result.success) {
       await loadData();
     }

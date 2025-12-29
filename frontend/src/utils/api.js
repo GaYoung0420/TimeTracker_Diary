@@ -75,11 +75,11 @@ export const api = {
     return res.json();
   },
 
-  async addRoutine(text, order) {
+  async addRoutine(text, emoji = '✓', order, scheduled_time, duration, weekdays, start_date, end_date) {
     const res = await fetch(`${API_URL}/api/routines`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, order })
+      body: JSON.stringify({ text, emoji, order, scheduled_time, duration, weekdays, start_date, end_date })
     });
     return res.json();
   },
@@ -366,6 +366,42 @@ export const api = {
 
   async getCurrentUser() {
     const res = await fetch(`${API_URL}/api/auth/me`, {
+      credentials: 'include'
+    });
+    return res.json();
+  },
+
+  // Calendars
+  async getCalendars() {
+    const res = await fetch(`${API_URL}/api/calendars`, {
+      credentials: 'include'
+    });
+    return res.json();
+  },
+
+  async addCalendar(name, type, typeIcon, url, color) {
+    const res = await fetch(`${API_URL}/api/calendars`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name, type, type_icon: typeIcon, url, color, enabled: true })
+    });
+    return res.json();
+  },
+
+  async updateCalendar(id, updates) {
+    const res = await fetch(`${API_URL}/api/calendars/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(updates)
+    });
+    return res.json();
+  },
+
+  async deleteCalendar(id) {
+    const res = await fetch(`${API_URL}/api/calendars/${id}`, {
+      method: 'DELETE',
       credentials: 'include'
     });
     return res.json();

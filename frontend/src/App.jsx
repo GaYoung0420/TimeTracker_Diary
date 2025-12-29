@@ -1,8 +1,9 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import './App.css';
 import DailyView from './components/Daily/DailyView';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
+import SettingsModal from './components/Settings/SettingsModal';
 import { api } from './utils/api';
 
 // Lazy load MonthlyView since it's not needed initially
@@ -21,6 +22,14 @@ function App() {
   const [user, setUser] = useState(null);
   const [authView, setAuthView] = useState('login'); // 'login' or 'register'
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsInitialSection, setSettingsInitialSection] = useState('main');
+  const lastDailyClickTime = useRef(0);
+
+  const openSettings = (section = 'main') => {
+    setSettingsInitialSection(section);
+    setShowSettingsModal(true);
+  };
 
   // Save currentView to localStorage
   useEffect(() => {
@@ -54,6 +63,20 @@ function App() {
     setCurrentView(view);
   };
 
+  const handleDailyClick = () => {
+    const now = Date.now();
+    const timeSinceLastClick = now - lastDailyClickTime.current;
+
+    // Double-click detected (within 300ms)
+    if (timeSinceLastClick < 300 && currentView === 'daily') {
+      setCurrentDate(new Date()); // Go to today
+    } else {
+      switchView('daily');
+    }
+
+    lastDailyClickTime.current = now;
+  };
+
   const goToDate = (dateKey) => {
     const [year, month, day] = dateKey.split('-').map(Number);
     setCurrentDate(new Date(year, month - 1, day));
@@ -62,10 +85,16 @@ function App() {
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
+    // 로그인 시 오늘 날짜로 이동
+    setCurrentDate(new Date());
+    setCurrentView('daily');
   };
 
   const handleRegisterSuccess = (userData) => {
     setUser(userData);
+    // 회원가입 시 오늘 날짜로 이동
+    setCurrentDate(new Date());
+    setCurrentView('daily');
   };
 
   const handleLogout = async () => {
@@ -122,7 +151,7 @@ function App() {
           <div className="date-selector">
             <button
               className={`date-nav-btn view-toggle-btn ${currentView === 'daily' ? 'active' : ''}`}
-              onClick={() => switchView('daily')}
+              onClick={handleDailyClick}
             >
               Daily
             </button>
@@ -131,6 +160,13 @@ function App() {
               onClick={() => switchView('monthly')}
             >
               Monthly
+            </button>
+            <button
+              className="date-nav-btn settings-btn"
+              onClick={() => openSettings('main')}
+              title="설정"
+            >
+              ⚙️
             </button>
           </div>
 
@@ -149,7 +185,11 @@ function App() {
       {/* Views */}
       <div className={`view-container ${currentView === 'daily' ? 'active' : ''}`}>
         {currentView === 'daily' && (
-          <DailyView currentDate={currentDate} setCurrentDate={setCurrentDate} />
+          <DailyView 
+            currentDate={currentDate} 
+            setCurrentDate={setCurrentDate} 
+            onOpenSettings={() => openSettings('calendar')}
+          />
         )}
       </div>
 
@@ -160,6 +200,14 @@ function App() {
           </Suspense>
         )}
       </div>
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <SettingsModal 
+          onClose={() => setShowSettingsModal(false)} 
+          initialSection={settingsInitialSection}
+        />
+      )}
     </div>
   );
 }

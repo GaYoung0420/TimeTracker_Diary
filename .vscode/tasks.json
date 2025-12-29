@@ -1,0 +1,16 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "append_css",
+			"type": "shell",
+			"command": "cat >> frontend/src/components/Settings/SettingsModal.css",
+			"args": [
+				"frontend/src/components/Settings/SettingsModal.css",
+				"\n.btn-icon-edit {\n  width: 28px;\n  height: 28px;\n  border: none;\n  background: none;\n  border-radius: 4px;\n  cursor: pointer;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 14px;\n  color: #94a3b8;\n  transition: all 0.2s;\n}\n\n.btn-icon-edit:hover {\n  background-color: #e2e8f0;\n  color: #3b82f6;\n}\n"
+			],
+			"isBackground": false,
+			"group": "none"
+		}
+	]
+}

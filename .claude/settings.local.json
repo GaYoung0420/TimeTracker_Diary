@@ -34,7 +34,9 @@
       "Bash(sqlite3:*)",
       "Bash(pkill:*)",
       "Bash(nslookup:*)",
-      "Bash(dig:*)"
+      "Bash(dig:*)",
+      "Bash(kill:*)",
+      "Bash(gunzip:*)"
     ]
   }
 }

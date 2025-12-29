@@ -3,7 +3,7 @@ import { formatKoreanTime, getCategoryColorByName, getCategoryTextColorByName, h
 import EventEditModal from './EventEditModal';
 import EventEditPopup from './EventEditPopup';
 
-function Timeline({ events, todos, categories, todoCategories, loading, currentDate, onCreateEvent, onUpdateEvent, onDeleteEvent, wakeSleepInfo }) {
+function Timeline({ events, todos, routines, routineChecks, categories, todoCategories, loading, currentDate, onCreateEvent, onUpdateEvent, onDeleteEvent, wakeSleepInfo }) {
   const hourHeight = 40;
   const [isCreating, setIsCreating] = useState(false);
   const [creatingColumn, setCreatingColumn] = useState(null); // 'plan' or 'actual'
@@ -956,14 +956,123 @@ function Timeline({ events, todos, categories, todoCategories, loading, currentD
       });
   }, [todos, categories, todoCategories, currentDate]);
 
+  // Convert routines to plan/actual events based on check status
+  const { routinePlanEvents, routineActualEvents } = useMemo(() => {
+    if (!routines || !Array.isArray(routines)) {
+      console.log('[Timeline] No routines or not array:', routines);
+      return { routinePlanEvents: [], routineActualEvents: [] };
+    }
+
+    console.log('[Timeline] All routines:', routines);
+    const planEvents = [];
+    const actualEvents = [];
+
+    // Convert currentDate to YYYY-MM-DD string
+    const dateString = getLocalDateString(currentDate);
+    console.log('[Timeline] Date string:', dateString);
+
+    const filteredRoutines = routines.filter(routine => {
+      // Check if routine has valid scheduled_time and is active
+      const hasTime = routine.scheduled_time &&
+             routine.active &&
+             typeof routine.scheduled_time === 'string' &&
+             routine.scheduled_time.includes(':');
+
+      if (!hasTime) return false;
+
+      // Parse weekdays if it's a string
+      let weekdays = routine.weekdays;
+      if (typeof weekdays === 'string') {
+        try {
+          weekdays = JSON.parse(weekdays);
+        } catch (e) {
+          console.error(`[Timeline] Failed to parse weekdays for routine ${routine.text}:`, e);
+          weekdays = null;
+        }
+      }
+
+      // Check weekday filter
+      if (weekdays && Array.isArray(weekdays) && weekdays.length > 0) {
+        const weekday = currentDate.getDay();
+        if (!weekdays.includes(weekday)) {
+          console.log(`[Timeline] Routine ${routine.text}: filtered out by weekday (${weekday} not in ${weekdays})`);
+          return false;
+        }
+      }
+
+      // Check date range filter
+      if (routine.start_date) {
+        if (dateString < routine.start_date) {
+          console.log(`[Timeline] Routine ${routine.text}: filtered out by start_date (${dateString} < ${routine.start_date})`);
+          return false;
+        }
+      }
+      if (routine.end_date) {
+        if (dateString > routine.end_date) {
+          console.log(`[Timeline] Routine ${routine.text}: filtered out by end_date (${dateString} > ${routine.end_date})`);
+          return false;
+        }
+      }
+
+      console.log(`[Timeline] Routine ${routine.text}: INCLUDED`);
+      return true;
+    });
+
+    console.log('[Timeline] Filtered routines with time:', filteredRoutines);
+
+    filteredRoutines.forEach(routine => {
+        const startTime = routine.scheduled_time;
+        const duration = routine.duration || 30;
+
+        try {
+          const [hours, minutes] = startTime.split(':').map(Number);
+          const endMinutes = hours * 60 + minutes + duration;
+          const endHours = Math.floor(endMinutes / 60);
+          const endMins = endMinutes % 60;
+
+          // Ensure time format includes seconds (HH:MM:SS)
+          const formattedStartTime = startTime.split(':').length === 2
+            ? `${startTime}:00`
+            : startTime;
+          const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}:00`;
+
+          const routineEvent = {
+            id: `routine-${routine.id}`,
+            title: `${routine.emoji || '✓'} ${routine.text}`,
+            date: dateString,
+            start: `${dateString}T${formattedStartTime}`,
+            end: `${dateString}T${endTime}`,
+            category_id: null,
+            is_plan: true,
+            isRoutine: true,
+            routineId: routine.id
+          };
+
+          console.log('[Timeline] Created routine event:', routineEvent);
+
+          // Always add routines to plan events only
+          planEvents.push(routineEvent);
+        } catch (error) {
+          console.error('Error converting routine to event:', routine, error);
+        }
+      });
+
+    console.log('[Timeline] Routine plan events:', planEvents);
+    console.log('[Timeline] Routine actual events:', actualEvents);
+    return { routinePlanEvents: planEvents, routineActualEvents: actualEvents };
+  }, [routines, routineChecks, currentDate]);
+
   // Separate events by is_plan field (memoized to prevent re-filtering on every render)
   const { planEvents, actualEvents } = useMemo(() => {
-    const allPlanEvents = [...events.filter(e => e.is_plan === true), ...todoEvents];
+    const allPlanEvents = [...events.filter(e => e.is_plan === true), ...todoEvents, ...routinePlanEvents];
+    const allActualEvents = [...events.filter(e => e.is_plan === false), ...routineActualEvents];
+    console.log('[Timeline] Final plan events (with routines):', allPlanEvents);
+    console.log('[Timeline] Final actual events (with routines):', allActualEvents);
     return {
       planEvents: allPlanEvents,
-      actualEvents: events.filter(e => e.is_plan === false)
+      actualEvents: allActualEvents
     };
-  }, [events, todoEvents]);
+  }, [events, todoEvents, routinePlanEvents, routineActualEvents]);
 
   if (loading) {
     return (

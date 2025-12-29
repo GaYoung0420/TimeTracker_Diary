@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { api } from '../../utils/api';
 import './CategoryManager.css';
 
-function CategoryManager({ categories, onCategoriesChange }) {
+function CategoryManager({ categories, onCategoriesChange, onClose }) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -82,37 +82,56 @@ function CategoryManager({ categories, onCategoriesChange }) {
   };
 
   return (
-    <div className="category-manager">
-      <div className="category-manager-header">
+    <div className="todo-category-manager">
+      <div className="todo-manager-header">
         <h3>카테고리 관리</h3>
-        {!isAdding && (
-          <button className="btn-add-category" onClick={() => setIsAdding(true)}>
-            + 추가
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {!isAdding && (
+            <button 
+              className="btn-add-icon" 
+              onClick={() => setIsAdding(true)}
+              title="새 카테고리 추가"
+            >
+              +
+            </button>
+          )}
+          {onClose && (
+            <button
+              className="btn-close-icon"
+              onClick={onClose}
+              title="닫기"
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Add New Category Form */}
       {isAdding && (
-        <div className="category-form">
-          <input
-            type="text"
-            value={newCategoryName}
-            onChange={(e) => setNewCategoryName(e.target.value)}
-            placeholder="카테고리 이름"
-            className="category-name-input"
-          />
-          <input
-            type="color"
-            value={newCategoryColor}
-            onChange={(e) => setNewCategoryColor(e.target.value)}
-            className="category-color-picker"
-          />
-          <div className="category-form-actions">
-            <button className="btn-save" onClick={handleAdd}>
+        <div className="todo-add-form">
+          <div className="form-row">
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="카테고리 이름"
+              className="todo-input-name"
+              autoFocus
+            />
+            <div className="color-picker-wrapper">
+              <input
+                type="color"
+                value={newCategoryColor}
+                onChange={(e) => setNewCategoryColor(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="form-actions">
+            <button className="btn-form-save" onClick={handleAdd}>
               저장
             </button>
-            <button className="btn-cancel" onClick={() => {
+            <button className="btn-form-cancel" onClick={() => {
               setIsAdding(false);
               setNewCategoryName('');
               setNewCategoryColor('#16a765');
@@ -124,48 +143,60 @@ function CategoryManager({ categories, onCategoriesChange }) {
       )}
 
       {/* Category List */}
-      <div className="category-list">
+      <div className="todo-manager-list">
         {categories && categories.length > 0 ? (
           categories.map(cat => (
-            <div key={cat.id} className="category-item">
+            <div key={cat.id} className={`todo-manager-item ${editingId === cat.id ? 'editing' : ''}`}>
               {editingId === cat.id ? (
-                <div className="category-form">
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="category-name-input"
-                  />
-                  <input
-                    type="color"
-                    value={editColor}
-                    onChange={(e) => setEditColor(e.target.value)}
-                    className="category-color-picker"
-                  />
-                  <div className="category-form-actions">
-                    <button className="btn-save" onClick={() => handleEdit(cat.id)}>
+                <div className="todo-edit-form">
+                  <div className="form-row">
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="todo-input-name"
+                      autoFocus
+                    />
+                    <div className="color-picker-wrapper">
+                      <input
+                        type="color"
+                        value={editColor}
+                        onChange={(e) => setEditColor(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-actions">
+                    <button className="btn-form-save" onClick={() => handleEdit(cat.id)}>
                       저장
                     </button>
-                    <button className="btn-cancel" onClick={cancelEdit}>
+                    <button className="btn-form-cancel" onClick={cancelEdit}>
                       취소
                     </button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div className="category-info">
-                    <span
-                      className="category-color-box"
+                  <div className="todo-item-content">
+                    <div 
+                      className="color-dot"
                       style={{ backgroundColor: cat.color }}
-                    ></span>
-                    <span className="category-name">{cat.name}</span>
+                    />
+                    <span className="todo-item-name">{cat.name}</span>
                   </div>
-                  <div className="category-actions">
-                    <button className="btn-edit" onClick={() => startEdit(cat)}>
-                      수정
+                  <div className="todo-item-actions">
+                    <button 
+                      className="btn-icon-edit" 
+                      onClick={() => startEdit(cat)}
+                      title="수정"
+                    >
+                      ✎
                     </button>
-                    <button className="btn-delete" onClick={() => handleDelete(cat.id)}>
-                      삭제
+                    <button 
+                      className="btn-icon-delete" 
+                      onClick={() => handleDelete(cat.id)}
+                      title="삭제"
+                    >
+                      ×
                     </button>
                   </div>
                 </>
@@ -173,7 +204,7 @@ function CategoryManager({ categories, onCategoriesChange }) {
             </div>
           ))
         ) : (
-          <div className="no-categories">카테고리가 없습니다. 추가해주세요.</div>
+          <div className="empty-state">카테고리가 없습니다. 추가해주세요.</div>
         )}
       </div>
     </div>

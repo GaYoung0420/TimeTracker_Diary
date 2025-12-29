@@ -1,0 +1,243 @@
+.icloud-events-container {
+  background: white;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0,0,0,0.03);
+}
+
+.icloud-events-title {
+  margin: 0 0 10px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #2c3e50;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.icloud-events-title::before {
+  content: '📅';
+  font-size: 16px;
+}
+
+.icloud-loading,
+.icloud-no-events {
+  text-align: center;
+  padding: 20px 15px;
+  color: #888;
+  font-size: 13px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.icloud-error {
+  color: #dc3545;
+  font-size: 13px;
+  padding: 10px 12px;
+  background-color: #fff5f5;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  border: 1px solid #ffebeb;
+}
+
+.icloud-error-hint {
+  font-size: 11px;
+  color: #666;
+  padding: 0 4px;
+  margin-bottom: 8px;
+}
+
+.icloud-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.icloud-event-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background-color: #fff;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  border-left-width: 3px;
+  border-left-style: solid;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  min-height: 40px;
+}
+
+.icloud-event-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  border-color: transparent;
+}
+
+.icloud-event-time {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  min-width: 60px;
+  padding-top: 0;
+  display: flex;
+  align-items: center;
+}
+
+.icloud-event-details {
+  flex: 1;
+  min-width: 0; /* Prevent overflow */
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.icloud-event-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0;
+  flex-wrap: wrap;
+}
+
+.icloud-event-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2c3e50;
+  line-height: 1.2;
+}
+
+.icloud-event-calendar-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  height: 20px;
+  box-sizing: border-box;
+}
+
+.icloud-event-location {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.icloud-event-description {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
+  margin-top: 4px;
+  white-space: pre-wrap;
+  max-height: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* New styles */
+.icloud-events-container.empty-state {
+  position: relative;
+  text-align: center;
+  padding: 20px;
+  background: linear-gradient(to bottom right, #ffffff, #f8f9fa);
+}
+
+.btn-close-banner {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-close-banner:hover {
+  color: #333;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.icloud-empty-content {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-right: 10px;
+}
+
+.icloud-icon-wrapper {
+  width: 40px;
+  height: 40px;
+  background-color: #e3f2fd;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.icloud-icon {
+  font-size: 20px;
+}
+
+.icloud-empty-text {
+  margin: 0;
+  color: #666;
+  font-size: 13px;
+  line-height: 1.4;
+  flex: 1;
+  text-align: center;
+}
+
+.btn-connect-calendar,
+.btn-retry-calendar {
+  margin-top: 0;
+  padding: 8px 16px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-connect-calendar:hover,
+.btn-retry-calendar:hover {
+  background-color: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-retry-calendar {
+  margin-top: 10px;
+  width: 100%;
+}

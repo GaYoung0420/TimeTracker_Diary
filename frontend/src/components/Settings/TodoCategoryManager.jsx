@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import './CategoryManager.css';
 
-function TodoCategoryManager({ todoCategories, eventCategories, onAdd, onUpdate, onDelete }) {
+function TodoCategoryManager({ todoCategories, eventCategories, onAdd, onUpdate, onDelete, onClose }) {
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newEventCategoryId, setNewEventCategoryId] = useState(null);
@@ -49,45 +49,55 @@ function TodoCategoryManager({ todoCategories, eventCategories, onAdd, onUpdate,
   };
 
   return (
-    <div className="category-manager">
-      <div className="category-manager-header">
+    <div className="todo-category-manager">
+      <div className="todo-manager-header">
         <h3>투두 카테고리 관리</h3>
-        <button className="btn-add" onClick={() => setIsAdding(true)}>
-          + 추가
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button 
+            className="btn-add-icon" 
+            onClick={() => setIsAdding(true)}
+            title="새 카테고리 추가"
+          >
+            +
+          </button>
+          {onClose && (
+            <button
+              className="btn-close-icon"
+              onClick={onClose}
+              title="닫기"
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
 
       {isAdding && (
-        <div className="category-edit-form">
-          <div className="form-group">
-            <label>카테고리 이름</label>
+        <div className="todo-add-form">
+          <div className="form-row">
             <input
               type="text"
+              className="todo-input-name"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="예: 개인, 업무, 학습..."
+              placeholder="카테고리 이름"
               autoFocus
             />
-          </div>
-          <div className="form-group">
-            <label>색상</label>
-            <div className="color-picker-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="color-picker-wrapper">
               <input
                 type="color"
                 value={newColor}
                 onChange={(e) => setNewColor(e.target.value)}
-                style={{ width: '40px', height: '40px', padding: '0', border: 'none', cursor: 'pointer' }}
               />
-              <span className="color-value" style={{ fontSize: '13px', color: '#666' }}>{newColor}</span>
             </div>
           </div>
-          <div className="form-group">
-            <label>연결할 이벤트 카테고리 (선택)</label>
+          <div className="form-row">
             <select
+              className="todo-select-event"
               value={newEventCategoryId || ''}
               onChange={(e) => setNewEventCategoryId(e.target.value ? parseInt(e.target.value) : null)}
             >
-              <option value="">-- 선택 안 함 --</option>
+              <option value="">-- 이벤트 카테고리 연결 (선택) --</option>
               {eventCategories?.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.name}
@@ -96,8 +106,8 @@ function TodoCategoryManager({ todoCategories, eventCategories, onAdd, onUpdate,
             </select>
           </div>
           <div className="form-actions">
-            <button className="btn-save" onClick={handleAdd}>저장</button>
-            <button className="btn-cancel" onClick={() => {
+            <button className="btn-form-save" onClick={handleAdd}>추가</button>
+            <button className="btn-form-cancel" onClick={() => {
               setIsAdding(false);
               setNewName('');
               setNewEventCategoryId(null);
@@ -106,85 +116,82 @@ function TodoCategoryManager({ todoCategories, eventCategories, onAdd, onUpdate,
         </div>
       )}
 
-      <div className="todo-category-list">
+      <div className="todo-manager-list">
         {todoCategories?.length === 0 ? (
           <div className="empty-state">투두 카테고리가 없습니다</div>
         ) : (
           todoCategories?.map((todoCategory) => (
             editingId === todoCategory.id ? (
-              <div key={todoCategory.id} className="category-edit-form">
-                <div className="form-group">
-                  <label>카테고리 이름</label>
-                  <input
-                    type="text"
-                    value={editingName}
-                    onChange={(e) => setEditingName(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-                <div className="form-group">
-                  <label>색상</label>
-                  <div className="color-picker-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div key={todoCategory.id} className="todo-manager-item editing">
+                <div className="todo-edit-form">
+                  <div className="form-row">
                     <input
-                      type="color"
-                      value={editingColor}
-                      onChange={(e) => setEditingColor(e.target.value)}
-                      style={{ width: '40px', height: '40px', padding: '0', border: 'none', cursor: 'pointer' }}
+                      type="text"
+                      className="todo-input-name"
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      autoFocus
                     />
-                    <span className="color-value" style={{ fontSize: '13px', color: '#666' }}>{editingColor}</span>
+                    <div className="color-picker-wrapper">
+                      <input
+                        type="color"
+                        value={editingColor}
+                        onChange={(e) => setEditingColor(e.target.value)}
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="form-group">
-                  <label>연결할 이벤트 카테고리</label>
-                  <select
-                    value={editingEventCategoryId || ''}
-                    onChange={(e) => setEditingEventCategoryId(e.target.value ? parseInt(e.target.value) : null)}
-                  >
-                    <option value="">-- 선택 안 함 --</option>
-                    {eventCategories?.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-actions">
-                  <button className="btn-save" onClick={saveEdit}>저장</button>
-                  <button className="btn-cancel" onClick={cancelEdit}>취소</button>
+                  <div className="form-row">
+                    <select
+                      className="todo-select-event"
+                      value={editingEventCategoryId || ''}
+                      onChange={(e) => setEditingEventCategoryId(e.target.value ? parseInt(e.target.value) : null)}
+                    >
+                      <option value="">-- 이벤트 카테고리 연결 --</option>
+                      {eventCategories?.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-actions">
+                    <button className="btn-form-save" onClick={saveEdit}>저장</button>
+                    <button className="btn-form-cancel" onClick={cancelEdit}>취소</button>
+                  </div>
                 </div>
               </div>
             ) : (
-              <div key={todoCategory.id} className="todo-category-item">
-                <div className="todo-category-info">
-                  <span className="todo-category-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span 
-                      className="category-color-dot"
-                      style={{ 
-                        width: '12px', 
-                        height: '12px', 
-                        borderRadius: '50%', 
-                        backgroundColor: todoCategory.color || '#4a9eff',
-                        display: 'inline-block'
-                      }}
-                    />
-                    {todoCategory.name}
-                  </span>
+              <div key={todoCategory.id} className="todo-manager-item">
+                <div className="todo-item-content">
+                  <div 
+                    className="color-dot"
+                    style={{ backgroundColor: todoCategory.color || '#4a9eff' }}
+                  />
+                  <span className="todo-item-name">{todoCategory.name}</span>
                   {todoCategory.event_category_id && getEventCategoryById(todoCategory.event_category_id) && (
-                    <span className="linked-event-category">
-                      → {getEventCategoryById(todoCategory.event_category_id).name}
-                      <span 
-                        className="category-color-dot"
-                        style={{ backgroundColor: getEventCategoryById(todoCategory.event_category_id).color }}
-                      />
+                    <span className="linked-badge">
+                      {getEventCategoryById(todoCategory.event_category_id).name}
                     </span>
                   )}
                 </div>
-                <div className="category-actions">
-                  <button className="btn-edit" onClick={() => startEdit(todoCategory)}>
-                    수정
+                <div className="todo-item-actions">
+                  <button
+                    className="btn-icon-edit"
+                    onClick={() => startEdit(todoCategory)}
+                    title="수정"
+                  >
+                    ✎
                   </button>
-                  <button className="btn-delete" onClick={() => onDelete(todoCategory.id)}>
-                    삭제
+                  <button
+                    className="btn-icon-delete"
+                    onClick={() => {
+                      if (confirm('이 카테고리를 삭제하시겠습니까?')) {
+                        onDelete(todoCategory.id);
+                      }
+                    }}
+                    title="삭제"
+                  >
+                    ×
                   </button>
                 </div>
               </div>
