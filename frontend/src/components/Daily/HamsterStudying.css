@@ -1,0 +1,122 @@
+.hamster-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.hamster-container svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Animations */
+.hamster-container.studying .hamster-head {
+  animation: readHead 3s infinite ease-in-out;
+}
+
+.hamster-container.studying .hamster-eyes {
+  animation: readEyes 3s infinite ease-in-out;
+}
+
+.hamster-container.studying .coffee-steam {
+  animation: steamRise 2s infinite linear;
+}
+
+.hamster-blink {
+  animation: blink 4s infinite;
+}
+
+.hamster-container.studying .hamster-mouth {
+  animation: mumble 0.5s infinite alternate ease-in-out;
+  transform-origin: 150px 116px;
+}
+
+.hamster-container.studying .flipping-page {
+  animation: pageFlip 4s infinite ease-in-out;
+  transform-origin: 40px 12px; /* Relative to book group */
+}
+
+/* Phase Variations */
+
+/* Middle Phase (30-70%) - Faster */
+.hamster-container.studying.middle .hamster-head {
+  animation-duration: 2s;
+}
+.hamster-container.studying.middle .hamster-eyes {
+  animation-duration: 2s;
+}
+.hamster-container.studying.middle .flipping-page {
+  animation-duration: 3s;
+}
+
+/* End Phase (70-100%) - Intense */
+.hamster-container.studying.end .hamster-head {
+  animation-duration: 1s;
+}
+.hamster-container.studying.end .hamster-eyes {
+  animation-duration: 1s;
+}
+.hamster-container.studying.end .hamster-mouth {
+  animation-duration: 0.2s;
+}
+.hamster-container.studying.end .flipping-page {
+  animation-duration: 2s;
+}
+.hamster-container.studying.end .sweat-drops {
+  opacity: 1;
+  animation: sweatDrop 1s infinite;
+}
+
+.sweat-drops {
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+/* Keyframes */
+@keyframes readHead {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  25% { transform: rotate(-2deg) translateY(1px); }
+  75% { transform: rotate(2deg) translateY(1px); }
+}
+
+@keyframes readEyes {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-1px); }
+  75% { transform: translateX(1px); }
+}
+
+@keyframes steamRise {
+  0% { opacity: 0; transform: translateY(0) scale(1); }
+  50% { opacity: 0.6; }
+  100% { opacity: 0; transform: translateY(-10px) scale(1.5); }
+}
+
+@keyframes blink {
+  0%, 96%, 100% { transform: scaleY(1); }
+  98% { transform: scaleY(0.1); }
+}
+
+@keyframes mumble {
+  0% { transform: scaleY(1) translateY(0); }
+  100% { transform: scaleY(0.7) translateY(1px); }
+}
+
+@keyframes pageFlip {
+  0%, 85% { transform: scaleX(1); opacity: 1; }
+  95% { transform: scaleX(-1); opacity: 1; }
+  96% { transform: scaleX(-1); opacity: 0; }
+  100% { transform: scaleX(1); opacity: 0; }
+}
+
+@keyframes sweatDrop {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(10px); opacity: 0; }
+}
+
+.hidden {
+  display: none;
+}

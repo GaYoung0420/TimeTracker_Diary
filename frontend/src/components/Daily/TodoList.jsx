@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import confetti from 'canvas-confetti';
 import PomodoroTimer from './PomodoroTimer';
+import HamsterFaceIcon from './HamsterFaceIcon';
 import { api } from '../../utils/api';
 import pomoSvg from './pomo.svg';
 
@@ -213,16 +214,9 @@ function TodoList({ todos, categories, todoCategories, currentDate, onAdd, onUpd
     if (!count || count === 0) return null;
 
     return (
-      <div className="pomodoro-tomatoes" style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
+      <div className="pomodoro-tomatoes" style={{ display: 'flex', gap: '2px', marginLeft: '8px' }}>
         {Array.from({ length: count }).map((_, index) => (
-          <img
-            key={index}
-            src={pomoSvg}
-            alt="pomodoro"
-            width="20"
-            height="20"
-            style={{ display: 'block' }}
-          />
+          <span key={index} style={{ fontSize: '16px', lineHeight: 1 }}>🍅</span>
         ))}
       </div>
     );
@@ -498,7 +492,7 @@ function TodoList({ todos, categories, todoCategories, currentDate, onAdd, onUpd
                     onClick={() => handleStartPomodoro(todo.id)}
                     title="뽀모도로 시작"
                   >
-                    🍅
+                    ⏰
                   </button>
                 </div>
               )}
