@@ -36,7 +36,8 @@
       "Bash(nslookup:*)",
       "Bash(dig:*)",
       "Bash(kill:*)",
-      "Bash(gunzip:*)"
+      "Bash(gunzip:*)",
+      "Bash(find frontend/src -name \"*.css\" -exec sh -c 'echo \"\"=== {} ===\"\" && tail -5 \"\"$1\"\"' _ {} ;)"
     ]
   }
 }
