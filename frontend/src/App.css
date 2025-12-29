@@ -3261,12 +3261,28 @@ html, body {
 /* Responsive */
 @media (max-width: 768px) {
   .monthly-container {
-    padding: 12px;
+    padding: 8px;
   }
 
   .monthly-header {
     gap: 8px;
     margin-bottom: 16px;
+    grid-template-columns: 36px auto 36px;
+  }
+
+  .monthly-header .header-actions {
+    grid-column: 1 / -1;
+    margin-top: 8px;
+  }
+
+  .view-mode-selector.header-inline {
+    width: 100%;
+  }
+
+  .view-mode-btn {
+    font-size: 11px;
+    padding: 6px 8px;
+    white-space: nowrap;
   }
 
   .monthly-grid {
@@ -3275,26 +3291,54 @@ html, body {
   }
 
   .monthly-day-header {
-    padding: 8px 4px;
-    font-size: 11px;
+    padding: 6px 2px;
+    font-size: 10px;
   }
 
   .monthly-day-cell {
-    padding: 8px;
-    min-height: 100px;
-    gap: 6px;
+    padding: 4px;
+    min-height: 80px;
+    gap: 4px;
   }
 
   .monthly-date-num {
-    font-size: 14px;
+    font-size: 12px;
   }
 
   .monthly-day-cell.today .monthly-date-num {
-    font-size: 15px;
+    font-size: 13px;
+  }
+
+  .monthly-event-item {
+    font-size: 9px;
+    padding: 2px 3px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .monthly-event-spacer {
+    height: 14px;
+  }
+
+  .monthly-event-more {
+    font-size: 8px;
+    padding: 1px 3px;
   }
 
   .monthly-thumbnail {
-    height: 60px;
+    height: 50px;
+  }
+
+  .month-nav-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .current-month {
+    font-size: 16px;
   }
 
   .monthly-stats-wrapper {
@@ -3596,4 +3640,79 @@ html, body {
   font-size: 10px;
   color: #999;
   pointer-events: none;
+}
+
+/* ========================================
+   반응형 - 작은 모바일 (480px 이하)
+   ======================================== */
+@media (max-width: 480px) {
+  .monthly-container {
+    padding: 4px;
+  }
+
+  .monthly-header {
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+
+  .month-nav-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+
+  .current-month {
+    font-size: 14px;
+  }
+
+  .view-mode-btn {
+    font-size: 10px;
+    padding: 5px 6px;
+  }
+
+  .monthly-grid {
+    gap: 0.5px;
+  }
+
+  .monthly-day-header {
+    padding: 4px 1px;
+    font-size: 9px;
+  }
+
+  .monthly-day-cell {
+    padding: 3px;
+    min-height: 70px;
+    gap: 3px;
+  }
+
+  .monthly-date-num {
+    font-size: 11px;
+  }
+
+  .monthly-day-cell.today .monthly-date-num {
+    font-size: 12px;
+  }
+
+  .monthly-event-item {
+    font-size: 8px;
+    padding: 1px 2px;
+    line-height: 1.1;
+  }
+
+  .monthly-event-spacer {
+    height: 12px;
+  }
+
+  .monthly-event-more {
+    font-size: 7px;
+    padding: 1px 2px;
+  }
+
+  .monthly-thumbnail {
+    height: 40px;
+  }
+
+  .monthly-events-list {
+    gap: 2px;
+  }
 }
