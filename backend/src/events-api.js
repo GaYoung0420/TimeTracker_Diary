@@ -1,4 +1,5 @@
 // Events API - Supabase implementation (replaces Google Calendar)
+import { requireAuth } from './middleware/auth.js';
 
 export function setupEventsAPI(app, supabase, cache) {
 
@@ -14,7 +15,7 @@ export function setupEventsAPI(app, supabase, cache) {
   /* ========================================
      Get Events for a Date
      ======================================== */
-  app.post('/api/events', async (req, res) => {
+  app.post('/api/events', requireAuth, async (req, res) => {
     try {
       const { date } = req.body;
 
@@ -30,6 +31,7 @@ export function setupEventsAPI(app, supabase, cache) {
           *,
           category:categories(id, name, color)
         `)
+        .eq('user_id', req.session.userId)
         .in('date', [prevDateStr, date])
         .order('date')
         .order('start_time');
@@ -84,7 +86,7 @@ export function setupEventsAPI(app, supabase, cache) {
   /* ========================================
      Create Event
      ======================================== */
-  app.post('/api/events/create', async (req, res) => {
+  app.post('/api/events/create', requireAuth, async (req, res) => {
     try {
       const { date, title, start_time, end_time, category_id, is_plan, description } = req.body;
 
@@ -105,7 +107,8 @@ export function setupEventsAPI(app, supabase, cache) {
           end_time: ensureSeconds(end_time),
           category_id,
           is_plan: is_plan || false,
-          description
+          description,
+          user_id: req.session.userId
         }])
         .select(`
           *,
@@ -155,7 +158,7 @@ export function setupEventsAPI(app, supabase, cache) {
   /* ========================================
      Update Event
      ======================================== */
-  app.patch('/api/events/:id', async (req, res) => {
+  app.patch('/api/events/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -183,6 +186,7 @@ export function setupEventsAPI(app, supabase, cache) {
         .from('events')
         .update(fieldsToUpdate)
         .eq('id', id)
+        .eq('user_id', req.session.userId)
         .select(`
           *,
           category:categories(id, name, color)
@@ -231,7 +235,7 @@ export function setupEventsAPI(app, supabase, cache) {
   /* ========================================
      Delete Event
      ======================================== */
-  app.delete('/api/events/:id', async (req, res) => {
+  app.delete('/api/events/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
 
@@ -240,12 +244,14 @@ export function setupEventsAPI(app, supabase, cache) {
         .from('events')
         .select('date')
         .eq('id', id)
+        .eq('user_id', req.session.userId)
         .single();
 
       const { error } = await supabase
         .from('events')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', req.session.userId);
 
       if (error) throw error;
 
@@ -264,7 +270,7 @@ export function setupEventsAPI(app, supabase, cache) {
   /* ========================================
      Get Wake/Sleep Events (based on '잠' events)
      ======================================== */
-  app.post('/api/events/wake-sleep', async (req, res) => {
+  app.post('/api/events/wake-sleep', requireAuth, async (req, res) => {
     try {
       const { date } = req.body;
 
@@ -279,6 +285,7 @@ export function setupEventsAPI(app, supabase, cache) {
       const { data, error } = await supabase
         .from('events')
         .select('*, category:categories(id, name, color)')
+        .eq('user_id', req.session.userId)
         .gte('date', prevDateStr)
         .lte('date', nextDateStr)
         .order('date')
@@ -367,25 +374,25 @@ export function setupEventsAPI(app, supabase, cache) {
   /* ========================================
      Create 10AM Wake Event (Quick Action)
      ======================================== */
-  app.post('/api/events/create-wake', async (req, res) => {
+  app.post('/api/events/create-wake', requireAuth, async (req, res) => {
     try {
       const { date, time } = req.body;
-      
+
       const startTimeStr = time || '10:00';
       const startAt = `${date}T${startTimeStr}:00`;
-      
+
       // Calculate end time (start + 1 minute)
       // We can use Date object to handle minute rollover
       const startDate = new Date(startAt);
       const endDate = new Date(startDate.getTime() + 60000); // + 1 minute
-      
-      // Format back to ISO or similar string. 
+
+      // Format back to ISO or similar string.
       // Since we use ISO in DB, let's use ISO.
       // But we need to be careful about timezone if the server is UTC.
       // If 'date' is '2023-12-25' and 'time' is '10:00', we want '2023-12-25T10:00:00' (local).
       // If we do new Date('2023-12-25T10:00:00'), it might be interpreted as local or UTC depending on env.
       // Let's just do string manipulation to be safe and consistent with other endpoints.
-      
+
       // Parse HH:MM
       const [h, m] = startTimeStr.split(':').map(Number);
       let endH = h;
@@ -394,10 +401,10 @@ export function setupEventsAPI(app, supabase, cache) {
         endM = 0;
         endH += 1;
       }
-      // If endH >= 24, we need to increment date. 
+      // If endH >= 24, we need to increment date.
       // This is getting complicated. Let's just use the string construction for simple cases.
       // Assuming wake up is not at 23:59.
-      
+
       const endTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
       const endAt = `${date}T${endTimeStr}:00`;
 
@@ -407,7 +414,8 @@ export function setupEventsAPI(app, supabase, cache) {
           title: '기상',
           start_time: startAt,
           end_time: endAt,
-          description: 'Auto-created wake event'
+          description: 'Auto-created wake event',
+          user_id: req.session.userId
         }])
         .select()
         .single();

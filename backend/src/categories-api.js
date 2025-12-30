@@ -1,15 +1,17 @@
 // Categories API - CRUD operations for user-defined categories
+import { requireAuth } from './middleware/auth.js';
 
 export function setupCategoriesAPI(app, supabase) {
 
   /* ========================================
      Get All Categories
      ======================================== */
-  app.get('/api/categories', async (req, res) => {
+  app.get('/api/categories', requireAuth, async (req, res) => {
     try {
       const { data, error } = await supabase
         .from('categories')
         .select('*')
+        .eq('user_id', req.session.userId)
         .order('id');
 
       if (error) throw error;
@@ -24,7 +26,7 @@ export function setupCategoriesAPI(app, supabase) {
   /* ========================================
      Create Category
      ======================================== */
-  app.post('/api/categories', async (req, res) => {
+  app.post('/api/categories', requireAuth, async (req, res) => {
     try {
       const { name, color } = req.body;
 
@@ -37,7 +39,7 @@ export function setupCategoriesAPI(app, supabase) {
 
       const { data, error } = await supabase
         .from('categories')
-        .insert([{ name, color }])
+        .insert([{ name, color, user_id: req.session.userId }])
         .select()
         .single();
 
@@ -53,7 +55,7 @@ export function setupCategoriesAPI(app, supabase) {
   /* ========================================
      Update Category
      ======================================== */
-  app.patch('/api/categories/:id', async (req, res) => {
+  app.patch('/api/categories/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -62,6 +64,7 @@ export function setupCategoriesAPI(app, supabase) {
         .from('categories')
         .update(updates)
         .eq('id', id)
+        .eq('user_id', req.session.userId)
         .select()
         .single();
 
@@ -77,7 +80,7 @@ export function setupCategoriesAPI(app, supabase) {
   /* ========================================
      Delete Category
      ======================================== */
-  app.delete('/api/categories/:id', async (req, res) => {
+  app.delete('/api/categories/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
 
@@ -86,6 +89,7 @@ export function setupCategoriesAPI(app, supabase) {
         .from('events')
         .select('id')
         .eq('category_id', id)
+        .eq('user_id', req.session.userId)
         .limit(1);
 
       if (checkError) throw checkError;
@@ -100,7 +104,8 @@ export function setupCategoriesAPI(app, supabase) {
       const { error } = await supabase
         .from('categories')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', req.session.userId);
 
       if (error) throw error;
 

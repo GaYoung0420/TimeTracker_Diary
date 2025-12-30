@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { requireAuth } from './middleware/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,11 +22,12 @@ export function setupTodoCategoriesAPI(app) {
      ======================================== */
   
   // Get all todo categories
-  app.get('/api/todo-categories', async (req, res) => {
+  app.get('/api/todo-categories', requireAuth, async (req, res) => {
     try {
       const { data, error } = await supabase
         .from('todo_categories')
         .select('*, event_category:categories!event_category_id(id, name, color)')
+        .eq('user_id', req.session.userId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
@@ -36,13 +38,13 @@ export function setupTodoCategoriesAPI(app) {
   });
 
   // Create a new todo category
-  app.post('/api/todo-categories', async (req, res) => {
+  app.post('/api/todo-categories', requireAuth, async (req, res) => {
     try {
       const { name, event_category_id, color } = req.body;
 
       const { data, error } = await supabase
         .from('todo_categories')
-        .insert({ name, event_category_id, color })
+        .insert({ name, event_category_id, color, user_id: req.session.userId })
         .select('*, event_category:categories!event_category_id(id, name, color)')
         .single();
 
@@ -54,7 +56,7 @@ export function setupTodoCategoriesAPI(app) {
   });
 
   // Update a todo category
-  app.patch('/api/todo-categories/:id', async (req, res) => {
+  app.patch('/api/todo-categories/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { name, event_category_id, color } = req.body;
@@ -63,6 +65,7 @@ export function setupTodoCategoriesAPI(app) {
         .from('todo_categories')
         .update({ name, event_category_id, color })
         .eq('id', id)
+        .eq('user_id', req.session.userId)
         .select('*, event_category:categories!event_category_id(id, name, color)')
         .single();
 
@@ -74,13 +77,14 @@ export function setupTodoCategoriesAPI(app) {
   });
 
   // Delete a todo category
-  app.delete('/api/todo-categories/:id', async (req, res) => {
+  app.delete('/api/todo-categories/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { error } = await supabase
         .from('todo_categories')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', req.session.userId);
 
       if (error) throw error;
       res.json({ success: true });
@@ -90,7 +94,7 @@ export function setupTodoCategoriesAPI(app) {
   });
 
   // Complete a todo and create an event
-  app.post('/api/todos/:id/complete', async (req, res) => {
+  app.post('/api/todos/:id/complete', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
 
@@ -99,6 +103,7 @@ export function setupTodoCategoriesAPI(app) {
         .from('todos')
         .select('*, todo_category:todo_categories!todo_category_id(id, name, event_category_id)')
         .eq('id', id)
+        .eq('user_id', req.session.userId)
         .single();
 
       if (todoError) throw todoError;
@@ -107,7 +112,8 @@ export function setupTodoCategoriesAPI(app) {
       const { error: updateError } = await supabase
         .from('todos')
         .update({ completed: true })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', req.session.userId);
 
       if (updateError) throw updateError;
 
@@ -144,7 +150,8 @@ export function setupTodoCategoriesAPI(app) {
           end_time: endTimestamp,
           category_id: todo.todo_category.event_category_id,
           is_plan: false,
-          description: `할일 완료: ${todo.text}`
+          description: `할일 완료: ${todo.text}`,
+          user_id: req.session.userId
         };
 
         const { data: event, error: eventError } = await supabase

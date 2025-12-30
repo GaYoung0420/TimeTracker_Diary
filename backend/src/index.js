@@ -16,6 +16,7 @@ import { setupCategoriesAPI } from './categories-api.js';
 import { setupTodoCategoriesAPI } from './todo-categories-api.js';
 import { setupAuthAPI } from './auth-api.js';
 import { setupCalendarsAPI } from './calendars-api.js';
+import { requireAuth } from './middleware/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -349,16 +350,17 @@ app.get('/auth/user', (req, res) => {
 /* ========================================
    Daily Data - Batch Load
    ======================================== */
-app.get('/api/daily/:date', async (req, res) => {
+app.get('/api/daily/:date', requireAuth, async (req, res) => {
   try {
     const { date } = req.params;
+    const userId = req.session.userId;
 
     const [todosResult, reflectionResult, imagesResult, routinesResult, checksResult] = await Promise.all([
-      supabase.from('todos').select('*, category:categories(id, name, color)').eq('date', date).order('order').order('id'),
-      supabase.from('reflections').select('*').eq('date', date).single(),
-      supabase.from('images').select('*').eq('date', date).order('id'),
-      supabase.from('routines').select('*').eq('active', true).order('order'),
-      supabase.from('routine_checks').select('*').eq('date', date)
+      supabase.from('todos').select('*, category:categories(id, name, color)').eq('user_id', userId).eq('date', date).order('order').order('id'),
+      supabase.from('reflections').select('*').eq('user_id', userId).eq('date', date).single(),
+      supabase.from('images').select('*').eq('user_id', userId).eq('date', date).order('id'),
+      supabase.from('routines').select('*').eq('user_id', userId).eq('active', true).order('order'),
+      supabase.from('routine_checks').select('*').eq('user_id', userId).eq('date', date)
     ]);
 
     const routineChecks = {};
@@ -388,21 +390,23 @@ app.get('/api/daily/:date', async (req, res) => {
 /* ========================================
    Daily Data - Batch Save
    ======================================== */
-app.post('/api/daily/:date', async (req, res) => {
+app.post('/api/daily/:date', requireAuth, async (req, res) => {
   try {
     const { date } = req.params;
     const { todos, mood, reflection, images } = req.body;
+    const userId = req.session.userId;
 
     // Save Todos
     if (todos) {
-      await supabase.from('todos').delete().eq('date', date);
+      await supabase.from('todos').delete().eq('user_id', userId).eq('date', date);
       if (todos.length > 0) {
         const todosToInsert = todos.map(t => ({
           date,
           text: t.text,
           completed: t.completed,
           category_id: t.category_id || null,
-          order: t.order !== undefined ? t.order : 9999
+          order: t.order !== undefined ? t.order : 9999,
+          user_id: userId
         }));
         await supabase.from('todos').insert(todosToInsert);
       }
@@ -413,21 +417,23 @@ app.post('/api/daily/:date', async (req, res) => {
       const { error } = await supabase.from('reflections').upsert({
         date,
         mood,
-        reflection_text: reflection
-      }, { onConflict: 'date' });
+        reflection_text: reflection,
+        user_id: userId
+      }, { onConflict: 'user_id,date' });
       if (error) throw error;
     }
 
     // Save Images
     if (images) {
-      await supabase.from('images').delete().eq('date', date);
+      await supabase.from('images').delete().eq('user_id', userId).eq('date', date);
       if (images.length > 0) {
         const imagesToInsert = images.map(img => ({
           date,
           file_id: img.fileId,
           file_name: img.name,
           thumbnail_url: img.thumbnailUrl,
-          view_url: img.viewUrl
+          view_url: img.viewUrl,
+          user_id: userId
         }));
         await supabase.from('images').insert(imagesToInsert);
       }
@@ -443,14 +449,16 @@ app.post('/api/daily/:date', async (req, res) => {
 /* ========================================
    Todos
    ======================================== */
-app.post('/api/todos', async (req, res) => {
+app.post('/api/todos', requireAuth, async (req, res) => {
   try {
     const { date, text, category_id, todo_category_id, scheduled_time, duration } = req.body;
+    const userId = req.session.userId;
 
     // Get the highest order for this date
     const { data: existingTodos } = await supabase
       .from('todos')
       .select('order')
+      .eq('user_id', userId)
       .eq('date', date)
       .order('order', { ascending: false })
       .limit(1);
@@ -467,7 +475,8 @@ app.post('/api/todos', async (req, res) => {
         scheduled_time,
         duration,
         completed: false,
-        order: nextOrder
+        order: nextOrder,
+        user_id: userId
       })
       .select('*, category:categories(id, name, color)')
       .single();
@@ -479,11 +488,11 @@ app.post('/api/todos', async (req, res) => {
   }
 });
 
-app.patch('/api/todos/:id', async (req, res) => {
+app.patch('/api/todos/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
-    const { data, error } = await supabase.from('todos').update(updates).eq('id', id).select().single();
+    const { data, error } = await supabase.from('todos').update(updates).eq('id', id).eq('user_id', req.session.userId).select().single();
     if (error) throw error;
     res.json({ success: true, data });
   } catch (error) {
@@ -491,10 +500,10 @@ app.patch('/api/todos/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/todos/:id', async (req, res) => {
+app.delete('/api/todos/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase.from('todos').delete().eq('id', id);
+    const { error } = await supabase.from('todos').delete().eq('id', id).eq('user_id', req.session.userId);
     if (error) throw error;
     res.json({ success: true });
   } catch (error) {
@@ -503,16 +512,18 @@ app.delete('/api/todos/:id', async (req, res) => {
 });
 
 // Reorder Todos
-app.post('/api/todos/reorder', async (req, res) => {
+app.post('/api/todos/reorder', requireAuth, async (req, res) => {
   try {
     const { updates } = req.body;
+    const userId = req.session.userId;
 
     // Update each todo's order
     for (const update of updates) {
       const { error } = await supabase
         .from('todos')
         .update({ order: update.order })
-        .eq('id', update.id);
+        .eq('id', update.id)
+        .eq('user_id', userId);
 
       if (error) throw error;
     }
@@ -524,15 +535,17 @@ app.post('/api/todos/reorder', async (req, res) => {
 });
 
 // Increment Pomodoro Count
-app.post('/api/todos/:id/pomodoro', async (req, res) => {
+app.post('/api/todos/:id/pomodoro', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.session.userId;
 
     // Fetch current pomodoro count
     const { data: currentTodo, error: fetchError } = await supabase
       .from('todos')
       .select('pomodoro_count')
       .eq('id', id)
+      .eq('user_id', userId)
       .single();
 
     if (fetchError) throw fetchError;
@@ -544,6 +557,7 @@ app.post('/api/todos/:id/pomodoro', async (req, res) => {
       .from('todos')
       .update({ pomodoro_count: newCount })
       .eq('id', id)
+      .eq('user_id', userId)
       .select()
       .single();
 
@@ -574,7 +588,7 @@ app.get('/api/images/schema', async (req, res) => {
   }
 });
 
-app.post('/api/images/upload', upload.single('image'), async (req, res) => {
+app.post('/api/images/upload', requireAuth, upload.single('image'), async (req, res) => {
   try {
     console.log('=== Image Upload Request ===');
     console.log('Date:', req.body.date);
@@ -586,6 +600,7 @@ app.post('/api/images/upload', upload.single('image'), async (req, res) => {
 
     const { date } = req.body;
     const file = req.file;
+    const userId = req.session.userId;
 
     if (!file) {
       console.log('ERROR: No file in request');
@@ -665,7 +680,8 @@ app.post('/api/images/upload', upload.single('image'), async (req, res) => {
         file_id: fileName,
         file_name: file.originalname,
         thumbnail_url: thumbnailUrl,
-        view_url: urlData.publicUrl
+        view_url: urlData.publicUrl,
+        user_id: userId
       })
       .select()
       .single();
@@ -702,15 +718,17 @@ app.post('/api/images/upload', upload.single('image'), async (req, res) => {
   }
 });
 
-app.delete('/api/images/:id', async (req, res) => {
+app.delete('/api/images/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.session.userId;
 
     // Get image info from database
     const { data: image, error: fetchError } = await supabase
       .from('images')
       .select('*')
       .eq('id', id)
+      .eq('user_id', userId)
       .single();
 
     if (fetchError) throw fetchError;
@@ -727,7 +745,8 @@ app.delete('/api/images/:id', async (req, res) => {
     const { error: dbError } = await supabase
       .from('images')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', userId);
 
     if (dbError) throw dbError;
 
@@ -747,9 +766,9 @@ app.delete('/api/images/:id', async (req, res) => {
 /* ========================================
    Routines
    ======================================== */
-app.get('/api/routines', async (req, res) => {
+app.get('/api/routines', requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase.from('routines').select('*').eq('active', true).order('order');
+    const { data, error } = await supabase.from('routines').select('*').eq('user_id', req.session.userId).eq('active', true).order('order');
     if (error) throw error;
 
     // Parse weekdays JSON string to array
@@ -775,7 +794,7 @@ app.get('/api/routines', async (req, res) => {
   }
 });
 
-app.post('/api/routines', async (req, res) => {
+app.post('/api/routines', requireAuth, async (req, res) => {
   try {
     const { text, emoji, order, scheduled_time, duration, weekdays, start_date, end_date } = req.body;
     const { data, error } = await supabase.from('routines').insert({
@@ -787,7 +806,8 @@ app.post('/api/routines', async (req, res) => {
       duration: duration || 30,
       weekdays: weekdays ? JSON.stringify(weekdays) : null,
       start_date: start_date || null,
-      end_date: end_date || null
+      end_date: end_date || null,
+      user_id: req.session.userId
     }).select().single();
     if (error) throw error;
     res.json({ success: true, data });
@@ -796,7 +816,7 @@ app.post('/api/routines', async (req, res) => {
   }
 });
 
-app.patch('/api/routines/:id', async (req, res) => {
+app.patch('/api/routines/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const updates = { ...req.body };
@@ -806,7 +826,7 @@ app.patch('/api/routines/:id', async (req, res) => {
       updates.weekdays = JSON.stringify(updates.weekdays);
     }
 
-    const { data, error } = await supabase.from('routines').update(updates).eq('id', id).select().single();
+    const { data, error } = await supabase.from('routines').update(updates).eq('id', id).eq('user_id', req.session.userId).select().single();
     if (error) throw error;
 
     // Parse weekdays back to array for response
@@ -821,10 +841,10 @@ app.patch('/api/routines/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/routines/:id', async (req, res) => {
+app.delete('/api/routines/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase.from('routines').update({ active: false }).eq('id', id);
+    const { error } = await supabase.from('routines').update({ active: false }).eq('id', id).eq('user_id', req.session.userId);
     if (error) throw error;
     res.json({ success: true });
   } catch (error) {
@@ -832,21 +852,22 @@ app.delete('/api/routines/:id', async (req, res) => {
   }
 });
 
-app.post('/api/routines/reorder', async (req, res) => {
+app.post('/api/routines/reorder', requireAuth, async (req, res) => {
   try {
     const { updates } = req.body;
-    
-    const updatePromises = updates.map(update => 
-      supabase.from('routines').update({ order: update.order }).eq('id', update.id)
+    const userId = req.session.userId;
+
+    const updatePromises = updates.map(update =>
+      supabase.from('routines').update({ order: update.order }).eq('id', update.id).eq('user_id', userId)
     );
-    
+
     const results = await Promise.all(updatePromises);
     const errors = results.filter(r => r.error);
-    
+
     if (errors.length > 0) {
       throw new Error('Failed to update some routines');
     }
-    
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -856,11 +877,12 @@ app.post('/api/routines/reorder', async (req, res) => {
 /* ========================================
    Routine Checks
    ======================================== */
-app.post('/api/routine-checks', async (req, res) => {
+app.post('/api/routine-checks', requireAuth, async (req, res) => {
   try {
     const { date, routine_id, checked } = req.body;
+    const userId = req.session.userId;
     const { data, error } = await supabase.from('routine_checks')
-      .upsert({ date, routine_id, checked }, { onConflict: 'date,routine_id' })
+      .upsert({ date, routine_id, checked, user_id: userId }, { onConflict: 'user_id,routine_id,date' })
       .select()
       .single();
     if (error) throw error;
@@ -1100,13 +1122,14 @@ app.post('/api/calendar/wake-sleep', async (req, res) => {
 /* ========================================
    Monthly Stats
    ======================================== */
-app.post('/api/monthly/stats', async (req, res) => {
+app.post('/api/monthly/stats', requireAuth, async (req, res) => {
   try {
     const { year, month } = req.body;
+    const userId = req.session.userId;
     const daysInMonth = new Date(year, month, 0).getDate();
 
-    // Check cache first
-    const cacheKey = `${year}-${String(month).padStart(2, '0')}`;
+    // Check cache first (user-specific cache key)
+    const cacheKey = `${userId}-${year}-${String(month).padStart(2, '0')}`;
     const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
     const cached = monthlyStatsCache.get(cacheKey);
     if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
@@ -1123,6 +1146,7 @@ app.post('/api/monthly/stats', async (req, res) => {
     const { data: images, error: imgError } = await supabase
       .from('images')
       .select('date, thumbnail_url, view_url')
+      .eq('user_id', userId)
       .gte('date', startDate)
       .lte('date', endDate)
       .order('date', { ascending: true })
@@ -1168,12 +1192,13 @@ app.post('/api/monthly/stats', async (req, res) => {
 });
 
 // Monthly Time Stats (Time Tracker Grid) - Supabase based
-app.post('/api/monthly/time-stats', async (req, res) => {
+app.post('/api/monthly/time-stats', requireAuth, async (req, res) => {
   try {
     const { year, month } = req.body;
+    const userId = req.session.userId;
 
-    // Check cache first
-    const cacheKey = `time-${year}-${String(month).padStart(2, '0')}`;
+    // Check cache first (user-specific cache key)
+    const cacheKey = `time-${userId}-${year}-${String(month).padStart(2, '0')}`;
     const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
     const cached = monthlyStatsCache.get(cacheKey);
     if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
@@ -1192,6 +1217,7 @@ app.post('/api/monthly/time-stats', async (req, res) => {
       supabase
         .from('categories')
         .select('id, name, color')
+        .eq('user_id', userId)
         .order('id'),
       supabase
         .from('events')
@@ -1202,6 +1228,7 @@ app.post('/api/monthly/time-stats', async (req, res) => {
           end_time,
           category:categories(name, color)
         `)
+        .eq('user_id', userId)
         .gte('date', startDate)
         .lte('date', endDate)
         .eq('is_plan', false)
@@ -1349,9 +1376,10 @@ app.post('/api/monthly/time-stats', async (req, res) => {
 });
 
 // Monthly Routine & Mood Statistics
-app.post('/api/monthly/routine-mood-stats', async (req, res) => {
+app.post('/api/monthly/routine-mood-stats', requireAuth, async (req, res) => {
   try {
     const { year, month } = req.body;
+    const userId = req.session.userId;
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`;
 
@@ -1359,6 +1387,7 @@ app.post('/api/monthly/routine-mood-stats', async (req, res) => {
     const { data: routines, error: routinesError } = await supabase
       .from('routines')
       .select('*')
+      .eq('user_id', userId)
       .eq('active', true)
       .order('order');
 
@@ -1367,7 +1396,8 @@ app.post('/api/monthly/routine-mood-stats', async (req, res) => {
     // Fetch all categories
     const { data: categories, error: categoriesError } = await supabase
       .from('categories')
-      .select('*');
+      .select('*')
+      .eq('user_id', userId);
 
     if (categoriesError) throw categoriesError;
 
@@ -1375,6 +1405,7 @@ app.post('/api/monthly/routine-mood-stats', async (req, res) => {
     const { data: routineChecks, error: checksError } = await supabase
       .from('routine_checks')
       .select('*')
+      .eq('user_id', userId)
       .gte('date', startDate)
       .lte('date', endDate);
 
@@ -1384,6 +1415,7 @@ app.post('/api/monthly/routine-mood-stats', async (req, res) => {
     const { data: reflections, error: reflectionsError } = await supabase
       .from('reflections')
       .select('date, mood')
+      .eq('user_id', userId)
       .gte('date', startDate)
       .lte('date', endDate);
 
@@ -1393,6 +1425,7 @@ app.post('/api/monthly/routine-mood-stats', async (req, res) => {
     const { data: events, error: eventsError } = await supabase
       .from('events')
       .select('*')
+      .eq('user_id', userId)
       .gte('date', startDate)
       .lte('date', endDate)
       .order('start_time');

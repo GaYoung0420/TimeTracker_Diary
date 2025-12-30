@@ -173,6 +173,12 @@ export function setupAuthAPI(app, supabaseClient) {
   // 현재 사용자 정보 조회
   app.get('/api/auth/me', async (req, res) => {
     try {
+    console.log('=== /api/auth/me Debug ===');
+    console.log('Session ID:', req.sessionID);
+    console.log('Session:', req.session);
+    console.log('Session userId:', req.session?.userId);
+    console.log('Cookie:', req.headers.cookie);
+
     if (!req.session.userId) {
       return res.status(401).json({
         success: false,
