@@ -1722,6 +1722,60 @@ setupAuthAPI(app, supabase);
 setupCalendarsAPI(app, supabase);
 
 /* ========================================
+   Reflection Template API
+   ======================================== */
+// Get user's reflection template
+app.get('/api/reflection-template', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+
+    const { data, error } = await supabase
+      .from('reflection_templates')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = not found
+      throw error;
+    }
+
+    res.json({ success: true, data: data || null });
+  } catch (error) {
+    console.error('Error fetching reflection template:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Save user's reflection template
+app.post('/api/reflection-template', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const { template } = req.body;
+
+    if (!template) {
+      return res.status(400).json({ success: false, error: 'Template is required' });
+    }
+
+    // Upsert the template
+    const { data, error } = await supabase
+      .from('reflection_templates')
+      .upsert(
+        { user_id: userId, template, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      )
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error saving reflection template:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/* ========================================
    iCloud Calendar Proxy
    ======================================== */
 app.get('/api/icloud-calendar/proxy', async (req, res) => {

@@ -37,7 +37,10 @@
       "Bash(dig:*)",
       "Bash(kill:*)",
       "Bash(gunzip:*)",
-      "Bash(find frontend/src -name \"*.css\" -exec sh -c 'echo \"\"=== {} ===\"\" && tail -5 \"\"$1\"\"' _ {} ;)"
+      "Bash(find frontend/src -name \"*.css\" -exec sh -c 'echo \"\"=== {} ===\"\" && tail -5 \"\"$1\"\"' _ {} ;)",
+      "Bash(ls:*)",
+      "Bash(git reset:*)",
+      "Bash(find:*)"
     ]
   }
 }

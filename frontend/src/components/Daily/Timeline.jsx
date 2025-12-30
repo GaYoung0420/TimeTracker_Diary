@@ -111,6 +111,17 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     return { clientY: e.clientY };
   };
 
+  // Get x,y coordinates from mouse or touch event
+  const getEventCoords = (e) => {
+    if (e.touches && e.touches.length > 0) {
+      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    if (e.changedTouches && e.changedTouches.length > 0) {
+      return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+    }
+    return { x: e.clientX, y: e.clientY };
+  };
+
   const isMobile = () => {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
   };
@@ -157,9 +168,9 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     );
   };
 
-  const handleEventStart = (e, event) => {
-    // Disable event dragging on mobile
-    if (isMobile()) return;
+  const handleEventStart = (e, event, forceMobile = false) => {
+    // Disable event dragging on mobile unless forced (via long press)
+    if (isMobile() && !forceMobile) return;
 
     // Don't start dragging if already resizing
     if (isResizing) return;
@@ -207,9 +218,9 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     setOriginalEventDuration(actualDuration); // Store actual duration
   };
 
-  const handleResizeStart = (e, event, edge) => {
-    // Disable event resizing on mobile
-    if (isMobile()) return;
+  const handleResizeStart = (e, event, edge, forceMobile = false) => {
+    // Disable event resizing on mobile unless forced (via long press)
+    if (isMobile() && !forceMobile) return;
 
     e.stopPropagation();
     e.preventDefault();
@@ -623,11 +634,11 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
         navigator.vibrate(50);
       }
 
-      // Start drag or resize after long press
+      // Start drag or resize after long press with forceMobile = true
       if (isResize) {
-        handleResizeStart(e, event, edge);
+        handleResizeStart(e, event, edge, true);
       } else {
-        handleEventStart(e, event);
+        handleEventStart(e, event, true);
       }
     }, 500); // 500ms long press
   };
@@ -645,6 +656,11 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   };
 
   const handleEventTouchMove = (e) => {
+    // If already dragging or resizing, don't interfere (let parent handle it)
+    if (isDraggingEvent || isResizing) {
+      return;
+    }
+
     if (!touchStartPosRef.current) return;
 
     const coords = getEventCoords(e);
@@ -653,7 +669,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
     // If moved more than 10px, cancel long press
     if (deltaX > 10 || deltaY > 10) {
-      if (!longPressActive && !isDraggingEvent && !isResizing) {
+      if (!longPressActive) {
         cancelLongPress();
       }
     }
@@ -662,8 +678,19 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   const handleEventTouchEnd = (event, e) => {
     cancelLongPress();
 
-    // If long press was not activated and not dragging/resizing, treat as click
-    if (!longPressActive && !isDraggingEvent && !isResizing) {
+    // Check if touch moved (tap should be stationary)
+    let isTap = false;
+    if (touchStartPosRef.current) {
+      const coords = getEventCoords(e);
+      const deltaX = Math.abs(coords.x - touchStartPosRef.current.x);
+      const deltaY = Math.abs(coords.y - touchStartPosRef.current.y);
+
+      // Only treat as tap if movement is less than 5px
+      isTap = deltaX < 5 && deltaY < 5;
+    }
+
+    // If long press was not activated, not dragging/resizing, and was a tap, treat as click
+    if (!longPressActive && !isDraggingEvent && !isResizing && isTap) {
       handleEventClick(event, e);
     }
 
