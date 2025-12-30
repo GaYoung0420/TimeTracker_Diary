@@ -183,23 +183,21 @@ function TodoList({ todos, categories, todoCategories, currentDate, onAdd, onUpd
         colors: ['#FFD700', '#FFA500', '#FF6347', '#87CEEB', '#90EE90']
       });
 
-      // Optimistic update: update UI immediately, skip standard API call
-      onUpdate(todoId, { completed }, { skipApi: true });
-
       // 할일이 완료될 때 이벤트 생성
       try {
         const result = await api.completeTodo(todoId);
         if (result.success && result.event) {
           console.log('Event created:', result.event);
-          // 페이지 새로고침하여 타임라인에 표시
-          window.location.reload();
+          // UI 업데이트 (새로고침 없이)
+          onUpdate(todoId, { completed });
         } else if (!result.success) {
-          // 실패 시 롤백 (페이지 새로고침이 가장 안전)
-          window.location.reload();
+          // 실패 시 롤백
+          onUpdate(todoId, { completed: false });
         }
       } catch (error) {
         console.error('Failed to complete todo:', error);
-        window.location.reload();
+        // 에러 발생 시 롤백
+        onUpdate(todoId, { completed: false });
       }
     } else {
       onUpdate(todoId, { completed });

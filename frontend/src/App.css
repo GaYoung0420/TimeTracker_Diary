@@ -2024,13 +2024,17 @@ html, body {
   border-radius: 3px;
   border-left-width: 2px;
   border-left-style: solid;
-  white-space: nowrap;
+  white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.3;
   font-weight: 600;
   margin-left: 12px;
   margin-right: 12px;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .monthly-event-item.continuation-left {
@@ -2695,53 +2699,6 @@ html, body {
   .routine-grid {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   }
-
-  .monthly-header {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto;
-    gap: 16px;
-  }
-
-  .monthly-header > :nth-child(1),
-  .monthly-header > :nth-child(2),
-  .monthly-header > :nth-child(3) {
-    grid-row: 1;
-    grid-column: 1;
-  }
-
-  .monthly-header > :nth-child(1) {
-    justify-self: start;
-  }
-
-  .monthly-header > :nth-child(2) {
-    justify-self: center;
-  }
-
-  .monthly-header > :nth-child(3) {
-    justify-self: end;
-  }
-
-  .monthly-header .header-actions {
-    grid-row: 2;
-    grid-column: 1;
-    width: 100%;
-    justify-content: center;
-  }
-
-  .view-mode-selector {
-    width: 100%;
-    flex-direction: row;
-    gap: 8px;
-  }
-
-  .view-mode-btn {
-    flex: 1;
-    width: auto;
-    justify-content: center;
-    padding: 8px 4px;
-    font-size: 12px;
-    white-space: nowrap;
-  }
 }
 
 /* ========================================
@@ -3267,12 +3224,18 @@ html, body {
   .monthly-header {
     gap: 8px;
     margin-bottom: 16px;
-    grid-template-columns: 44px auto 44px;
+    grid-template-columns: 44px 1fr 44px;
+    grid-template-rows: auto auto;
   }
 
   .monthly-header .header-actions {
     grid-column: 1 / -1;
+    grid-row: 2;
     margin-top: 8px;
+  }
+
+  .current-month {
+    font-size: 20px;
   }
 
   .view-mode-selector.header-inline {
@@ -3302,9 +3265,13 @@ html, body {
   .monthly-event-item {
     padding: 3px 4px;
     line-height: 1.3;
-    white-space: nowrap;
+    white-space: normal;
     overflow: hidden;
     text-overflow: ellipsis;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
   }
 
   .monthly-event-spacer {
@@ -3631,6 +3598,11 @@ html, body {
   .monthly-header {
     gap: 6px;
     margin-bottom: 12px;
+    grid-template-columns: 44px 1fr 44px;
+  }
+
+  .current-month {
+    font-size: 18px;
   }
 
   .view-mode-btn {
@@ -3654,6 +3626,13 @@ html, body {
   .monthly-event-item {
     padding: 2px 3px;
     line-height: 1.2;
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
   }
 
   .monthly-event-spacer {
