@@ -24,11 +24,14 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   const [newResizeStart, setNewResizeStart] = useState(null);
   const [newResizeEnd, setNewResizeEnd] = useState(null);
   const [dragTooltip, setDragTooltip] = useState(null); // { x, y, startTime, endTime }
+  const [longPressActive, setLongPressActive] = useState(false);
   const timelineRef = useRef(null);
   const rafRef = useRef(null);
   const lastDragEndRef = useRef(null);
   const eventDragRafRef = useRef(null);
   const resizeRafRef = useRef(null);
+  const longPressTimerRef = useRef(null);
+  const touchStartPosRef = useRef(null);
 
   const [now, setNow] = useState(new Date());
 
@@ -606,6 +609,68 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
   const handleDragEnd = handleMouseUp;
 
+  // Long press handlers for mobile
+  const startLongPress = (event, e, isResize = false, edge = null) => {
+    if (!isMobile()) return;
+
+    const coords = getEventCoords(e);
+    touchStartPosRef.current = coords;
+
+    longPressTimerRef.current = setTimeout(() => {
+      setLongPressActive(true);
+      // Trigger haptic feedback if available
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+
+      // Start drag or resize after long press
+      if (isResize) {
+        handleResizeStart(e, event, edge);
+      } else {
+        handleEventStart(e, event);
+      }
+    }, 500); // 500ms long press
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleEventTouchStart = (event, e) => {
+    e.stopPropagation();
+    startLongPress(event, e, false);
+  };
+
+  const handleEventTouchMove = (e) => {
+    if (!touchStartPosRef.current) return;
+
+    const coords = getEventCoords(e);
+    const deltaX = Math.abs(coords.x - touchStartPosRef.current.x);
+    const deltaY = Math.abs(coords.y - touchStartPosRef.current.y);
+
+    // If moved more than 10px, cancel long press
+    if (deltaX > 10 || deltaY > 10) {
+      if (!longPressActive && !isDraggingEvent && !isResizing) {
+        cancelLongPress();
+      }
+    }
+  };
+
+  const handleEventTouchEnd = (event, e) => {
+    cancelLongPress();
+
+    // If long press was not activated and not dragging/resizing, treat as click
+    if (!longPressActive && !isDraggingEvent && !isResizing) {
+      handleEventClick(event, e);
+    }
+
+    setLongPressActive(false);
+    touchStartPosRef.current = null;
+  };
+
   const handleEventClick = (event, e) => {
     if (!timelineRef.current) return;
 
@@ -757,7 +822,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     return (
       <div
         key={event.id}
-        className="event-block-absolute"
+        className={`event-block-absolute ${longPressActive && draggingEvent?.id === event.id ? 'long-press-active' : ''}`}
         style={{
           background: bgColor,
           color: '#000',
@@ -774,10 +839,12 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
           justifyContent: isSmallEvent ? 'center' : 'flex-start'
         }}
         onMouseDown={(e) => !isTodo && handleEventStart(e, event)}
-        onTouchStart={(e) => !isTodo && handleEventStart(e, event)}
+        onTouchStart={(e) => !isTodo && handleEventTouchStart(event, e)}
+        onTouchMove={(e) => !isTodo && handleEventTouchMove(e)}
+        onTouchEnd={(e) => !isTodo && handleEventTouchEnd(event, e)}
         onClick={(e) => {
           // Only trigger click if not dragging, not resizing, and not a todo
-          if (!isDraggingEvent && !isResizing && !isTodo) {
+          if (!isDraggingEvent && !isResizing && !isTodo && !isMobile()) {
             handleEventClick(event, e);
           }
         }}
@@ -785,34 +852,66 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       >
         {!isTodo && (
           <>
-            <div 
+            <div
               className="resize-handle resize-handle-top"
               style={{
                 position: 'absolute',
                 top: 0,
                 left: 0,
                 right: 0,
-                height: '6px',
+                height: isMobile() ? '12px' : '6px',
                 cursor: 'ns-resize',
-                zIndex: 10
+                zIndex: 10,
+                background: longPressActive && isMobile() ? 'rgba(35, 131, 226, 0.3)' : 'transparent'
               }}
               onMouseDown={(e) => handleResizeStart(e, event, 'top')}
-              onTouchStart={(e) => handleResizeStart(e, event, 'top')}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                if (isMobile()) {
+                  startLongPress(event, e, true, 'top');
+                } else {
+                  handleResizeStart(e, event, 'top');
+                }
+              }}
+              onTouchMove={(e) => isMobile() && handleEventTouchMove(e)}
+              onTouchEnd={(e) => {
+                if (isMobile()) {
+                  cancelLongPress();
+                  setLongPressActive(false);
+                  touchStartPosRef.current = null;
+                }
+              }}
               onClick={(e) => e.stopPropagation()}
             />
-            <div 
+            <div
               className="resize-handle resize-handle-bottom"
               style={{
                 position: 'absolute',
                 bottom: 0,
                 left: 0,
                 right: 0,
-                height: '6px',
+                height: isMobile() ? '12px' : '6px',
                 cursor: 'ns-resize',
-                zIndex: 10
+                zIndex: 10,
+                background: longPressActive && isMobile() ? 'rgba(35, 131, 226, 0.3)' : 'transparent'
               }}
               onMouseDown={(e) => handleResizeStart(e, event, 'bottom')}
-              onTouchStart={(e) => handleResizeStart(e, event, 'bottom')}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                if (isMobile()) {
+                  startLongPress(event, e, true, 'bottom');
+                } else {
+                  handleResizeStart(e, event, 'bottom');
+                }
+              }}
+              onTouchMove={(e) => isMobile() && handleEventTouchMove(e)}
+              onTouchEnd={(e) => {
+                if (isMobile()) {
+                  cancelLongPress();
+                  setLongPressActive(false);
+                  touchStartPosRef.current = null;
+                }
+              }}
               onClick={(e) => e.stopPropagation()}
             />
           </>

@@ -3,6 +3,7 @@ import { getLocalDateString } from '../../utils/helpers';
 
 function ImageUpload({ currentDate, images, onImageUploaded, onImageDeleted }) {
   const [uploading, setUploading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   const dateKey = getLocalDateString(currentDate);
 
@@ -86,6 +87,7 @@ function ImageUpload({ currentDate, images, onImageUploaded, onImageDeleted }) {
               src={image.view_url}
               alt={image.file_name}
               className="image-thumbnail"
+              onDoubleClick={() => setSelectedImage(image)}
             />
             <button
               className="image-delete-btn"
@@ -111,6 +113,19 @@ function ImageUpload({ currentDate, images, onImageUploaded, onImageDeleted }) {
           />
         </label>
       </div>
+
+      {/* Image Modal */}
+      {selectedImage && (
+        <div className="image-modal" onClick={() => setSelectedImage(null)}>
+          <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="image-modal-close" onClick={() => setSelectedImage(null)}>
+              ×
+            </button>
+            <img src={selectedImage.view_url} alt={selectedImage.file_name} />
+            <div className="image-modal-filename">{selectedImage.file_name}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

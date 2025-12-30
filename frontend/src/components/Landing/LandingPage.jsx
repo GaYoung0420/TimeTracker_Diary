@@ -367,21 +367,27 @@ function LandingPage() {
       <footer className="landing-footer">
         <div className="footer-content">
           <div className="footer-brand">
-            <span className="logo-text">TimeTracker Diary</span>
+            <span 
+              className="logo-text" 
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} 
+              style={{ cursor: 'pointer' }}
+            >
+              TimeTracker Diary
+            </span>
             <p>당신의 하루를 더 의미있게</p>
           </div>
           <div className="footer-links">
             <div className="link-group">
               <h4>서비스</h4>
-              <a href="#">주요 기능</a>
-              <a href="#">업데이트 소식</a>
-              <a href="#">로드맵</a>
+              <a href="#features" onClick={(e) => { e.preventDefault(); scrollToSection('features'); }}>주요 기능</a>
+              <a href="#" onClick={(e) => { e.preventDefault(); alert('준비 중인 페이지입니다.'); }}>업데이트 소식</a>
+              <a href="#" onClick={(e) => { e.preventDefault(); alert('준비 중인 페이지입니다.'); }}>로드맵</a>
             </div>
             <div className="link-group">
               <h4>지원</h4>
-              <a href="#">FAQ</a>
-              <a href="#">문의하기</a>
-              <a href="#">이용약관</a>
+              <a href="#faq" onClick={(e) => { e.preventDefault(); scrollToSection('faq'); }}>FAQ</a>
+              <a href="mailto:ciks2508@gmail.com">문의하기</a>
+              <a href="#" onClick={(e) => { e.preventDefault(); alert('준비 중인 페이지입니다.'); }}>이용약관</a>
             </div>
           </div>
         </div>
