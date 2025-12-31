@@ -44,10 +44,19 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     return () => clearInterval(interval);
   }, []);
 
-  // Prevent scrolling during drag/resize operations
+  // Prevent scrolling during drag/resize operations and handle touchstart
   useEffect(() => {
+    const planColumn = document.querySelector('.plan-column');
+    const actualColumn = document.querySelector('.actual-column');
     const wrapper = timelineRef.current;
     if (!wrapper) return;
+
+    const handleTouchStart = (e) => {
+      // On mobile, prevent default to stop scroll from starting
+      if (isMobile() && !e.target.closest('.event-block-absolute')) {
+        e.preventDefault();
+      }
+    };
 
     const handleTouchMove = (e) => {
       // Prevent scroll if we're creating, dragging, or resizing
@@ -58,9 +67,21 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     };
 
     // Use passive: false to allow preventDefault
+    if (planColumn) {
+      planColumn.addEventListener('touchstart', handleTouchStart, { passive: false });
+    }
+    if (actualColumn) {
+      actualColumn.addEventListener('touchstart', handleTouchStart, { passive: false });
+    }
     wrapper.addEventListener('touchmove', handleTouchMove, { passive: false });
 
     return () => {
+      if (planColumn) {
+        planColumn.removeEventListener('touchstart', handleTouchStart);
+      }
+      if (actualColumn) {
+        actualColumn.removeEventListener('touchstart', handleTouchStart);
+      }
       wrapper.removeEventListener('touchmove', handleTouchMove);
     };
   }, [isCreating, isDraggingEvent, isResizing]);
@@ -342,11 +363,6 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
     // On mobile, require long press before allowing event creation
     if (isMobile()) {
-      // Prevent default immediately to stop scroll from starting
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-
       // Store the initial position
       setCreatingColumn(column);
       setDragStart(snappedMinutes);
