@@ -182,12 +182,18 @@ function App() {
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
+    // Reset to today's date when logging in
+    localStorage.setItem('currentDate', new Date().toISOString());
+    localStorage.setItem('currentView', 'daily');
     const from = location.state?.from?.pathname || '/app';
     navigate(from, { replace: true });
   };
 
   const handleRegisterSuccess = (userData) => {
     setUser(userData);
+    // Reset to today's date when registering
+    localStorage.setItem('currentDate', new Date().toISOString());
+    localStorage.setItem('currentView', 'daily');
     navigate('/app', { replace: true });
   };
 
