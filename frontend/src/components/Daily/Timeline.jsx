@@ -1747,8 +1747,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
               // Check if this hour matches any actual sleep event's start time
               let isSleepHour = false;
               const sleepEvents = events.filter(event =>
-                event.title === '잠' &&
-                event.category && event.category.name && event.category.name.includes('잠') &&
+                event.is_sleep === true &&
                 event.is_plan === false
               );
 
