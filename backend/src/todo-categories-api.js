@@ -122,7 +122,7 @@ export function setupTodoCategoriesAPI(app) {
         const dateStr = todo.date;
 
         // Sanitize scheduled_time - handle invalid formats
-        let timeStr = '00:00:00';
+        let timeStr;
         if (todo.scheduled_time) {
           // Remove any invalid characters and validate format
           const cleaned = todo.scheduled_time.toString().replace(/[^0-9:]/g, '');
@@ -131,7 +131,14 @@ export function setupTodoCategoriesAPI(app) {
               parseInt(timeParts[0]) >= 0 && parseInt(timeParts[0]) < 24 &&
               parseInt(timeParts[1]) >= 0 && parseInt(timeParts[1]) < 60) {
             timeStr = timeParts.length === 2 ? `${cleaned}:00` : cleaned;
+          } else {
+            timeStr = '00:00:00';
           }
+        } else {
+          // If no scheduled time, use current time
+          const now = new Date();
+          const pad = n => n < 10 ? '0' + n : n;
+          timeStr = pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
         }
 
         // Start Time (Local ISO-like string)
@@ -155,11 +162,13 @@ export function setupTodoCategoriesAPI(app) {
         };
         
         const endTimestamp = toLocalISO(endD);
+        const endTimeStr = endTimestamp.split('T')[1]; // Extract HH:mm:ss
         
         const eventData = {
           title: todo.text,
-          start_time: safeStartAt,
-          end_time: endTimestamp,
+          date: dateStr,
+          start_time: timeStr,
+          end_time: endTimeStr,
           category_id: todo.todo_category.event_category_id,
           is_plan: false,
           description: `할일 완료: ${todo.text}`,

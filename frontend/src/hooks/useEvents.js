@@ -204,6 +204,12 @@ export function useEvents(currentDate) {
     await loadEvents();
   }, [dateKey]);
 
+  // Manually add event to state (e.g. when created via todo completion)
+  const addEventToState = useCallback((newEvent) => {
+    setEvents(prev => [...prev, newEvent]);
+    eventCache.delete(dateKey);
+  }, [dateKey]);
+
   return {
     categories,
     events,
@@ -213,6 +219,7 @@ export function useEvents(currentDate) {
     createEvent,
     updateEvent,
     deleteEvent,
+    addEventToState,
     wakeSleepInfo
   };
 }

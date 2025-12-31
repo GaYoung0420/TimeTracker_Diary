@@ -5,7 +5,7 @@ import HamsterFaceIcon from './HamsterFaceIcon';
 import { api } from '../../utils/api';
 import pomoSvg from './pomo.svg';
 
-function TodoList({ todos, categories, todoCategories, currentDate, onAdd, onUpdate, onDelete, onReorder, onOpenTodoCategoryManager }) {
+function TodoList({ todos, categories, todoCategories, currentDate, onAdd, onUpdate, onDelete, onReorder, onOpenTodoCategoryManager, onEventCreated }) {
   const [inputValue, setInputValue] = useState('');
   const [showSettingsPopup, setShowSettingsPopup] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
@@ -183,21 +183,55 @@ function TodoList({ todos, categories, todoCategories, currentDate, onAdd, onUpd
         colors: ['#FFD700', '#FFA500', '#FF6347', '#87CEEB', '#90EE90']
       });
 
+      // Optimistic update: Update UI immediately without waiting for API
+      onUpdate(todoId, { completed }, { skipApi: true });
+
       // 할일이 완료될 때 이벤트 생성
       try {
         const result = await api.completeTodo(todoId);
         if (result.success && result.event) {
           console.log('Event created:', result.event);
-          // UI 업데이트 (새로고침 없이)
-          onUpdate(todoId, { completed });
+          // Success - UI is already updated
+          
+          // Add event to timeline if callback provided
+          if (onEventCreated) {
+            // Transform event to match Timeline format (add start/end ISO strings and category)
+            const rawEvent = result.event;
+            
+            // Handle overnight events for end date
+            let endIso = `${rawEvent.date}T${rawEvent.end_time}`;
+            if (rawEvent.end_time < rawEvent.start_time) {
+              const d = new Date(rawEvent.date);
+              d.setDate(d.getDate() + 1);
+              const nextDay = d.toISOString().split('T')[0];
+              endIso = `${nextDay}T${rawEvent.end_time}`;
+            }
+
+            const formattedEvent = {
+              ...rawEvent,
+              start: `${rawEvent.date}T${rawEvent.start_time}`,
+              end: endIso,
+            };
+
+            // Ensure category object exists for color
+            if (!formattedEvent.category && formattedEvent.category_id) {
+              const cat = categories.find(c => c.id === formattedEvent.category_id);
+              if (cat) {
+                formattedEvent.category = cat;
+              }
+            }
+
+            onEventCreated(formattedEvent);
+          }
         } else if (!result.success) {
           // 실패 시 롤백
-          onUpdate(todoId, { completed: false });
+          console.error('Failed to complete todo, rolling back');
+          onUpdate(todoId, { completed: false }, { skipApi: true });
         }
       } catch (error) {
         console.error('Failed to complete todo:', error);
         // 에러 발생 시 롤백
-        onUpdate(todoId, { completed: false });
+        onUpdate(todoId, { completed: false }, { skipApi: true });
       }
     } else {
       onUpdate(todoId, { completed });

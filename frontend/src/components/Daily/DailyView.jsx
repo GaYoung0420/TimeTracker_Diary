@@ -18,7 +18,7 @@ function DailyView({ currentDate, setCurrentDate, onOpenSettings }) {
   const [showTodoCategoryManager, setShowTodoCategoryManager] = useState(false);
   const [todoCategories, setTodoCategories] = useState([]);
   const { dailyData, loading, addTodo, updateTodo, deleteTodo, reorderTodos, updateRoutineCheck, addRoutine, updateRoutine, deleteRoutine, reorderRoutines, saveData, addImageToState, removeImageFromState } = useDailyData(currentDate);
-  const { categories, events, loading: eventsLoading, reloadCategories, createEvent, updateEvent, deleteEvent, wakeSleepInfo } = useEvents(currentDate);
+  const { categories, events, loading: eventsLoading, reloadCategories, createEvent, updateEvent, deleteEvent, addEventToState, wakeSleepInfo } = useEvents(currentDate);
 
   const loadTodoCategories = useCallback(async () => {
     try {
@@ -157,6 +157,7 @@ function DailyView({ currentDate, setCurrentDate, onOpenSettings }) {
           onDelete={deleteTodo}
           onReorder={reorderTodos}
           onOpenTodoCategoryManager={() => setShowTodoCategoryManager(true)}
+          onEventCreated={addEventToState}
         />
 
         <MoodSelector

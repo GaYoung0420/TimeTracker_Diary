@@ -3,6 +3,65 @@ import { formatKoreanTime, getCategoryColorByName, getCategoryTextColorByName, h
 import EventEditPopup from './EventEditPopup';
 import EventEditBottomSheet from './EventEditBottomSheet';
 
+// Helper to calculate layout for overlapping events
+const calculateEventLayout = (events) => {
+  if (!events || events.length === 0) return {};
+
+  // Convert to minutes for easier comparison
+  const eventTimes = events.map(e => {
+    const start = new Date(e.start);
+    const end = new Date(e.end);
+    return {
+      id: e.id,
+      start: start.getTime(),
+      end: end.getTime()
+    };
+  }).sort((a, b) => a.start - b.start || b.end - a.end);
+
+  const layout = {};
+  const columns = [];
+
+  // 1. Place events into columns
+  eventTimes.forEach(event => {
+    let placed = false;
+    for (let i = 0; i < columns.length; i++) {
+      const col = columns[i];
+      const lastEventInCol = col[col.length - 1];
+      // Check if this event starts after the last event in this column ends
+      if (lastEventInCol.end <= event.start) {
+        col.push(event);
+        layout[event.id] = { colIndex: i };
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      columns.push([event]);
+      layout[event.id] = { colIndex: columns.length - 1 };
+    }
+  });
+
+  // 2. Calculate total columns for each event (max overlapping columns)
+  eventTimes.forEach(event => {
+    let maxColIndex = layout[event.id].colIndex;
+    
+    // Check all other events to see if they overlap
+    eventTimes.forEach(other => {
+      if (event.id === other.id) return;
+      if (Math.max(event.start, other.start) < Math.min(event.end, other.end)) {
+        const otherColIndex = layout[other.id].colIndex;
+        if (otherColIndex > maxColIndex) {
+          maxColIndex = otherColIndex;
+        }
+      }
+    });
+    
+    layout[event.id].totalCols = maxColIndex + 1;
+  });
+  
+  return layout;
+};
+
 function Timeline({ events, todos, routines, routineChecks, categories, todoCategories, loading, currentDate, onCreateEvent, onUpdateEvent, onDeleteEvent, wakeSleepInfo }) {
   const hourHeight = 40;
   const [isCreating, setIsCreating] = useState(false);
@@ -46,6 +105,13 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
   // Track if long press is pending (used by native event listeners)
   const longPressPendingRef = useRef(false);
+  
+  // Ref to access current state in native event listeners without re-binding
+  const interactionStateRef = useRef({ isCreating, isDraggingEvent, isResizing, longPressActive });
+  
+  useEffect(() => {
+    interactionStateRef.current = { isCreating, isDraggingEvent, isResizing, longPressActive };
+  }, [isCreating, isDraggingEvent, isResizing, longPressActive]);
 
   // Prevent scrolling during drag/resize operations
   useEffect(() => {
@@ -55,17 +121,19 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     const handleTouchStart = (e) => {
       // Mark that we're potentially starting a long press
       // Don't prevent default yet - allow normal scrolling
-      if (isMobile() && !e.target.closest('.event-block-absolute')) {
+      if (isMobile()) {
         longPressPendingRef.current = true;
       }
     };
 
     const handleTouchMove = (e) => {
+      const { isCreating, isDraggingEvent, isResizing, longPressActive } = interactionStateRef.current;
+      
       // Only prevent scroll if:
       // 1. Already creating/dragging/resizing, OR
       // 2. Long press is active (isCreating will be true after 500ms)
-      if (isCreating || isDraggingEvent || isResizing) {
-        e.preventDefault();
+      if (isCreating || isDraggingEvent || isResizing || longPressActive) {
+        if (e.cancelable) e.preventDefault();
       } else if (longPressPendingRef.current) {
         // If moved during long press wait, cancel it
         longPressPendingRef.current = false;
@@ -87,7 +155,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       wrapper.removeEventListener('touchmove', handleTouchMove);
       wrapper.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [isCreating, isDraggingEvent, isResizing]);
+  }, []); // Empty dependency array - bind once!
 
   // Prevent body scroll during drag/resize operations
   useEffect(() => {
@@ -207,24 +275,21 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       category_id: categories.length > 0 ? categories[0].id : null,
       description: '',
       is_plan: false, // Default to actual event
-      date: getLocalDateString(currentDate)
+      date: getLocalDateString(currentDate),
+      isManualAdd: true // Flag to indicate manual addition via button
     });
     
-    if (isMobile()) {
-      setShowEditPopup(true);
-    } else {
-      // Calculate center position
-      const screenWidth = window.innerWidth;
-      const screenHeight = window.innerHeight;
-      const popupWidth = 380;
-      const popupHeight = 450;
-      
-      const x = Math.max(20, (screenWidth - popupWidth) / 2);
-      const y = Math.max(20, (screenHeight - popupHeight) / 2);
-      
-      setPopupPosition({ x, y });
-      setShowEditPopup(true);
-    }
+    // Calculate center position for both mobile and desktop
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    const popupWidth = 380;
+    const popupHeight = 450;
+    
+    const x = Math.max(20, (screenWidth - popupWidth) / 2);
+    const y = Math.max(20, (screenHeight - popupHeight) / 2);
+    
+    setPopupPosition({ x, y });
+    setShowEditPopup(true);
   };
 
   const renderWakeSleepTimes = () => {
@@ -261,7 +326,6 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
     // Close edit popup/modal when starting to drag
     setShowEditPopup(false);
-    setShowEditModal(false);
     setSelectedEvent(null);
 
     const rect = timelineRef.current.getBoundingClientRect();
@@ -308,7 +372,6 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
     // Close edit popup/modal when starting to resize
     setShowEditPopup(false);
-    setShowEditModal(false);
     setSelectedEvent(null);
 
     const currentDayStr = getLocalDateString(currentDate);
@@ -370,6 +433,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       setCreatingColumn(column);
       setDragStart(snappedMinutes);
       setDragEnd(snappedMinutes);
+      lastDragEndRef.current = snappedMinutes;
 
       createLongPressTimerRef.current = setTimeout(() => {
         createLongPressTimerRef.current = null; // Clear ref so drag doesn't cancel it
@@ -398,8 +462,8 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       const coords = getEventCoords(e);
       const deltaY = Math.abs(coords.y - createDragStartPosRef.current.y);
 
-      // If moved more than 10px, cancel long press timer
-      if (deltaY > 10) {
+      // If moved more than 15px, cancel long press timer
+      if (deltaY > 15) {
         clearTimeout(createLongPressTimerRef.current);
         createLongPressTimerRef.current = null;
         setCreatingColumn(null);
@@ -868,16 +932,23 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   };
 
   const handleEventTouchStart = (event, e) => {
-    e.stopPropagation();
+    // e.stopPropagation(); // Allow bubbling so native listeners can track touch
+    if (e.persist) e.persist();
+    
+    // Always store start position for tap detection, regardless of isMobile
+    const coords = getEventCoords(e);
+    touchStartPosRef.current = coords;
+    
     startLongPress(event, e, false);
   };
 
   const handleEventTouchMove = (e) => {
     // If already dragging or resizing, prevent scroll and don't interfere (let parent handle it)
     if (isDraggingEvent || isResizing) {
-      if (e.cancelable) {
-        e.preventDefault();
-      }
+      // Note: We rely on the native event listener in useEffect to handle preventDefault
+      // if (e.cancelable) {
+      //   e.preventDefault();
+      // }
       return;
     }
 
@@ -928,8 +999,22 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       setShowEditPopup(true);
     } else {
       // On desktop, open popup at click position
-      const clickX = e.clientX;
-      const clickY = e.clientY;
+      let clickX, clickY;
+      
+      if (e.clientX !== undefined) {
+        clickX = e.clientX;
+        clickY = e.clientY;
+      } else if (e.changedTouches && e.changedTouches.length > 0) {
+        clickX = e.changedTouches[0].clientX;
+        clickY = e.changedTouches[0].clientY;
+      } else if (e.touches && e.touches.length > 0) {
+        clickX = e.touches[0].clientX;
+        clickY = e.touches[0].clientY;
+      } else {
+        // Fallback if no coordinates available
+        clickX = window.innerWidth / 2;
+        clickY = window.innerHeight / 2;
+      }
       
       const screenWidth = window.innerWidth;
       const screenHeight = window.innerHeight;
@@ -985,7 +1070,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     }
   };
 
-  const renderEventBlock = (event, isTodo = false) => {
+  const renderEventBlock = (event, isTodo = false, layoutStyle = null) => {
     const currentDayStr = getLocalDateString(currentDate);
     const [dateStr, timeStr] = event.start.split('T');
     const [endDateStr, endTimeStr] = event.end.split('T');
@@ -1037,6 +1122,21 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     const topPosition = (displayStartMinutes / 60) * hourHeight;
     const height = (displayDuration / 60) * hourHeight;
 
+    // Layout for overlapping events
+    let width = '100%';
+    let left = '0%';
+    let zIndex = isBeingDragged ? 1000 : 1;
+
+    if (layoutStyle && !isBeingDragged && !isBeingResized) {
+      const { colIndex, totalCols } = layoutStyle;
+      if (totalCols > 1) {
+        width = `${100 / totalCols}%`;
+        left = `${(colIndex * 100) / totalCols}%`;
+        // Slightly increase z-index for later columns to ensure they are clickable if they overlap slightly
+        zIndex = 1 + colIndex;
+      }
+    }
+
     // Get category info from nested category object (populated by backend)
     const categoryInfo = event.category || { color: '#9E9E9E', name: '기타' };
     const blockColor = categoryInfo.color;
@@ -1073,15 +1173,19 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
           color: '#000',
           top: `${topPosition}px`,
           height: `${Math.max(height, 20)}px`,
+          left: left,
+          width: width,
           cursor: isTodo ? 'default' : (isBeingDragged ? 'grabbing' : 'grab'),
+          touchAction: 'none', // Prevent browser handling of gestures on event blocks
           opacity: isTodo ? 0.9 : (isBeingDragged ? 0.8 : 1),
-          zIndex: isBeingDragged ? 1000 : 1,
-          transition: isBeingDragged ? 'none' : 'top 0.1s ease-out',
+          zIndex: zIndex,
+          transition: isBeingDragged ? 'none' : 'top 0.1s ease-out, left 0.1s ease-out, width 0.1s ease-out',
           border: isTodo ? `2px dashed ${blockColor}` : undefined,
           padding: isSmallEvent ? '1px 4px' : '6px 8px',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: isSmallEvent ? 'center' : 'flex-start'
+          justifyContent: isSmallEvent ? 'center' : 'flex-start',
+          boxSizing: 'border-box'
         }}
         onMouseDown={(e) => !isTodo && handleEventStart(e, event)}
         onTouchStart={(e) => !isTodo && handleEventTouchStart(event, e)}
@@ -1112,15 +1216,32 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
               onMouseDown={(e) => handleResizeStart(e, event, 'top')}
               onTouchStart={(e) => {
                 e.stopPropagation();
-                if (isMobile()) {
-                  startLongPress(event, e, true, 'top');
-                } else {
-                  handleResizeStart(e, event, 'top');
-                }
+                // Store start position for tap detection
+                const touch = e.touches[0];
+                touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+                
+                // Allow immediate resize on mobile for handles
+                handleResizeStart(e, event, 'top', true);
               }}
               onTouchMove={(e) => isMobile() && handleEventTouchMove(e)}
               onTouchEnd={(e) => {
                 if (isMobile()) {
+                  // Check for tap on handle (small movement)
+                  if (touchStartPosRef.current) {
+                    const touch = e.changedTouches[0];
+                    const deltaX = Math.abs(touch.clientX - touchStartPosRef.current.x);
+                    const deltaY = Math.abs(touch.clientY - touchStartPosRef.current.y);
+                    
+                    if (deltaX < 5 && deltaY < 5) {
+                      // It was a tap, trigger edit
+                      // We need to cancel the resize operation that started
+                      setIsResizing(false);
+                      setResizeEdge(null);
+                      setResizingEvent(null);
+                      handleEventClick(event, { clientX: touch.clientX, clientY: touch.clientY });
+                    }
+                  }
+                  
                   cancelLongPress();
                   setLongPressActive(false);
                   touchStartPosRef.current = null;
@@ -1143,15 +1264,32 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
               onMouseDown={(e) => handleResizeStart(e, event, 'bottom')}
               onTouchStart={(e) => {
                 e.stopPropagation();
-                if (isMobile()) {
-                  startLongPress(event, e, true, 'bottom');
-                } else {
-                  handleResizeStart(e, event, 'bottom');
-                }
+                // Store start position for tap detection
+                const touch = e.touches[0];
+                touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+
+                // Allow immediate resize on mobile for handles
+                handleResizeStart(e, event, 'bottom', true);
               }}
               onTouchMove={(e) => isMobile() && handleEventTouchMove(e)}
               onTouchEnd={(e) => {
                 if (isMobile()) {
+                  // Check for tap on handle (small movement)
+                  if (touchStartPosRef.current) {
+                    const touch = e.changedTouches[0];
+                    const deltaX = Math.abs(touch.clientX - touchStartPosRef.current.x);
+                    const deltaY = Math.abs(touch.clientY - touchStartPosRef.current.y);
+                    
+                    if (deltaX < 5 && deltaY < 5) {
+                      // It was a tap, trigger edit
+                      // We need to cancel the resize operation that started
+                      setIsResizing(false);
+                      setResizeEdge(null);
+                      setResizingEvent(null);
+                      handleEventClick(event, { clientX: touch.clientX, clientY: touch.clientY });
+                    }
+                  }
+
                   cancelLongPress();
                   setLongPressActive(false);
                   touchStartPosRef.current = null;
@@ -1212,6 +1350,65 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
           top: `${topPosition}px`,
           height: `${Math.max(height, 20)}px`,
           pointerEvents: 'none',
+          zIndex: 1000,
+          padding: isSmallEvent ? '1px 4px' : '6px 8px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: isSmallEvent ? 'center' : 'flex-start'
+        }}
+      >
+        <div className="event-title" style={{
+          fontSize: isSmallEvent ? '10px' : '11px',
+          lineHeight: isSmallEvent ? '1.1' : '1.4',
+          whiteSpace: isSmallEvent ? 'nowrap' : 'normal',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
+        }}>
+          새 이벤트
+          {isSmallEvent && (
+            <span style={{ marginLeft: '4px', fontSize: '9px', opacity: 0.8, fontWeight: 'normal' }}>
+              {displayStartTime}-{displayEndTime}
+            </span>
+          )}
+        </div>
+        {!isSmallEvent && (
+          <div className="event-time">
+            {displayStartTime} - {displayEndTime}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderPendingEvent = () => {
+    if (!selectedEvent || selectedEvent.id !== null) return null;
+
+    // Parse start and end times from selectedEvent
+    const [startHour, startMinute] = selectedEvent.start_time.split(':').map(Number);
+    const [endHour, endMinute] = selectedEvent.end_time.split(':').map(Number);
+    
+    const startMinutes = startHour * 60 + startMinute;
+    const endMinutes = endHour * 60 + endMinute;
+    
+    const topPosition = (startMinutes / 60) * hourHeight;
+    const height = ((endMinutes - startMinutes) / 60) * hourHeight;
+    
+    const displayStartTime = selectedEvent.start_time.substring(0, 5);
+    const displayEndTime = selectedEvent.end_time.substring(0, 5);
+    
+    const durationMinutes = endMinutes - startMinutes;
+    const isSmallEvent = durationMinutes <= 50;
+
+    return (
+      <div
+        className="event-block-absolute"
+        style={{
+          background: 'rgba(66, 133, 244, 0.3)',
+          border: '2px dashed #4285F4',
+          top: `${topPosition}px`,
+          height: `${Math.max(height, 20)}px`,
+          pointerEvents: 'none',
+          zIndex: 1000,
           padding: isSmallEvent ? '1px 4px' : '6px 8px',
           display: 'flex',
           flexDirection: 'column',
@@ -1418,6 +1615,10 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     };
   }, [events, todoEvents, routinePlanEvents, routineActualEvents]);
 
+  // Calculate layout for overlapping events
+  const planLayout = useMemo(() => calculateEventLayout(planEvents), [planEvents]);
+  const actualLayout = useMemo(() => calculateEventLayout(actualEvents), [actualEvents]);
+
   if (loading) {
     return (
       <div className="timeline-wrapper">
@@ -1506,8 +1707,9 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
               style={{ position: 'relative' }}
             >
               <div className="timeline-hover-line" id="timeline-hover-line-plan"></div>
-              {planEvents.map(event => renderEventBlock(event, event.is_todo))}
+              {planEvents.map(event => renderEventBlock(event, event.is_todo, planLayout[event.id]))}
               {isCreating && creatingColumn === 'plan' && renderDragPreview()}
+              {selectedEvent && selectedEvent.id === null && selectedEvent.is_plan && renderPendingEvent()}
             </div>
             <div className="timeline-column time-column"></div>
             <div
@@ -1517,8 +1719,9 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
               style={{ position: 'relative' }}
             >
               <div className="timeline-hover-line" id="timeline-hover-line-actual"></div>
-              {actualEvents.map(event => renderEventBlock(event, false))}
+              {actualEvents.map(event => renderEventBlock(event, false, actualLayout[event.id]))}
               {isCreating && creatingColumn === 'actual' && renderDragPreview()}
+              {selectedEvent && selectedEvent.id === null && !selectedEvent.is_plan && renderPendingEvent()}
             </div>
           </div>
 
@@ -1617,7 +1820,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       </div>
 
       {showEditPopup && selectedEvent && (
-        isMobile() ? (
+        (isMobile() && !selectedEvent.isManualAdd) ? (
           <EventEditBottomSheet
             event={selectedEvent}
             categories={categories}
