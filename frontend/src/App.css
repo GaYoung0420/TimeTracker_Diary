@@ -470,6 +470,7 @@ html, body {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+  touch-action: pan-y;
 }
 
 .timeline-hover-line {

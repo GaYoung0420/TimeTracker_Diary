@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { formatKoreanTime, getCategoryColorByName, getCategoryTextColorByName, hexToRgba, getLocalDateString } from '../../utils/helpers';
 import EventEditModal from './EventEditModal';
 import EventEditPopup from './EventEditPopup';
+import EventEditBottomSheet from './EventEditBottomSheet';
 
 function Timeline({ events, todos, routines, routineChecks, categories, todoCategories, loading, currentDate, onCreateEvent, onUpdateEvent, onDeleteEvent, wakeSleepInfo }) {
   const hourHeight = 40;
@@ -146,7 +147,12 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       description: '',
       is_plan: false // Default to actual event
     });
-    setShowEditModal(true);
+    
+    if (isMobile()) {
+      setShowEditPopup(true);
+    } else {
+      setShowEditModal(true);
+    }
   };
 
   const renderWakeSleepTimes = () => {
@@ -297,6 +303,11 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
         setCreatingColumn(column);
         setDragStart(snappedMinutes);
         setDragEnd(snappedMinutes);
+
+        // Prevent scrolling once long press is activated
+        if (e.cancelable) {
+          e.preventDefault();
+        }
       }, 500); // 500ms long press
     } else {
       // On desktop, create immediately
@@ -308,6 +319,11 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   };
 
   const handleDragMove = useCallback((e) => {
+    // Prevent scrolling when dragging/resizing/creating on mobile
+    if ((isCreating || isDraggingEvent || isResizing) && isMobile() && e.cancelable) {
+      e.preventDefault();
+    }
+
     // Handle event resizing
     if (isResizing) {
       if (resizeRafRef.current) {
@@ -640,13 +656,53 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       // Open edit popup immediately after creating event
       if (newEvent && timelineRef.current) {
         const rect = timelineRef.current.getBoundingClientRect();
-        const eventTopPosition = (start / 60) * hourHeight;
-        const columnWidth = rect.width / 3; // timeline has 3 columns (plan, time, actual)
+        const scrollTop = timelineRef.current.scrollTop;
+        const eventTopOffset = (start / 60) * hourHeight;
+        
+        // Calculate viewport Y of the event top
+        let viewportY = rect.top + eventTopOffset - scrollTop;
+        
+        // Calculate viewport X based on column
+        let viewportX = rect.left;
+        
+        if (creatingColumn === 'plan') {
+           const planCol = timelineRef.current.querySelector('.plan-column');
+           if (planCol) {
+               const colRect = planCol.getBoundingClientRect();
+               viewportX = colRect.right + 20; 
+           } else {
+               viewportX = rect.left + (rect.width / 3) + 20;
+           }
+        } else {
+           const actualCol = timelineRef.current.querySelector('.actual-column');
+           if (actualCol) {
+               const colRect = actualCol.getBoundingClientRect();
+               viewportX = colRect.left - 400; // Position to left of column (popup width ~380)
+           } else {
+               viewportX = rect.right - 400;
+           }
+        }
+        
+        // Ensure bounds
+        const screenHeight = window.innerHeight;
+        const screenWidth = window.innerWidth;
+        const popupHeight = 450;
+        const popupWidth = 380;
+        
+        if (viewportY + popupHeight > screenHeight) {
+            viewportY = screenHeight - popupHeight - 20;
+        }
+        if (viewportY < 20) viewportY = 20;
+        
+        if (viewportX + popupWidth > screenWidth) {
+            viewportX = screenWidth - popupWidth - 20;
+        }
+        if (viewportX < 20) viewportX = 20;
 
         setSelectedEvent(newEvent);
         setPopupPosition({
-          x: creatingColumn === 'plan' ? columnWidth + 10 : rect.width - 10,
-          y: eventTopPosition + 220
+          x: viewportX,
+          y: viewportY
         });
         setShowEditPopup(true);
       }
@@ -677,6 +733,11 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
         navigator.vibrate(50);
       }
 
+      // Prevent scrolling once long press is activated
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+
       // Start drag or resize after long press with forceMobile = true
       if (isResize) {
         handleResizeStart(e, event, edge, true);
@@ -699,8 +760,11 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   };
 
   const handleEventTouchMove = (e) => {
-    // If already dragging or resizing, don't interfere (let parent handle it)
+    // If already dragging or resizing, prevent scroll and don't interfere (let parent handle it)
     if (isDraggingEvent || isResizing) {
+      if (e.cancelable) {
+        e.preventDefault();
+      }
       return;
     }
 
@@ -746,19 +810,38 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
     setSelectedEvent(event);
 
-    // On mobile, open modal instead of popup
+    // On mobile, open popup (which will render as bottom sheet) instead of modal
     if (isMobile()) {
-      setShowEditModal(true);
+      setShowEditPopup(true);
     } else {
       // On desktop, open popup at click position
-      const rect = timelineRef.current.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
+      const clickX = e.clientX;
+      const clickY = e.clientY;
+      
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      const popupWidth = 380; // Approximate width
+      const popupHeight = 450; // Approximate height
 
-      setPopupPosition({
-        x: clickX + 10 > rect.width / 2 ? clickX + 150 : clickX + 10,
-        y: clickY + 220 > rect.height ? clickY - 30 : clickY + 10
-      });
+      let x = clickX + 20;
+      let y = clickY - 100;
+
+      // Check right edge
+      if (x + popupWidth > screenWidth) {
+        x = clickX - popupWidth - 20;
+      }
+
+      // Check bottom edge
+      if (y + popupHeight > screenHeight) {
+        y = screenHeight - popupHeight - 20;
+      }
+      
+      // Check top edge
+      if (y < 20) {
+        y = 20;
+      }
+
+      setPopupPosition({ x, y });
       setShowEditPopup(true);
     }
   };
@@ -1442,17 +1525,30 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       </div>
 
       {showEditPopup && selectedEvent && (
-        <EventEditPopup
-          event={selectedEvent}
-          categories={categories}
-          position={popupPosition}
-          onUpdate={handleEventUpdate}
-          onDelete={handleEventDelete}
-          onClose={() => {
-            setShowEditPopup(false);
-            setSelectedEvent(null);
-          }}
-        />
+        isMobile() ? (
+          <EventEditBottomSheet
+            event={selectedEvent}
+            categories={categories}
+            onUpdate={handleEventUpdate}
+            onDelete={handleEventDelete}
+            onClose={() => {
+              setShowEditPopup(false);
+              setSelectedEvent(null);
+            }}
+          />
+        ) : (
+          <EventEditPopup
+            event={selectedEvent}
+            categories={categories}
+            position={popupPosition}
+            onUpdate={handleEventUpdate}
+            onDelete={handleEventDelete}
+            onClose={() => {
+              setShowEditPopup(false);
+              setSelectedEvent(null);
+            }}
+          />
+        )
       )}
 
       {showEditModal && selectedEvent && (

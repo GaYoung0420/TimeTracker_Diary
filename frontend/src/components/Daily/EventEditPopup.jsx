@@ -8,6 +8,7 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
   const [endDate, setEndDate] = useState(event.date || event.end.split('T')[0]);
   const [endTime, setEndTime] = useState(event.end_time || event.end.split('T')[1].substring(0, 5));
   const [categoryId, setCategoryId] = useState(event.category_id);
+  const [isPlan, setIsPlan] = useState(event.is_plan || false);
   const popupRef = useRef(null);
 
   // Auto-focus title input when popup opens
@@ -29,7 +30,7 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [title, startDate, startTime, endDate, endTime, categoryId]);
+  }, [title, startDate, startTime, endDate, endTime, categoryId, isPlan]);
 
   const handleSave = () => {
     const formattedStartTime = startTime.length === 5 ? `${startTime}:00` : startTime;
@@ -40,7 +41,8 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
       start_time: formattedStartTime,
       end_time: formattedEndTime,
       date: startDate,
-      category_id: categoryId
+      category_id: categoryId,
+      is_plan: isPlan
     });
   };
 
@@ -64,7 +66,7 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
       ref={popupRef}
       className="event-edit-popup"
       style={{
-        position: 'absolute',
+        position: 'fixed',
         left: `${position.x}px`,
         top: `${position.y}px`
       }}
@@ -80,39 +82,6 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
         />
       </div>
 
-      <div className="popup-row time-row">
-        <label style={{ fontSize: '12px', color: '#666', width: '30px' }}>시작</label>
-        <input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          className="popup-time-input"
-          style={{ flex: 1.5 }}
-        />
-        <input
-          type="time"
-          value={startTime}
-          onChange={(e) => setStartTime(e.target.value)}
-          className="popup-time-input"
-        />
-      </div>
-      <div className="popup-row time-row">
-        <label style={{ fontSize: '12px', color: '#666', width: '30px' }}>종료</label>
-        <input
-          type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          className="popup-time-input"
-          style={{ flex: 1.5 }}
-        />
-        <input
-          type="time"
-          value={endTime}
-          onChange={(e) => setEndTime(e.target.value)}
-          className="popup-time-input"
-        />
-      </div>
-
       <div className="popup-row">
         <select
           value={categoryId}
@@ -125,6 +94,57 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="popup-divider"></div>
+
+      <div className="popup-row time-row">
+        <span className="time-label">시작</span>
+        <div className="popup-time-input-group">
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="popup-date-input"
+          />
+          <input
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+            className="popup-time-input"
+          />
+        </div>
+      </div>
+      <div className="popup-row time-row">
+        <span className="time-label">종료</span>
+        <div className="popup-time-input-group">
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="popup-date-input"
+          />
+          <input
+            type="time"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+            className="popup-time-input"
+          />
+        </div>
+      </div>
+
+      <div className="popup-divider"></div>
+
+      <div className="popup-row toggle-row">
+        <span className="popup-label">계획 여부</span>
+        <label className="popup-toggle">
+          <input 
+            type="checkbox" 
+            checked={isPlan} 
+            onChange={(e) => setIsPlan(e.target.checked)} 
+          />
+          <span className="popup-toggle-slider"></span>
+        </label>
       </div>
 
       <div className="popup-actions">
