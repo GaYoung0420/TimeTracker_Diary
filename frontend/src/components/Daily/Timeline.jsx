@@ -32,6 +32,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   const resizeRafRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const touchStartPosRef = useRef(null);
+  const createDragStartPosRef = useRef(null);
 
   const [now, setNow] = useState(new Date());
 
@@ -271,6 +272,9 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
     // Don't create new event if already creating, dragging, or resizing
     if (isCreating || isDraggingEvent || isResizing) return;
+
+    const coords = getEventCoords(e);
+    createDragStartPosRef.current = coords;
 
     const rect = timelineRef.current.getBoundingClientRect();
     const { clientY } = getEventCoordinates(e);
@@ -560,6 +564,21 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
     // Handle event creation
     if (!isCreating) return;
+
+    // Check if this was actually a drag or just a tap (for mobile scrolling)
+    if (createDragStartPosRef.current && isMobile()) {
+      const coords = getEventCoords({ clientX: 0, clientY: 0 }); // Dummy coords, will use lastDragEndRef
+      // On mobile, if the user didn't drag much (less than 20px vertically), cancel creation
+      const verticalDragDistance = Math.abs(dragEnd - dragStart) * (hourHeight / 60);
+      if (verticalDragDistance < 20) {
+        setIsCreating(false);
+        setCreatingColumn(null);
+        lastDragEndRef.current = null;
+        createDragStartPosRef.current = null;
+        return;
+      }
+    }
+    createDragStartPosRef.current = null;
 
     // Cancel any pending animation frame
     if (rafRef.current) {
