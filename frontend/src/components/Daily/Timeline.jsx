@@ -267,9 +267,6 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   };
 
   const handleDragStart = (e, column) => {
-    // Disable drag event creation on mobile
-    if (isMobile()) return;
-
     if (e.target.closest('.event-block-absolute')) return; // Don't create if clicking on event
 
     const rect = timelineRef.current.getBoundingClientRect();
