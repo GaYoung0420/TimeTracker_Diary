@@ -120,11 +120,23 @@ export function setupTodoCategoriesAPI(app) {
       // If todo has a category with event_category_id, create an event
       if (todo.todo_category && todo.todo_category.event_category_id) {
         const dateStr = todo.date;
-        const timeStr = todo.scheduled_time || '00:00:00';
-        
+
+        // Sanitize scheduled_time - handle invalid formats
+        let timeStr = '00:00:00';
+        if (todo.scheduled_time) {
+          // Remove any invalid characters and validate format
+          const cleaned = todo.scheduled_time.toString().replace(/[^0-9:]/g, '');
+          const timeParts = cleaned.split(':');
+          if (timeParts.length >= 2 &&
+              parseInt(timeParts[0]) >= 0 && parseInt(timeParts[0]) < 24 &&
+              parseInt(timeParts[1]) >= 0 && parseInt(timeParts[1]) < 60) {
+            timeStr = timeParts.length === 2 ? `${cleaned}:00` : cleaned;
+          }
+        }
+
         // Start Time (Local ISO-like string)
         const startAt = `${dateStr}T${timeStr}`;
-        const safeStartAt = startAt.length === 16 ? `${startAt}:00` : startAt;
+        const safeStartAt = startAt;
         
         // End Time Calculation
         const durationMins = todo.duration || 30;
