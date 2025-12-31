@@ -10,6 +10,7 @@
   flex-direction: column;
   justify-content: flex-end;
   animation: fadeIn 0.2s ease-out;
+  touch-action: none; /* Prevent background dragging */
 }
 
 .event-edit-bottom-sheet {
@@ -23,6 +24,7 @@
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   padding-bottom: max(20px, env(safe-area-inset-bottom));
+  touch-action: pan-y; /* Allow scrolling inside the sheet */
 }
 
 @keyframes slideUp {

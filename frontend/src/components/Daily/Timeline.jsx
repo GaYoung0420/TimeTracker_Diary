@@ -51,9 +51,9 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
     const handleTouchMove = (e) => {
       // Prevent scroll if we're creating, dragging, or resizing
+      // Don't call stopPropagation() so React's onTouchMove can still handle it
       if (isCreating || isDraggingEvent || isResizing) {
         e.preventDefault();
-        e.stopPropagation();
       }
     };
 

@@ -20,18 +20,6 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
     }
   }, []);
 
-  // Close popup when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (popupRef.current && !popupRef.current.contains(e.target)) {
-        handleSave();
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [title, startDate, startTime, endDate, endTime, categoryId, isPlan]);
-
   const handleSave = () => {
     const formattedStartTime = startTime.length === 5 ? `${startTime}:00` : startTime;
     const formattedEndTime = endTime.length === 5 ? `${endTime}:00` : endTime;
@@ -62,17 +50,19 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
   };
 
   return (
-    <div
-      ref={popupRef}
-      className="event-edit-popup"
-      style={{
-        position: 'fixed',
-        left: `${position.x}px`,
-        top: `${position.y}px`
-      }}
-      onKeyDown={handleKeyDown}
-    >
-      <div className="popup-row">
+    <>
+      <div className="popup-overlay" onClick={handleSave}></div>
+      <div
+        ref={popupRef}
+        className="event-edit-popup"
+        style={{
+          position: 'fixed',
+          left: `${position.x}px`,
+          top: `${position.y}px`
+        }}
+        onKeyDown={handleKeyDown}
+      >
+        <div className="popup-row">
         <input
           type="text"
           value={title}
@@ -157,7 +147,8 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
           저장
         </button>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

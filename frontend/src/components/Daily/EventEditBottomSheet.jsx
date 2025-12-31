@@ -112,6 +112,31 @@ function EventEditBottomSheet({ event, categories, onUpdate, onDelete, onClose }
             <span className="sheet-toggle-slider"></span>
           </label>
         </div>
+
+        {event.id && (
+          <div className="sheet-row" style={{ marginTop: '20px', borderBottom: 'none' }}>
+            <button 
+              onClick={() => {
+                if (window.confirm('이 이벤트를 삭제하시겠습니까?')) {
+                  onDelete(event.id);
+                  onClose();
+                }
+              }}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#fee2e2',
+                color: '#ef4444',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: '600'
+              }}
+            >
+              이벤트 삭제
+            </button>
+          </div>
+        )}
         
         <div className="sheet-row" style={{ marginTop: '10px', borderBottom: 'none', color: '#999', justifyContent: 'center' }}>
           <span style={{ fontSize: '14px' }}>옵션 더보기</span>
