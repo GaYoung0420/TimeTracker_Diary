@@ -110,7 +110,10 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   // Render frontend domain
-  'https://timetracker-diary.onrender.com'
+  'https://timetracker-diary.onrender.com',
+  // Production domain
+  'https://timetrackerdiary.com',
+  'http://timetrackerdiary.com'
 ];
 
 // Add production domain if available
