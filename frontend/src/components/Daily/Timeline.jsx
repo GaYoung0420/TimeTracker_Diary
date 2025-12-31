@@ -25,6 +25,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   const [newResizeEnd, setNewResizeEnd] = useState(null);
   const [dragTooltip, setDragTooltip] = useState(null); // { x, y, startTime, endTime }
   const [longPressActive, setLongPressActive] = useState(false);
+  const [canCreateEvent, setCanCreateEvent] = useState(false);
   const timelineRef = useRef(null);
   const rafRef = useRef(null);
   const lastDragEndRef = useRef(null);
@@ -33,6 +34,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   const longPressTimerRef = useRef(null);
   const touchStartPosRef = useRef(null);
   const createDragStartPosRef = useRef(null);
+  const createLongPressTimerRef = useRef(null);
 
   const [now, setNow] = useState(new Date());
 
@@ -284,10 +286,25 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     // Snap to 10-minute intervals
     const snappedMinutes = Math.round(minutes / 10) * 10;
 
-    setIsCreating(true);
-    setCreatingColumn(column);
-    setDragStart(snappedMinutes);
-    setDragEnd(snappedMinutes);
+    // On mobile, require long press before allowing event creation
+    if (isMobile()) {
+      createLongPressTimerRef.current = setTimeout(() => {
+        setCanCreateEvent(true);
+        if (navigator.vibrate) {
+          navigator.vibrate(50);
+        }
+        setIsCreating(true);
+        setCreatingColumn(column);
+        setDragStart(snappedMinutes);
+        setDragEnd(snappedMinutes);
+      }, 500); // 500ms long press
+    } else {
+      // On desktop, create immediately
+      setIsCreating(true);
+      setCreatingColumn(column);
+      setDragStart(snappedMinutes);
+      setDragEnd(snappedMinutes);
+    }
   };
 
   const handleDragMove = useCallback((e) => {
@@ -418,6 +435,13 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   }, [isCreating, isDraggingEvent, isResizing, resizeEdge, newResizeStart, newResizeEnd, hourHeight, dragOffset, newEventPosition, originalEventDuration]);
 
   const handleMouseUp = useCallback(async () => {
+    // Cancel long press timer for event creation on mobile
+    if (createLongPressTimerRef.current) {
+      clearTimeout(createLongPressTimerRef.current);
+      createLongPressTimerRef.current = null;
+    }
+    setCanCreateEvent(false);
+
     // Clear tooltip on mouse up
     setDragTooltip(null);
 
