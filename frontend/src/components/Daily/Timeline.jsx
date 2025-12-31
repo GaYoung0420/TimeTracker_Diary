@@ -46,6 +46,45 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     return () => clearInterval(interval);
   }, []);
 
+  // Prevent scrolling during drag/resize operations
+  useEffect(() => {
+    const wrapper = timelineRef.current;
+    if (!wrapper) return;
+
+    const handleTouchMove = (e) => {
+      // Prevent scroll if we're creating, dragging, or resizing
+      if (isCreating || isDraggingEvent || isResizing) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    // Use passive: false to allow preventDefault
+    wrapper.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      wrapper.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [isCreating, isDraggingEvent, isResizing]);
+
+  // Prevent body scroll during drag/resize operations
+  useEffect(() => {
+    if (isCreating || isDraggingEvent || isResizing) {
+      // Store original overflow style
+      const originalOverflow = document.body.style.overflow;
+
+      // Prevent body scroll
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+
+      return () => {
+        // Restore original overflow
+        document.body.style.overflow = originalOverflow;
+        document.body.style.touchAction = '';
+      };
+    }
+  }, [isCreating, isDraggingEvent, isResizing]);
+
   // Hover line effect for each column
   useEffect(() => {
     const handleColumnMouseMove = (columnType) => (e) => {
