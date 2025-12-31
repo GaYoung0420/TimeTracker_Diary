@@ -5,6 +5,7 @@ import './LandingPage.css';
 function LandingPage() {
   const navigate = useNavigate();
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const faqData = [
     {
@@ -49,15 +50,22 @@ function LandingPage() {
             <span className="logo-icon">⏱️</span>
             <span className="logo-text">TimeTracker Diary</span>
           </div>
-          <div className="nav-menu">
-            <button className="nav-link" onClick={() => scrollToSection('features')}>기능</button>
-            <button className="nav-link" onClick={() => scrollToSection('how-to-use')}>사용법</button>
-            <button className="nav-link" onClick={() => scrollToSection('pricing')}>요금</button>
-            <button className="nav-link" onClick={() => scrollToSection('faq')}>FAQ</button>
-          </div>
-          <div className="nav-auth">
-            <button className="btn-text" onClick={() => navigate('/login')}>로그인</button>
-            <button className="btn-primary" onClick={() => navigate('/register')}>무료로 시작하기</button>
+          
+          <button className="mobile-menu-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+            {isMobileMenuOpen ? '✕' : '☰'}
+          </button>
+
+          <div className={`nav-links ${isMobileMenuOpen ? 'active' : ''}`}>
+            <div className="nav-menu">
+              <button className="nav-link" onClick={() => { scrollToSection('features'); setIsMobileMenuOpen(false); }}>기능</button>
+              <button className="nav-link" onClick={() => { scrollToSection('how-to-use'); setIsMobileMenuOpen(false); }}>사용법</button>
+              <button className="nav-link" onClick={() => { scrollToSection('pricing'); setIsMobileMenuOpen(false); }}>요금</button>
+              <button className="nav-link" onClick={() => { scrollToSection('faq'); setIsMobileMenuOpen(false); }}>FAQ</button>
+            </div>
+            <div className="nav-auth">
+              <button className="btn-text" onClick={() => navigate('/login')}>로그인</button>
+              <button className="btn-primary" onClick={() => navigate('/register')}>무료로 시작하기</button>
+            </div>
           </div>
         </nav>
       </header>

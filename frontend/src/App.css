@@ -26,6 +26,7 @@ html, body {
   min-height: 100vh;
   background: var(--background-color);
   overflow-x: hidden;
+  padding-top: 70px;
 }
 
 /* ========================================
@@ -64,9 +65,12 @@ html, body {
   justify-content: space-between;
   align-items: center;
   background: var(--surface-color);
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 100;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 1000;
   box-shadow: var(--shadow-sm);
 }
 
@@ -2812,6 +2816,10 @@ html, body {
    반응형 - 모바일
    ======================================== */
 @media (max-width: 768px) {
+  .App {
+    padding-top: 120px;
+  }
+
   /* Daily View Layout */
   .main-container {
     grid-template-columns: 1fr !important;
