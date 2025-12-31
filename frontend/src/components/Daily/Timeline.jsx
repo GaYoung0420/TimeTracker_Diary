@@ -372,9 +372,14 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       setDragEnd(snappedMinutes);
 
       createLongPressTimerRef.current = setTimeout(() => {
+        createLongPressTimerRef.current = null; // Clear ref so drag doesn't cancel it
         setCanCreateEvent(true);
-        if (navigator.vibrate) {
-          navigator.vibrate(50);
+        try {
+          if (navigator.vibrate) {
+            navigator.vibrate(50);
+          }
+        } catch (e) {
+          // Ignore vibration errors
         }
         setIsCreating(true);
       }, 500); // 500ms long press
@@ -405,9 +410,11 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     }
 
     // Prevent scrolling when dragging/resizing/creating on mobile
-    if ((isCreating || isDraggingEvent || isResizing) && isMobile() && e.cancelable) {
-      e.preventDefault();
-    }
+    // Note: We rely on the native event listener in useEffect to handle preventDefault
+    // because React's synthetic events might be passive, causing "Unable to preventDefault" error.
+    // if ((isCreating || isDraggingEvent || isResizing) && isMobile() && e.cancelable) {
+    //   e.preventDefault();
+    // }
 
     // Handle event resizing
     if (isResizing) {
@@ -746,64 +753,70 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     const defaultCategory = categories.find(c => c.id) || categories[0];
     const category_id = defaultCategory ? defaultCategory.id : null;
 
-    try {
-      const newEvent = await onCreateEvent('새 이벤트', start_time, end_time, category_id, is_plan, '');
+    // Prepare new event object (not saved yet)
+    const newEvent = {
+      id: null, // Indicates new event
+      title: '',
+      start_time: start_time,
+      end_time: end_time,
+      category_id: category_id,
+      description: '',
+      is_plan: is_plan,
+      date: getLocalDateString(currentDate)
+    };
 
-      // Open edit popup immediately after creating event
-      if (newEvent && timelineRef.current) {
-        const rect = timelineRef.current.getBoundingClientRect();
-        const scrollTop = timelineRef.current.scrollTop;
-        const eventTopOffset = (start / 60) * hourHeight;
-        
-        // Calculate viewport Y of the event top
-        let viewportY = rect.top + eventTopOffset - scrollTop;
-        
-        // Calculate viewport X based on column
-        let viewportX = rect.left;
-        
-        if (creatingColumn === 'plan') {
-           const planCol = timelineRef.current.querySelector('.plan-column');
-           if (planCol) {
-               const colRect = planCol.getBoundingClientRect();
-               viewportX = colRect.right + 20; 
-           } else {
-               viewportX = rect.left + (rect.width / 3) + 20;
-           }
-        } else {
-           const actualCol = timelineRef.current.querySelector('.actual-column');
-           if (actualCol) {
-               const colRect = actualCol.getBoundingClientRect();
-               viewportX = colRect.left - 400; // Position to left of column (popup width ~380)
-           } else {
-               viewportX = rect.right - 400;
-           }
-        }
-        
-        // Ensure bounds
-        const screenHeight = window.innerHeight;
-        const screenWidth = window.innerWidth;
-        const popupHeight = 450;
-        const popupWidth = 380;
-        
-        if (viewportY + popupHeight > screenHeight) {
-            viewportY = screenHeight - popupHeight - 20;
-        }
-        if (viewportY < 20) viewportY = 20;
-        
-        if (viewportX + popupWidth > screenWidth) {
-            viewportX = screenWidth - popupWidth - 20;
-        }
-        if (viewportX < 20) viewportX = 20;
-
-        setSelectedEvent(newEvent);
-        setPopupPosition({
-          x: viewportX,
-          y: viewportY
-        });
-        setShowEditPopup(true);
+    // Open edit popup immediately with the new event data
+    if (timelineRef.current) {
+      const rect = timelineRef.current.getBoundingClientRect();
+      const scrollTop = timelineRef.current.scrollTop;
+      const eventTopOffset = (start / 60) * hourHeight;
+      
+      // Calculate viewport Y of the event top
+      let viewportY = rect.top + eventTopOffset - scrollTop;
+      
+      // Calculate viewport X based on column
+      let viewportX = rect.left;
+      
+      if (creatingColumn === 'plan') {
+          const planCol = timelineRef.current.querySelector('.plan-column');
+          if (planCol) {
+              const colRect = planCol.getBoundingClientRect();
+              viewportX = colRect.right + 20; 
+          } else {
+              viewportX = rect.left + (rect.width / 3) + 20;
+          }
+      } else {
+          const actualCol = timelineRef.current.querySelector('.actual-column');
+          if (actualCol) {
+              const colRect = actualCol.getBoundingClientRect();
+              viewportX = colRect.left - 400; // Position to left of column (popup width ~380)
+          } else {
+              viewportX = rect.right - 400;
+          }
       }
-    } catch (error) {
-      console.error('Failed to create event:', error);
+      
+      // Ensure bounds
+      const screenHeight = window.innerHeight;
+      const screenWidth = window.innerWidth;
+      const popupHeight = 450;
+      const popupWidth = 380;
+      
+      if (viewportY + popupHeight > screenHeight) {
+          viewportY = screenHeight - popupHeight - 20;
+      }
+      if (viewportY < 20) viewportY = 20;
+      
+      if (viewportX + popupWidth > screenWidth) {
+          viewportX = screenWidth - popupWidth - 20;
+      }
+      if (viewportX < 20) viewportX = 20;
+
+      setSelectedEvent(newEvent);
+      setPopupPosition({
+        x: viewportX,
+        y: viewportY
+      });
+      setShowEditPopup(true);
     }
 
     setIsCreating(false);
@@ -825,8 +838,12 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     longPressTimerRef.current = setTimeout(() => {
       setLongPressActive(true);
       // Trigger haptic feedback if available
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
+      try {
+        if (navigator.vibrate) {
+          navigator.vibrate(50);
+        }
+      } catch (e) {
+        // Ignore vibration errors
       }
 
       // Prevent scrolling once long press is activated
