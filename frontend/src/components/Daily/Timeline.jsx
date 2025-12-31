@@ -269,6 +269,9 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   const handleDragStart = (e, column) => {
     if (e.target.closest('.event-block-absolute')) return; // Don't create if clicking on event
 
+    // Don't create new event if already creating, dragging, or resizing
+    if (isCreating || isDraggingEvent || isResizing) return;
+
     const rect = timelineRef.current.getBoundingClientRect();
     const { clientY } = getEventCoordinates(e);
     const y = clientY - rect.top;
