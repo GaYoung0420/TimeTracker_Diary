@@ -370,13 +370,37 @@ app.get('/api/daily/:date', requireAuth, async (req, res) => {
       });
     }
 
+    // Generate fresh signed URLs for images (valid for 1 hour)
+    const imagesWithSignedUrls = await Promise.all(
+      (imagesResult.data || []).map(async (image) => {
+        const filePath = `${image.date}/${image.file_id}`;
+        const thumbnailPath = filePath.replace(/\.([^.]+)$/, '_thumb.jpeg');
+
+        try {
+          const [viewUrlResult, thumbUrlResult] = await Promise.all([
+            supabase.storage.from('diary-images').createSignedUrl(filePath, 3600),
+            supabase.storage.from('diary-images').createSignedUrl(thumbnailPath, 3600)
+          ]);
+
+          return {
+            ...image,
+            view_url: viewUrlResult.data?.signedUrl || image.view_url,
+            thumbnail_url: thumbUrlResult.data?.signedUrl || image.thumbnail_url
+          };
+        } catch (error) {
+          console.error('Error generating signed URLs for image:', image.id, error);
+          return image; // Return original if signed URL generation fails
+        }
+      })
+    );
+
     res.json({
       success: true,
       data: {
         todos: todosResult.data || [],
         reflection: reflectionResult.data?.reflection_text || '',
         mood: reflectionResult.data?.mood || null,
-        images: imagesResult.data || [],
+        images: imagesWithSignedUrls,
         routines: routinesResult.data || [],
         routineChecks
       }
@@ -658,19 +682,28 @@ app.post('/api/images/upload', requireAuth, upload.single('image'), async (req, 
 
     console.log('Upload successful:', uploadData);
 
-    // Get public URLs
-    const { data: urlData } = supabase.storage
+    // Generate signed URLs (valid for 1 hour = 3600 seconds)
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('diary-images')
-      .getPublicUrl(filePath);
+      .createSignedUrl(filePath, 3600);
 
-    const { data: thumbUrlData } = supabase.storage
+    if (signedUrlError) {
+      console.error('Signed URL creation error:', signedUrlError);
+      throw signedUrlError;
+    }
+
+    const { data: thumbSignedUrlData, error: thumbSignedUrlError } = await supabase.storage
       .from('diary-images')
-      .getPublicUrl(thumbnailPath);
+      .createSignedUrl(thumbnailPath, 3600);
 
-    console.log('Public URL:', urlData.publicUrl);
-    console.log('Thumbnail URL:', thumbUrlData.publicUrl);
+    console.log('Signed URL created:', signedUrlData.signedUrl);
+    if (!thumbUploadError && !thumbSignedUrlError) {
+      console.log('Thumbnail Signed URL created:', thumbSignedUrlData.signedUrl);
+    }
 
-    const thumbnailUrl = thumbUploadError ? urlData.publicUrl : thumbUrlData.publicUrl;
+    const thumbnailUrl = (thumbUploadError || thumbSignedUrlError)
+      ? signedUrlData.signedUrl
+      : thumbSignedUrlData.signedUrl;
 
     // Save to database
     const { data: dbData, error: dbError } = await supabase
@@ -680,7 +713,7 @@ app.post('/api/images/upload', requireAuth, upload.single('image'), async (req, 
         file_id: fileName,
         file_name: file.originalname,
         thumbnail_url: thumbnailUrl,
-        view_url: urlData.publicUrl,
+        view_url: signedUrlData.signedUrl,
         user_id: userId
       })
       .select()
@@ -1145,7 +1178,7 @@ app.post('/api/monthly/stats', requireAuth, async (req, res) => {
 
     const { data: images, error: imgError } = await supabase
       .from('images')
-      .select('date, thumbnail_url, view_url')
+      .select('date, thumbnail_url, view_url, file_id')
       .eq('user_id', userId)
       .gte('date', startDate)
       .lte('date', endDate)
@@ -1154,16 +1187,33 @@ app.post('/api/monthly/stats', requireAuth, async (req, res) => {
 
     if (imgError) throw imgError;
 
+    // Generate fresh signed URLs for images
     const firstImageByDate = {};
     if (images && images.length > 0) {
-      images.forEach(img => {
+      for (const img of images) {
         if (!firstImageByDate[img.date]) {
-          firstImageByDate[img.date] = {
-            thumbnailUrl: img.thumbnail_url,
-            viewUrl: img.view_url
-          };
+          try {
+            const filePath = `${img.date}/${img.file_id}`;
+            const thumbnailPath = filePath.replace(/\.([^.]+)$/, '_thumb.jpeg');
+
+            const [viewUrlResult, thumbUrlResult] = await Promise.all([
+              supabase.storage.from('diary-images').createSignedUrl(filePath, 3600),
+              supabase.storage.from('diary-images').createSignedUrl(thumbnailPath, 3600)
+            ]);
+
+            firstImageByDate[img.date] = {
+              thumbnailUrl: thumbUrlResult.data?.signedUrl || img.thumbnail_url,
+              viewUrl: viewUrlResult.data?.signedUrl || img.view_url
+            };
+          } catch (error) {
+            console.error('Error generating signed URLs for monthly image:', img.date, error);
+            firstImageByDate[img.date] = {
+              thumbnailUrl: img.thumbnail_url,
+              viewUrl: img.view_url
+            };
+          }
         }
-      });
+      }
     }
 
     const monthlyData = [];

@@ -99,8 +99,12 @@ export function setupAuthAPI(app, supabaseClient) {
     try {
     const { email, password } = req.body;
 
+    console.log('=== Login Attempt ===');
+    console.log('Email:', email);
+
     // 입력값 검증
     if (!email || !password) {
+      console.log('Missing email or password');
       return res.status(400).json({
         success: false,
         message: '이메일과 비밀번호를 입력해주세요.'
@@ -114,7 +118,10 @@ export function setupAuthAPI(app, supabaseClient) {
       .eq('email', email)
       .single();
 
+    console.log('User query result:', { found: !!user, error: error?.message });
+
     if (error || !user) {
+      console.log('User not found or query error:', error);
       return res.status(401).json({
         success: false,
         message: '이메일 또는 비밀번호가 올바르지 않습니다.'
@@ -124,7 +131,10 @@ export function setupAuthAPI(app, supabaseClient) {
     // 비밀번호 확인
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
+    console.log('Password validation result:', isPasswordValid);
+
     if (!isPasswordValid) {
+      console.log('Invalid password');
       return res.status(401).json({
         success: false,
         message: '이메일 또는 비밀번호가 올바르지 않습니다.'
@@ -134,6 +144,8 @@ export function setupAuthAPI(app, supabaseClient) {
     // 세션 생성
     req.session.userId = user.id;
     req.session.userEmail = user.email;
+
+    console.log('Login successful for user:', user.id);
 
     res.json({
       success: true,
