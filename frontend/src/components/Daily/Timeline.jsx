@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { formatKoreanTime, getCategoryColorByName, getCategoryTextColorByName, hexToRgba, getLocalDateString } from '../../utils/helpers';
-import EventEditModal from './EventEditModal';
 import EventEditPopup from './EventEditPopup';
 import EventEditBottomSheet from './EventEditBottomSheet';
 
@@ -11,7 +10,6 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   const [dragStart, setDragStart] = useState(null);
   const [dragEnd, setDragEnd] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [showEditPopup, setShowEditPopup] = useState(false);
   const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
   const [isDraggingEvent, setIsDraggingEvent] = useState(false);
@@ -184,13 +182,24 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       end_time: endTime,
       category_id: categories.length > 0 ? categories[0].id : null,
       description: '',
-      is_plan: false // Default to actual event
+      is_plan: false, // Default to actual event
+      date: getLocalDateString(currentDate)
     });
     
     if (isMobile()) {
       setShowEditPopup(true);
     } else {
-      setShowEditModal(true);
+      // Calculate center position
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      const popupWidth = 380;
+      const popupHeight = 450;
+      
+      const x = Math.max(20, (screenWidth - popupWidth) / 2);
+      const y = Math.max(20, (screenHeight - popupHeight) / 2);
+      
+      setPopupPosition({ x, y });
+      setShowEditPopup(true);
     }
   };
 
@@ -333,20 +342,17 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
     // On mobile, require long press before allowing event creation
     if (isMobile()) {
+      // Store the initial position
+      setCreatingColumn(column);
+      setDragStart(snappedMinutes);
+      setDragEnd(snappedMinutes);
+
       createLongPressTimerRef.current = setTimeout(() => {
         setCanCreateEvent(true);
         if (navigator.vibrate) {
           navigator.vibrate(50);
         }
         setIsCreating(true);
-        setCreatingColumn(column);
-        setDragStart(snappedMinutes);
-        setDragEnd(snappedMinutes);
-
-        // Prevent scrolling once long press is activated
-        if (e.cancelable) {
-          e.preventDefault();
-        }
       }, 500); // 500ms long press
     } else {
       // On desktop, create immediately
@@ -358,6 +364,22 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   };
 
   const handleDragMove = useCallback((e) => {
+    // If long press timer is active and user moves, cancel it
+    if (createLongPressTimerRef.current && createDragStartPosRef.current && isMobile()) {
+      const coords = getEventCoords(e);
+      const deltaY = Math.abs(coords.y - createDragStartPosRef.current.y);
+
+      // If moved more than 10px, cancel long press timer
+      if (deltaY > 10) {
+        clearTimeout(createLongPressTimerRef.current);
+        createLongPressTimerRef.current = null;
+        setCreatingColumn(null);
+        setDragStart(null);
+        setDragEnd(null);
+        return;
+      }
+    }
+
     // Prevent scrolling when dragging/resizing/creating on mobile
     if ((isCreating || isDraggingEvent || isResizing) && isMobile() && e.cancelable) {
       e.preventDefault();
@@ -490,12 +512,23 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   }, [isCreating, isDraggingEvent, isResizing, resizeEdge, newResizeStart, newResizeEnd, hourHeight, dragOffset, newEventPosition, originalEventDuration]);
 
   const handleMouseUp = useCallback(async () => {
-    // Cancel long press timer for event creation on mobile
+    // Cancel long press timer for event creation on mobile if it's still pending
     if (createLongPressTimerRef.current) {
       clearTimeout(createLongPressTimerRef.current);
       createLongPressTimerRef.current = null;
+
+      // If timer was still active (not yet triggered), clear everything and return
+      if (!isCreating) {
+        setCreatingColumn(null);
+        setDragStart(null);
+        setDragEnd(null);
+        createDragStartPosRef.current = null;
+        setCanCreateEvent(false);
+        return;
+      }
     }
     setCanCreateEvent(false);
+    createDragStartPosRef.current = null;
 
     // Clear tooltip on mouse up
     setDragTooltip(null);
@@ -887,7 +920,13 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
   const handleEventUpdate = async (id, updates) => {
     try {
-      await onUpdateEvent(id, updates);
+      if (id === null) {
+        // Create new event
+        const { title, start_time, end_time, category_id, description, is_plan } = updates;
+        await onCreateEvent(title, start_time, end_time, category_id, is_plan, description || '');
+      } else {
+        await onUpdateEvent(id, updates);
+      }
       setShowEditPopup(false);
       setSelectedEvent(null);
     } catch (error) {
@@ -899,33 +938,6 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     try {
       await onDeleteEvent(id);
       setShowEditPopup(false);
-      setSelectedEvent(null);
-    } catch (error) {
-      console.error('Failed to delete event:', error);
-    }
-  };
-
-  const handleModalUpdate = async (id, updates) => {
-    try {
-      if (id === null) {
-        // Create new event
-        const { title, start_time, end_time, category_id, description, is_plan } = updates;
-        await onCreateEvent(title, start_time, end_time, category_id, is_plan, description);
-      } else {
-        // Update existing event
-        await onUpdateEvent(id, updates);
-      }
-      setShowEditModal(false);
-      setSelectedEvent(null);
-    } catch (error) {
-      console.error('Failed to save event:', error);
-    }
-  };
-
-  const handleModalDelete = async (id) => {
-    try {
-      await onDeleteEvent(id);
-      setShowEditModal(false);
       setSelectedEvent(null);
     } catch (error) {
       console.error('Failed to delete event:', error);
@@ -1588,19 +1600,6 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
             }}
           />
         )
-      )}
-
-      {showEditModal && selectedEvent && (
-        <EventEditModal
-          event={selectedEvent}
-          categories={categories}
-          onUpdate={handleModalUpdate}
-          onDelete={handleModalDelete}
-          onClose={() => {
-            setShowEditModal(false);
-            setSelectedEvent(null);
-          }}
-        />
       )}
     </>
   );

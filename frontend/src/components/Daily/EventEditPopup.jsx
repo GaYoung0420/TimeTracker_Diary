@@ -148,9 +148,11 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
       </div>
 
       <div className="popup-actions">
-        <button onClick={handleDelete} className="popup-btn-delete">
-          삭제
-        </button>
+        {event.id && (
+          <button onClick={handleDelete} className="popup-btn-delete">
+            삭제
+          </button>
+        )}
         <button onClick={handleSave} className="popup-btn-save">
           저장
         </button>
