@@ -11,6 +11,16 @@
 			],
 			"isBackground": false,
 			"group": "none"
+		},
+		{
+			"label": "append_css_overlay",
+			"type": "shell",
+			"command": "cat >> frontend/src/components/Daily/EventEditPopup.css",
+			"args": [
+				"frontend/src/components/Daily/EventEditPopup.css",
+				"\n.popup-overlay {\n  position: fixed;\n  top: 0;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  background-color: rgba(0, 0, 0, 0.5);\n  z-index: 1999;\n  animation: fadeIn 0.2s ease-out;\n}\n\n@keyframes fadeIn {\n  from { opacity: 0; }\n  to { opacity: 1; }\n}\n"
+			],
+			"group": "none"
 		}
 	]
 }

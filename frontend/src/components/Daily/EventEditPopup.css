@@ -32,7 +32,7 @@
 }
 
 .popup-title-input::placeholder {
-  color: var(--text-tertiary);
+  color: #9ca3af;
 }
 
 .popup-title-input:focus {
