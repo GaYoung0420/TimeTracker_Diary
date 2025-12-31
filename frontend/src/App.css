@@ -466,6 +466,10 @@ html, body {
   background: #ffffff;
   width: 100%;
   overflow-x: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .timeline-hover-line {
