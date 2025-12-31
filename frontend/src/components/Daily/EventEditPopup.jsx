@@ -9,6 +9,7 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
   const [endTime, setEndTime] = useState(event.end_time || event.end.split('T')[1].substring(0, 5));
   const [categoryId, setCategoryId] = useState(event.category_id);
   const [isPlan, setIsPlan] = useState(event.is_plan || false);
+  const [isSleep, setIsSleep] = useState(event.is_sleep || false);
   const popupRef = useRef(null);
 
   // Auto-focus title input when popup opens
@@ -30,21 +31,54 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
       end_time: formattedEndTime,
       date: startDate,
       category_id: categoryId,
-      is_plan: isPlan
+      is_plan: isPlan,
+      is_sleep: isSleep
     });
   };
+
+  // Lock body scroll when overlay is present
+  useEffect(() => {
+    if (event.isManualAdd) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [event.isManualAdd]);
 
   // Close popup when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
+      // If manual add (with overlay), we don't need this listener because the overlay handles clicks
+      // But if we want to be safe or if overlay doesn't cover everything (it should)
+      
       if (popupRef.current && !popupRef.current.contains(e.target)) {
-        handleSave();
+        // If it's a manual add, the overlay click will handle it (if we add onClick to overlay)
+        // But let's keep this logic consistent
+        
+        // For new events, click outside means cancel (don't create)
+        // For existing events, click outside means save (auto-save)
+        if (event.id === null) {
+          onClose();
+        } else {
+          handleSave();
+        }
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [title, startDate, startTime, endDate, endTime, categoryId, isPlan]);
+    // Only add this listener if NO overlay is present (i.e. not manual add)
+    // If overlay is present, we'll handle click on the overlay div
+    if (!event.isManualAdd) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      if (!event.isManualAdd) {
+        document.removeEventListener('mousedown', handleClickOutside);
+      }
+    };
+  }, [title, startDate, startTime, endDate, endTime, categoryId, isPlan, event.id, event.isManualAdd]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
@@ -63,7 +97,22 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
 
   return (
     <>
-      {!event.id && <div className="popup-overlay"></div>}
+      {event.isManualAdd && (
+        <div 
+          className="popup-overlay" 
+          onClick={onClose}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 1999,
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+        ></div>
+      )}
       <div
         ref={popupRef}
         className="event-edit-popup"
@@ -140,10 +189,22 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
       <div className="popup-row toggle-row">
         <span className="popup-label">계획 여부</span>
         <label className="popup-toggle">
-          <input 
-            type="checkbox" 
-            checked={isPlan} 
-            onChange={(e) => setIsPlan(e.target.checked)} 
+          <input
+            type="checkbox"
+            checked={isPlan}
+            onChange={(e) => setIsPlan(e.target.checked)}
+          />
+          <span className="popup-toggle-slider"></span>
+        </label>
+      </div>
+
+      <div className="popup-row toggle-row">
+        <span className="popup-label">잠</span>
+        <label className="popup-toggle">
+          <input
+            type="checkbox"
+            checked={isSleep}
+            onChange={(e) => setIsSleep(e.target.checked)}
           />
           <span className="popup-toggle-slider"></span>
         </label>

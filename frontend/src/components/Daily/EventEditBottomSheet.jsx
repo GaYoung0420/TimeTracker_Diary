@@ -9,8 +9,18 @@ function EventEditBottomSheet({ event, categories, onUpdate, onDelete, onClose }
   const [endTime, setEndTime] = useState(event.end_time || event.end.split('T')[1].substring(0, 5));
   const [categoryId, setCategoryId] = useState(event.category_id);
   const [isPlan, setIsPlan] = useState(event.is_plan || false);
+  const [isSleep, setIsSleep] = useState(event.is_sleep || false);
   
   const sheetRef = useRef(null);
+
+  // Lock body scroll when bottom sheet is open
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
 
   // Close when clicking outside (on the overlay)
   const handleOverlayClick = (e) => {
@@ -29,7 +39,8 @@ function EventEditBottomSheet({ event, categories, onUpdate, onDelete, onClose }
       end_time: formattedEndTime,
       date: startDate,
       category_id: categoryId,
-      is_plan: isPlan
+      is_plan: isPlan,
+      is_sleep: isSleep
     });
     onClose();
   };
@@ -104,10 +115,22 @@ function EventEditBottomSheet({ event, categories, onUpdate, onDelete, onClose }
         <div className="sheet-row">
           <span className="sheet-label">계획 여부</span>
           <label className="sheet-toggle">
-            <input 
-              type="checkbox" 
-              checked={isPlan} 
-              onChange={(e) => setIsPlan(e.target.checked)} 
+            <input
+              type="checkbox"
+              checked={isPlan}
+              onChange={(e) => setIsPlan(e.target.checked)}
+            />
+            <span className="sheet-toggle-slider"></span>
+          </label>
+        </div>
+
+        <div className="sheet-row">
+          <span className="sheet-label">잠</span>
+          <label className="sheet-toggle">
+            <input
+              type="checkbox"
+              checked={isSleep}
+              onChange={(e) => setIsSleep(e.target.checked)}
             />
             <span className="sheet-toggle-slider"></span>
           </label>

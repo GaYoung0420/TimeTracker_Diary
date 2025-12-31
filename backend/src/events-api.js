@@ -67,6 +67,7 @@ export function setupEventsAPI(app, supabase, cache) {
             category_id: event.category_id,
             category: event.category,
             is_plan: event.is_plan,
+            is_sleep: event.is_sleep || false,
             description: event.description || ''
           };
         })
@@ -88,7 +89,7 @@ export function setupEventsAPI(app, supabase, cache) {
      ======================================== */
   app.post('/api/events/create', requireAuth, async (req, res) => {
     try {
-      const { date, title, start_time, end_time, category_id, is_plan, description } = req.body;
+      const { date, title, start_time, end_time, category_id, is_plan, is_sleep, description } = req.body;
 
       // Ensure time format has seconds (HH:MM -> HH:MM:SS)
       const ensureSeconds = (timeStr) => {
@@ -107,6 +108,7 @@ export function setupEventsAPI(app, supabase, cache) {
           end_time: ensureSeconds(end_time),
           category_id,
           is_plan: is_plan || false,
+          is_sleep: is_sleep || false,
           description,
           user_id: req.session.userId
         }])
@@ -145,6 +147,7 @@ export function setupEventsAPI(app, supabase, cache) {
         category_id: data.category_id,
         category: data.category,
         is_plan: data.is_plan,
+        is_sleep: data.is_sleep || false,
         description: data.description || ''
       };
 
@@ -180,6 +183,7 @@ export function setupEventsAPI(app, supabase, cache) {
       if (updates.end_time !== undefined) fieldsToUpdate.end_time = ensureSeconds(updates.end_time);
       if (updates.category_id !== undefined) fieldsToUpdate.category_id = updates.category_id;
       if (updates.is_plan !== undefined) fieldsToUpdate.is_plan = updates.is_plan;
+      if (updates.is_sleep !== undefined) fieldsToUpdate.is_sleep = updates.is_sleep;
       if (updates.description !== undefined) fieldsToUpdate.description = updates.description;
 
       const { data, error } = await supabase
@@ -222,6 +226,7 @@ export function setupEventsAPI(app, supabase, cache) {
         category_id: data.category_id,
         category: data.category,
         is_plan: data.is_plan,
+        is_sleep: data.is_sleep || false,
         description: data.description || ''
       };
 
@@ -293,17 +298,16 @@ export function setupEventsAPI(app, supabase, cache) {
 
       if (error) throw error;
 
-      // Filter for sleep events: title must be "잠" AND category name contains "잠" AND is_plan = false (actual events only)
+      // Filter for sleep events: is_sleep = true AND is_plan = false (actual sleep events only)
       const allEvents = data || [];
       const sleepEvents = allEvents.filter(event =>
-        event.title === '잠' &&
-        event.category && event.category.name && event.category.name.includes('잠') &&
+        event.is_sleep === true &&
         event.is_plan === false
       );
 
-      console.log(`[Wake/Sleep] Found ${sleepEvents.length} ACTUAL sleep events for date ${date}:`);
+      console.log(`[Wake/Sleep] Found ${sleepEvents.length} ACTUAL sleep events (is_sleep=true) for date ${date}:`);
       sleepEvents.forEach(e => {
-        console.log(`  - ${e.date} ${e.start_time}-${e.end_time} (is_plan: ${e.is_plan})`);
+        console.log(`  - ${e.date} ${e.start_time}-${e.end_time} (is_plan: ${e.is_plan}, is_sleep: ${e.is_sleep})`);
       });
 
       let wakeTime = null;
