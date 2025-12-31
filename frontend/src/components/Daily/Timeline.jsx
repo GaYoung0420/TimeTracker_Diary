@@ -342,6 +342,11 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
     // On mobile, require long press before allowing event creation
     if (isMobile()) {
+      // Prevent default immediately to stop scroll from starting
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+
       // Store the initial position
       setCreatingColumn(column);
       setDragStart(snappedMinutes);
