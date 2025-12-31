@@ -163,7 +163,8 @@ function MonthlyTimeGrid({ currentMonth, goToDate, calendarEvents = [] }) {
     };
 
     allEvents.forEach(event => {
-      if (event.title === '잠') {
+      // Only consider events with is_sleep=true (not is_plan events)
+      if (event.is_sleep && !event.is_plan) {
         const start = parseLocalTime(event.start);
         const end = parseLocalTime(event.end);
         const startDateStr = getLocalDateString(start);

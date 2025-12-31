@@ -1193,29 +1193,81 @@ app.post('/api/monthly/stats', requireAuth, async (req, res) => {
     // Generate fresh signed URLs for images
     const firstImageByDate = {};
     if (images && images.length > 0) {
+      // Filter to get only the first image for each date
+      const uniqueImages = [];
+      const seenDates = new Set();
       for (const img of images) {
-        if (!firstImageByDate[img.date]) {
-          try {
-            const filePath = `${img.date}/${img.file_id}`;
-            const thumbnailPath = filePath.replace(/\.([^.]+)$/, '_thumb.jpeg');
-
-            const [viewUrlResult, thumbUrlResult] = await Promise.all([
-              supabase.storage.from('diary-images').createSignedUrl(filePath, 3600),
-              supabase.storage.from('diary-images').createSignedUrl(thumbnailPath, 3600)
-            ]);
-
-            firstImageByDate[img.date] = {
-              thumbnailUrl: thumbUrlResult.data?.signedUrl || img.thumbnail_url,
-              viewUrl: viewUrlResult.data?.signedUrl || img.view_url
-            };
-          } catch (error) {
-            console.error('Error generating signed URLs for monthly image:', img.date, error);
-            firstImageByDate[img.date] = {
-              thumbnailUrl: img.thumbnail_url,
-              viewUrl: img.view_url
-            };
-          }
+        if (!seenDates.has(img.date)) {
+          seenDates.add(img.date);
+          uniqueImages.push(img);
         }
+      }
+
+      // Prepare paths for batch signing
+      const pathsToSign = [];
+      uniqueImages.forEach(img => {
+        const filePath = `${img.date}/${img.file_id}`;
+        const thumbnailPath = filePath.replace(/\.([^.]+)$/, '_thumb.jpeg');
+        pathsToSign.push(filePath);
+        pathsToSign.push(thumbnailPath);
+      });
+
+      try {
+        // Batch create signed URLs
+        const { data: signedUrls, error: signError } = await supabase
+          .storage
+          .from('diary-images')
+          .createSignedUrls(pathsToSign, 3600);
+
+        if (signError) throw signError;
+
+        // Create a lookup map for signed URLs
+        const signedUrlMap = {};
+        if (signedUrls) {
+          signedUrls.forEach(item => {
+            // item structure: { path: string, signedUrl: string, error: string | null }
+            if (item.path && item.signedUrl) {
+              signedUrlMap[item.path] = item.signedUrl;
+            }
+          });
+        }
+
+        // Assign URLs to dates
+        uniqueImages.forEach(img => {
+          const filePath = `${img.date}/${img.file_id}`;
+          const thumbnailPath = filePath.replace(/\.([^.]+)$/, '_thumb.jpeg');
+          
+          firstImageByDate[img.date] = {
+            thumbnailUrl: signedUrlMap[thumbnailPath] || img.thumbnail_url,
+            viewUrl: signedUrlMap[filePath] || img.view_url
+          };
+        });
+      } catch (error) {
+        console.error('Error generating signed URLs for monthly images:', error);
+        
+        // Fallback: Parallel individual signing
+        await Promise.all(uniqueImages.map(async (img) => {
+            try {
+                const filePath = `${img.date}/${img.file_id}`;
+                const thumbnailPath = filePath.replace(/\.([^.]+)$/, '_thumb.jpeg');
+
+                const [viewUrlResult, thumbUrlResult] = await Promise.all([
+                    supabase.storage.from('diary-images').createSignedUrl(filePath, 3600),
+                    supabase.storage.from('diary-images').createSignedUrl(thumbnailPath, 3600)
+                ]);
+
+                firstImageByDate[img.date] = {
+                    thumbnailUrl: thumbUrlResult.data?.signedUrl || img.thumbnail_url,
+                    viewUrl: viewUrlResult.data?.signedUrl || img.view_url
+                };
+            } catch (e) {
+                console.error('Error signing individual image:', e);
+                firstImageByDate[img.date] = {
+                    thumbnailUrl: img.thumbnail_url,
+                    viewUrl: img.view_url
+                };
+            }
+        }));
       }
     }
 
@@ -1279,6 +1331,7 @@ app.post('/api/monthly/time-stats', requireAuth, async (req, res) => {
           title,
           start_time,
           end_time,
+          is_sleep,
           category:categories(name, color)
         `)
         .eq('user_id', userId)
@@ -1388,7 +1441,8 @@ app.post('/api/monthly/time-stats', requireAuth, async (req, res) => {
             end: event.end,
             calendarName: categoryName,
             color: event.category ? event.category.color : '#9E9E9E',
-            is_plan: event.is_plan
+            is_plan: event.is_plan,
+            is_sleep: event.is_sleep || false
           });
         }
       });
