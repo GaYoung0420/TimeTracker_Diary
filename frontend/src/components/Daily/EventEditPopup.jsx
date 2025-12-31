@@ -34,6 +34,18 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
     });
   };
 
+  // Close popup when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (popupRef.current && !popupRef.current.contains(e.target)) {
+        handleSave();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [title, startDate, startTime, endDate, endTime, categoryId, isPlan]);
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -51,7 +63,7 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
 
   return (
     <>
-      <div className="popup-overlay" onClick={handleSave}></div>
+      {!event.id && <div className="popup-overlay"></div>}
       <div
         ref={popupRef}
         className="event-edit-popup"

@@ -44,45 +44,48 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     return () => clearInterval(interval);
   }, []);
 
-  // Prevent scrolling during drag/resize operations and handle touchstart
+  // Track if long press is pending (used by native event listeners)
+  const longPressPendingRef = useRef(false);
+
+  // Prevent scrolling during drag/resize operations
   useEffect(() => {
-    const planColumn = document.querySelector('.plan-column');
-    const actualColumn = document.querySelector('.actual-column');
     const wrapper = timelineRef.current;
     if (!wrapper) return;
 
     const handleTouchStart = (e) => {
-      // On mobile, prevent default to stop scroll from starting
+      // Mark that we're potentially starting a long press
+      // Don't prevent default yet - allow normal scrolling
       if (isMobile() && !e.target.closest('.event-block-absolute')) {
-        e.preventDefault();
+        longPressPendingRef.current = true;
       }
     };
 
     const handleTouchMove = (e) => {
-      // Prevent scroll if we're creating, dragging, or resizing
-      // Don't call stopPropagation() so React's onTouchMove can still handle it
+      // Only prevent scroll if:
+      // 1. Already creating/dragging/resizing, OR
+      // 2. Long press is active (isCreating will be true after 500ms)
       if (isCreating || isDraggingEvent || isResizing) {
         e.preventDefault();
+      } else if (longPressPendingRef.current) {
+        // If moved during long press wait, cancel it
+        longPressPendingRef.current = false;
       }
     };
 
+    const handleTouchEnd = (e) => {
+      // Clear the pending flag
+      longPressPendingRef.current = false;
+    };
+
     // Use passive: false to allow preventDefault
-    if (planColumn) {
-      planColumn.addEventListener('touchstart', handleTouchStart, { passive: false });
-    }
-    if (actualColumn) {
-      actualColumn.addEventListener('touchstart', handleTouchStart, { passive: false });
-    }
+    wrapper.addEventListener('touchstart', handleTouchStart, { passive: false });
     wrapper.addEventListener('touchmove', handleTouchMove, { passive: false });
+    wrapper.addEventListener('touchend', handleTouchEnd, { passive: false });
 
     return () => {
-      if (planColumn) {
-        planColumn.removeEventListener('touchstart', handleTouchStart);
-      }
-      if (actualColumn) {
-        actualColumn.removeEventListener('touchstart', handleTouchStart);
-      }
+      wrapper.removeEventListener('touchstart', handleTouchStart);
       wrapper.removeEventListener('touchmove', handleTouchMove);
+      wrapper.removeEventListener('touchend', handleTouchEnd);
     };
   }, [isCreating, isDraggingEvent, isResizing]);
 
