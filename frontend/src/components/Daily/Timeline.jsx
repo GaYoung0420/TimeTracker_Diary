@@ -121,6 +121,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     if (!wrapper) return;
 
     const handleTouchStart = (e) => {
+      console.log('[handleTouchStart NATIVE] Called');
       // Mark that we're potentially starting a long press
       // Don't prevent default yet - allow normal scrolling
       if (isMobile()) {
@@ -132,7 +133,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       }
     };
 
-    const handleTouchMove = (e) => {
+    const handleTouchMoveNative = (e) => {
       const { isCreating, isDraggingEvent, isResizing, longPressActive } = interactionStateRef.current;
 
       console.log('[handleTouchMove NATIVE] isCreating:', isCreating, 'isDraggingEvent:', isDraggingEvent, 'isResizing:', isResizing, 'longPressActive:', longPressActive, 'cancelable:', e.cancelable);
@@ -162,7 +163,8 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       }
     };
 
-    const handleTouchEnd = (e) => {
+    const handleTouchEndNative = (e) => {
+      console.log('[handleTouchEnd NATIVE] Called');
       // Clear the pending flag
       longPressPendingRef.current = false;
       // Call handleDragEnd (handleMouseUp)
@@ -171,16 +173,18 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
     // Use passive: false to allow preventDefault
     // Use capture: true to intercept events BEFORE React's synthetic events
+    console.log('[SETUP] Adding native touch listeners to wrapper');
     wrapper.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
-    wrapper.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
-    wrapper.addEventListener('touchend', handleTouchEnd, { passive: false, capture: true });
+    wrapper.addEventListener('touchmove', handleTouchMoveNative, { passive: false, capture: true });
+    wrapper.addEventListener('touchend', handleTouchEndNative, { passive: false, capture: true });
 
     return () => {
+      console.log('[CLEANUP] Removing native touch listeners');
       wrapper.removeEventListener('touchstart', handleTouchStart, { capture: true });
-      wrapper.removeEventListener('touchmove', handleTouchMove, { capture: true });
-      wrapper.removeEventListener('touchend', handleTouchEnd, { capture: true });
+      wrapper.removeEventListener('touchmove', handleTouchMoveNative, { capture: true });
+      wrapper.removeEventListener('touchend', handleTouchEndNative, { capture: true });
     };
-  }, []); // Empty dependency array - bind once!
+  }, [handleDragMove, handleMouseUp]); // Add dependencies
 
   // Prevent body scroll during drag/resize operations
   useEffect(() => {
