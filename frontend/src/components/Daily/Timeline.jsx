@@ -1094,11 +1094,16 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
   const handleEventUpdate = async (id, updates) => {
     try {
-      if (id === null) {
-        // Create new event
+      // Check if this is a routine or todo event (virtual events that need to be converted to real events)
+      const isRoutineEvent = id && typeof id === 'string' && id.startsWith('routine-');
+      const isTodoEvent = id && typeof id === 'string' && id.startsWith('todo-');
+
+      if (id === null || isRoutineEvent || isTodoEvent) {
+        // Create new event (for new events, routine events, or todo events)
         const { title, start_time, end_time, category_id, description, is_plan } = updates;
         await onCreateEvent(title, start_time, end_time, category_id, is_plan, description || '');
       } else {
+        // Update existing real event
         await onUpdateEvent(id, updates);
       }
       setShowEditPopup(false);
@@ -1110,6 +1115,18 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
   const handleEventDelete = async (id) => {
     try {
+      // Check if this is a routine or todo event (can't delete virtual events)
+      const isRoutineEvent = id && typeof id === 'string' && id.startsWith('routine-');
+      const isTodoEvent = id && typeof id === 'string' && id.startsWith('todo-');
+
+      if (isRoutineEvent || isTodoEvent) {
+        // Can't delete routine/todo events from timeline, just close the popup
+        alert('루틴 및 할일 이벤트는 해당 페이지에서만 삭제할 수 있습니다.');
+        setShowEditPopup(false);
+        setSelectedEvent(null);
+        return;
+      }
+
       await onDeleteEvent(id);
       setShowEditPopup(false);
       setSelectedEvent(null);
@@ -1119,6 +1136,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   };
 
   const renderEventBlock = (event, isTodo = false, layoutStyle = null) => {
+    const isRoutine = event.isRoutine || false;
     const currentDayStr = getLocalDateString(currentDate);
     const [dateStr, timeStr] = event.start.split('T');
     const [endDateStr, endTimeStr] = event.end.split('T');
@@ -1223,31 +1241,35 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
           height: `${Math.max(height, 20)}px`,
           left: left,
           width: width,
-          cursor: isTodo ? 'default' : (isBeingDragged ? 'grabbing' : 'grab'),
+          cursor: (isTodo || isRoutine) ? 'pointer' : (isBeingDragged ? 'grabbing' : 'grab'),
           touchAction: 'none', // Prevent browser handling of gestures on event blocks
-          opacity: isTodo ? 0.9 : (isBeingDragged ? 0.8 : 1),
+          opacity: (isTodo || isRoutine) ? 0.9 : (isBeingDragged ? 0.8 : 1),
           zIndex: zIndex,
           transition: isBeingDragged ? 'none' : 'top 0.1s ease-out, left 0.1s ease-out, width 0.1s ease-out',
-          border: isTodo ? `2px dashed ${blockColor}` : undefined,
+          border: isTodo ? `2px dashed ${blockColor}` : (isRoutine ? `2px dotted ${blockColor}` : undefined),
           padding: isSmallEvent ? '1px 4px' : '6px 8px',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: isSmallEvent ? 'center' : 'flex-start',
           boxSizing: 'border-box'
         }}
-        onMouseDown={(e) => !isTodo && handleEventStart(e, event)}
-        onTouchStart={(e) => !isTodo && handleEventTouchStart(event, e)}
-        onTouchMove={(e) => !isTodo && handleEventTouchMove(e)}
-        onTouchEnd={(e) => !isTodo && handleEventTouchEnd(event, e)}
+        onMouseDown={(e) => !(isTodo || isRoutine) && handleEventStart(e, event)}
+        onTouchStart={(e) => !(isTodo || isRoutine) && handleEventTouchStart(event, e)}
+        onTouchMove={(e) => !(isTodo || isRoutine) && handleEventTouchMove(e)}
+        onTouchEnd={(e) => !(isTodo || isRoutine) && handleEventTouchEnd(event, e)}
         onClick={(e) => {
-          // Only trigger click if not dragging, not resizing, and not a todo
-          if (!isDraggingEvent && !isResizing && !isTodo && !isMobile()) {
+          // Routine and todo events are clickable (converted to real events on edit)
+          if (isRoutine || isTodo) {
+            handleEventClick(event, e);
+          }
+          // Regular events only clickable on desktop when not dragging/resizing
+          else if (!isDraggingEvent && !isResizing && !isMobile()) {
             handleEventClick(event, e);
           }
         }}
-        title={isTodo ? `📋 ${event.title}\n${displayStartTime} - ${displayEndTime}\n(할일 계획)` : `${event.title}\n${displayStartTime} - ${displayEndTime}\n${durationText}`}
+        title={isTodo ? `📋 ${event.title}\n${displayStartTime} - ${displayEndTime}\n(할일 계획)` : (isRoutine ? `🔄 ${event.title}\n${displayStartTime} - ${displayEndTime}\n(루틴)` : `${event.title}\n${displayStartTime} - ${displayEndTime}\n${durationText}`)}
       >
-        {!isTodo && (
+        {!(isTodo || isRoutine) && (
           <>
             <div
               className="resize-handle resize-handle-top"
