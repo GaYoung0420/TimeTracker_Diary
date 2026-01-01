@@ -1242,9 +1242,22 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
           boxSizing: 'border-box'
         }}
         onMouseDown={(e) => !(isTodo || isRoutine) && handleEventStart(e, event)}
-        onTouchStart={(e) => !(isTodo || isRoutine) && handleEventTouchStart(event, e)}
+        onTouchStart={(e) => {
+          if (isTodo || isRoutine) {
+            // For routine/todo events, just open edit popup on tap
+            return;
+          }
+          handleEventTouchStart(event, e);
+        }}
         onTouchMove={(e) => !(isTodo || isRoutine) && handleEventTouchMove(e)}
-        onTouchEnd={(e) => !(isTodo || isRoutine) && handleEventTouchEnd(event, e)}
+        onTouchEnd={(e) => {
+          if (isTodo || isRoutine) {
+            // For routine/todo events, open edit popup on tap
+            handleEventClick(event, e);
+            return;
+          }
+          handleEventTouchEnd(event, e);
+        }}
         onClick={(e) => {
           // Routine and todo events are clickable (converted to real events on edit)
           if (isRoutine || isTodo) {
