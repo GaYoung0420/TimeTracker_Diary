@@ -1757,13 +1757,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
               onMouseDown={(e) => handleDragStart(e, 'plan')}
               onTouchStart={(e) => handleDragStart(e, 'plan')}
               style={{
-                position: 'relative',
-                backgroundColor: isCreating && creatingColumn === 'plan'
-                  ? 'rgba(66, 133, 244, 0.1)'
-                  : (isCreateHold && creatingColumn === 'plan'
-                    ? 'rgba(66, 133, 244, 0.05)'
-                    : undefined),
-                transition: 'background-color 0.2s ease'
+                position: 'relative'
               }}
             >
               <div className="timeline-hover-line" id="timeline-hover-line-plan"></div>
@@ -1777,13 +1771,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
               onMouseDown={(e) => handleDragStart(e, 'actual')}
               onTouchStart={(e) => handleDragStart(e, 'actual')}
               style={{
-                position: 'relative',
-                backgroundColor: isCreating && creatingColumn === 'actual'
-                  ? 'rgba(66, 133, 244, 0.1)'
-                  : (isCreateHold && creatingColumn === 'actual'
-                    ? 'rgba(66, 133, 244, 0.05)'
-                    : undefined),
-                transition: 'background-color 0.2s ease'
+                position: 'relative'
               }}
             >
               <div className="timeline-hover-line" id="timeline-hover-line-actual"></div>
