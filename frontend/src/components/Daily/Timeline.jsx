@@ -135,17 +135,25 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     const handleTouchMove = (e) => {
       const { isCreating, isDraggingEvent, isResizing, longPressActive } = interactionStateRef.current;
 
+      console.log('[handleTouchMove NATIVE] isCreating:', isCreating, 'isDraggingEvent:', isDraggingEvent, 'isResizing:', isResizing, 'longPressActive:', longPressActive, 'cancelable:', e.cancelable);
+
       // Only prevent scroll if:
       // 1. Already creating/dragging/resizing (AFTER vibration), OR
       // 2. Long press is active
       if (isCreating || isDraggingEvent || isResizing || longPressActive) {
-        if (e.cancelable) e.preventDefault();
+        if (e.cancelable) {
+          console.log('[handleTouchMove NATIVE] ✅ Preventing scroll');
+          e.preventDefault();
+        } else {
+          console.log('[handleTouchMove NATIVE] ❌ Cannot prevent - not cancelable');
+        }
         return;
       }
 
       // If waiting for long press (before vibration), allow normal scrolling
       // Movement will cancel the long press timer in handleDragMove
       if (longPressPendingRef.current) {
+        console.log('[handleTouchMove NATIVE] Clearing longPressPending');
         longPressPendingRef.current = false;
         setIsCreateHold(false);
       }
@@ -448,6 +456,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       setIsCreateHold(true);
 
       createLongPressTimerRef.current = setTimeout(() => {
+        console.log('[LONG PRESS] ✅ Timer fired! Setting isCreating to true');
         createLongPressTimerRef.current = null; // Clear ref so drag doesn't cancel it
         setCanCreateEvent(true);
         try {
@@ -458,6 +467,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
           // Ignore vibration errors
         }
         setIsCreating(true);
+        console.log('[LONG PRESS] isCreating state updated to true');
       }, 500); // 500ms long press
     } else {
       // On desktop, create immediately
@@ -471,9 +481,12 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   const handleDragMove = useCallback((e) => {
     const { isCreating, isDraggingEvent, isResizing } = interactionStateRef.current;
 
+    console.log('[handleDragMove REACT] isCreating:', isCreating, 'isDraggingEvent:', isDraggingEvent, 'isResizing:', isResizing, 'isMobile:', isMobile(), 'cancelable:', e.cancelable);
+
     // Prevent scrolling when dragging/resizing/creating on mobile (AFTER vibration)
     // IMPORTANT: This must be BEFORE the timer cancel logic
     if ((isCreating || isDraggingEvent || isResizing) && isMobile() && e.cancelable) {
+      console.log('[handleDragMove REACT] ✅ Preventing scroll');
       e.preventDefault();
       // If already creating, don't cancel - just continue with drag handling below
       if (isCreating) {
@@ -487,9 +500,12 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       const deltaX = Math.abs(coords.x - createDragStartPosRef.current.x);
       const deltaY = Math.abs(coords.y - createDragStartPosRef.current.y);
 
+      console.log('[handleDragMove REACT] Timer active, deltaX:', deltaX, 'deltaY:', deltaY);
+
       // Cancel long press timer if moved more than 10px in any direction
       // This allows normal scrolling before the vibration/feedback
       if (deltaX > 10 || deltaY > 10) {
+        console.log('[handleDragMove REACT] ❌ Canceling timer - movement too large');
         clearTimeout(createLongPressTimerRef.current);
         createLongPressTimerRef.current = null;
         setCreatingColumn(null);
