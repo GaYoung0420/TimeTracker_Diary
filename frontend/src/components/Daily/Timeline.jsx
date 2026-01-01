@@ -1115,18 +1115,6 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
   const handleEventDelete = async (id) => {
     try {
-      // Check if this is a routine or todo event (can't delete virtual events)
-      const isRoutineEvent = id && typeof id === 'string' && id.startsWith('routine-');
-      const isTodoEvent = id && typeof id === 'string' && id.startsWith('todo-');
-
-      if (isRoutineEvent || isTodoEvent) {
-        // Can't delete routine/todo events from timeline, just close the popup
-        alert('루틴 및 할일 이벤트는 해당 페이지에서만 삭제할 수 있습니다.');
-        setShowEditPopup(false);
-        setSelectedEvent(null);
-        return;
-      }
-
       await onDeleteEvent(id);
       setShowEditPopup(false);
       setSelectedEvent(null);

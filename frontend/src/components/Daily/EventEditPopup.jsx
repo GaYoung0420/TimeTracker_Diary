@@ -211,7 +211,7 @@ function EventEditPopup({ event, categories, position, onUpdate, onDelete, onClo
       </div>
 
       <div className="popup-actions">
-        {event.id && (
+        {event.id && !event.id.toString().startsWith('routine-') && !event.id.toString().startsWith('todo-') && (
           <button onClick={handleDelete} className="popup-btn-delete">
             삭제
           </button>

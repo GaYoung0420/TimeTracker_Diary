@@ -135,9 +135,9 @@ function EventEditBottomSheet({ event, categories, onUpdate, onDelete, onClose }
           </label>
         </div>
 
-        {event.id && (
+        {event.id && !event.id.toString().startsWith('routine-') && !event.id.toString().startsWith('todo-') && (
           <div className="sheet-row" style={{ marginTop: '20px', borderBottom: 'none' }}>
-            <button 
+            <button
               onClick={() => {
                 if (window.confirm('이 이벤트를 삭제하시겠습니까?')) {
                   onDelete(event.id);
