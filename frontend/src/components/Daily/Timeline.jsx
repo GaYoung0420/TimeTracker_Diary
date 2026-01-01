@@ -84,6 +84,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   const [dragTooltip, setDragTooltip] = useState(null); // { x, y, startTime, endTime }
   const [longPressActive, setLongPressActive] = useState(false);
   const [canCreateEvent, setCanCreateEvent] = useState(false);
+  const [isCreateHold, setIsCreateHold] = useState(false); // lock scroll while holding to create
   const timelineRef = useRef(null);
   const rafRef = useRef(null);
   const lastDragEndRef = useRef(null);
@@ -91,6 +92,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   const resizeRafRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const touchStartPosRef = useRef(null);
+  const touchStartTimeRef = useRef(0);
   const createDragStartPosRef = useRef(null);
   const createLongPressTimerRef = useRef(null);
 
@@ -123,24 +125,40 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       // Don't prevent default yet - allow normal scrolling
       if (isMobile()) {
         longPressPendingRef.current = true;
+        if (e.touches && e.touches[0]) {
+          touchStartPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          touchStartTimeRef.current = Date.now();
+        }
       }
     };
 
     const handleTouchMove = (e) => {
       const { isCreating, isDraggingEvent, isResizing, longPressActive } = interactionStateRef.current;
-      
+
       // Check if we are waiting for a long press to create an event
       const isWaitingForCreate = createLongPressTimerRef.current !== null;
-      
+
       // Only prevent scroll if:
       // 1. Already creating/dragging/resizing, OR
       // 2. Long press is active (isCreating will be true after 500ms)
-      // 3. Waiting for create long press (prevent scroll while holding)
-      if (isCreating || isDraggingEvent || isResizing || longPressActive || isWaitingForCreate) {
+      if (isCreating || isDraggingEvent || isResizing || longPressActive) {
         if (e.cancelable) e.preventDefault();
-      } else if (longPressPendingRef.current) {
+        return;
+      }
+
+      // 3. Waiting for create long press (prevent scroll while holding)
+      if (isWaitingForCreate && isMobile()) {
+        // Always prevent scroll while waiting for long press to trigger
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        return;
+      }
+
+      if (longPressPendingRef.current) {
         // If moved during long press wait, cancel it
         longPressPendingRef.current = false;
+        setIsCreateHold(false);
       }
     };
 
@@ -438,6 +456,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       setDragStart(snappedMinutes);
       setDragEnd(snappedMinutes);
       lastDragEndRef.current = snappedMinutes;
+      setIsCreateHold(true);
 
       createLongPressTimerRef.current = setTimeout(() => {
         createLongPressTimerRef.current = null; // Clear ref so drag doesn't cancel it
@@ -461,18 +480,21 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   };
 
   const handleDragMove = useCallback((e) => {
-    // If long press timer is active and user moves, cancel it
+    // If long press timer is active and user moves horizontally (not vertically for drag), cancel it
     if (createLongPressTimerRef.current && createDragStartPosRef.current && isMobile()) {
       const coords = getEventCoords(e);
+      const deltaX = Math.abs(coords.x - createDragStartPosRef.current.x);
       const deltaY = Math.abs(coords.y - createDragStartPosRef.current.y);
 
-      // If moved more than 15px, cancel long press timer
-      if (deltaY > 15) {
+      // Cancel long press timer only if moved significantly horizontally (sideways swipe)
+      // Allow vertical movement for dragging to set event duration
+      if (deltaX > 20 && deltaX > deltaY) {
         clearTimeout(createLongPressTimerRef.current);
         createLongPressTimerRef.current = null;
         setCreatingColumn(null);
         setDragStart(null);
         setDragEnd(null);
+        setIsCreateHold(false);
         return;
       }
     }
@@ -623,10 +645,12 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
         setDragEnd(null);
         createDragStartPosRef.current = null;
         setCanCreateEvent(false);
+        setIsCreateHold(false);
         return;
       }
     }
     setCanCreateEvent(false);
+    setIsCreateHold(false);
     createDragStartPosRef.current = null;
 
     // Clear tooltip on mouse up
@@ -1671,7 +1695,12 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
         <div
           ref={timelineRef}
           className="timeline-wrapper"
-          style={{ minHeight: `${24 * hourHeight}px`, position: 'relative' }}
+          style={{
+            minHeight: `${24 * hourHeight}px`,
+            position: 'relative',
+            touchAction: (isCreating || isDraggingEvent || isResizing || longPressActive || isCreateHold) ? 'none' : 'pan-y',
+            overflowY: (isCreating || isDraggingEvent || isResizing || longPressActive || isCreateHold) ? 'hidden' : undefined,
+          }}
           onMouseMove={handleDragMove}
           onMouseUp={handleDragEnd}
           onTouchMove={handleDragMove}
@@ -1701,6 +1730,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
             setNewResizeEnd(null);
             setDragTooltip(null);
             lastDragEndRef.current = null;
+            setIsCreateHold(false);
           }}
         >
           <div className="timeline-columns">
