@@ -165,14 +165,15 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     };
 
     // Use passive: false to allow preventDefault
-    wrapper.addEventListener('touchstart', handleTouchStart, { passive: false });
-    wrapper.addEventListener('touchmove', handleTouchMove, { passive: false });
-    wrapper.addEventListener('touchend', handleTouchEnd, { passive: false });
+    // Use capture: true to intercept events BEFORE React's synthetic events
+    wrapper.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
+    wrapper.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
+    wrapper.addEventListener('touchend', handleTouchEnd, { passive: false, capture: true });
 
     return () => {
-      wrapper.removeEventListener('touchstart', handleTouchStart);
-      wrapper.removeEventListener('touchmove', handleTouchMove);
-      wrapper.removeEventListener('touchend', handleTouchEnd);
+      wrapper.removeEventListener('touchstart', handleTouchStart, { capture: true });
+      wrapper.removeEventListener('touchmove', handleTouchMove, { capture: true });
+      wrapper.removeEventListener('touchend', handleTouchEnd, { capture: true });
     };
   }, []); // Empty dependency array - bind once!
 
