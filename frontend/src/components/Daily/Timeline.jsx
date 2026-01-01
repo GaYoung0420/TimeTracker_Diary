@@ -488,12 +488,11 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       }
     }
 
-    // Prevent scrolling when dragging/resizing/creating on mobile
-    // Note: We rely on the native event listener in useEffect to handle preventDefault
-    // because React's synthetic events might be passive, causing "Unable to preventDefault" error.
-    // if ((isCreating || isDraggingEvent || isResizing) && isMobile() && e.cancelable) {
-    //   e.preventDefault();
-    // }
+    // Prevent scrolling when dragging/resizing/creating on mobile (AFTER vibration)
+    // This is a backup for the native event listener
+    if ((isCreating || isDraggingEvent || isResizing) && isMobile() && e.cancelable) {
+      e.preventDefault();
+    }
 
     // Handle event resizing
     if (isResizing) {
