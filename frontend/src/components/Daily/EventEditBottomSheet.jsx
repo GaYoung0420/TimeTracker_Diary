@@ -10,8 +10,15 @@ function EventEditBottomSheet({ event, categories, onUpdate, onDelete, onClose }
   const [categoryId, setCategoryId] = useState(event.category_id);
   const [isPlan, setIsPlan] = useState(event.is_plan || false);
   const [isSleep, setIsSleep] = useState(event.is_sleep || false);
-  
+
   const sheetRef = useRef(null);
+
+  // Debug: Check delete button visibility
+  console.log('[EventEditBottomSheet] Event ID:', event.id);
+  console.log('[EventEditBottomSheet] Event ID type:', typeof event.id);
+  console.log('[EventEditBottomSheet] Starts with routine?', event.id && event.id.toString().startsWith('routine-'));
+  console.log('[EventEditBottomSheet] Starts with todo?', event.id && event.id.toString().startsWith('todo-'));
+  console.log('[EventEditBottomSheet] Should show delete?', event.id && !event.id.toString().startsWith('routine-') && !event.id.toString().startsWith('todo-'));
 
   // Lock body scroll when bottom sheet is open
   useEffect(() => {
