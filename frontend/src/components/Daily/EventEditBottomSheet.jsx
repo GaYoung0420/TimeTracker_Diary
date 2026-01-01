@@ -60,7 +60,6 @@ function EventEditBottomSheet({ event, categories, onUpdate, onDelete, onClose }
           placeholder="제목 추가"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          autoFocus
         />
 
         <div className="sheet-category-scroll">
