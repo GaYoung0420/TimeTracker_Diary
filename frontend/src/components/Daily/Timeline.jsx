@@ -1264,32 +1264,26 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
               onMouseDown={(e) => handleResizeStart(e, event, 'top')}
               onTouchStart={(e) => {
                 e.stopPropagation();
-                // Store start position for tap detection
-                const touch = e.touches[0];
-                touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
-                
-                // Allow immediate resize on mobile for handles
-                handleResizeStart(e, event, 'top', true);
+                if (e.persist) e.persist();
+
+                // Start long press for resize on mobile
+                startLongPress(event, e, true, 'top');
               }}
               onTouchMove={(e) => isMobile() && handleEventTouchMove(e)}
               onTouchEnd={(e) => {
                 if (isMobile()) {
                   // Check for tap on handle (small movement)
-                  if (touchStartPosRef.current) {
+                  if (touchStartPosRef.current && !longPressActive && !isResizing) {
                     const touch = e.changedTouches[0];
                     const deltaX = Math.abs(touch.clientX - touchStartPosRef.current.x);
                     const deltaY = Math.abs(touch.clientY - touchStartPosRef.current.y);
-                    
+
                     if (deltaX < 5 && deltaY < 5) {
                       // It was a tap, trigger edit
-                      // We need to cancel the resize operation that started
-                      setIsResizing(false);
-                      setResizeEdge(null);
-                      setResizingEvent(null);
                       handleEventClick(event, { clientX: touch.clientX, clientY: touch.clientY });
                     }
                   }
-                  
+
                   cancelLongPress();
                   setLongPressActive(false);
                   touchStartPosRef.current = null;
@@ -1312,28 +1306,22 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
               onMouseDown={(e) => handleResizeStart(e, event, 'bottom')}
               onTouchStart={(e) => {
                 e.stopPropagation();
-                // Store start position for tap detection
-                const touch = e.touches[0];
-                touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+                if (e.persist) e.persist();
 
-                // Allow immediate resize on mobile for handles
-                handleResizeStart(e, event, 'bottom', true);
+                // Start long press for resize on mobile
+                startLongPress(event, e, true, 'bottom');
               }}
               onTouchMove={(e) => isMobile() && handleEventTouchMove(e)}
               onTouchEnd={(e) => {
                 if (isMobile()) {
                   // Check for tap on handle (small movement)
-                  if (touchStartPosRef.current) {
+                  if (touchStartPosRef.current && !longPressActive && !isResizing) {
                     const touch = e.changedTouches[0];
                     const deltaX = Math.abs(touch.clientX - touchStartPosRef.current.x);
                     const deltaY = Math.abs(touch.clientY - touchStartPosRef.current.y);
-                    
+
                     if (deltaX < 5 && deltaY < 5) {
                       // It was a tap, trigger edit
-                      // We need to cancel the resize operation that started
-                      setIsResizing(false);
-                      setResizeEdge(null);
-                      setResizingEvent(null);
                       handleEventClick(event, { clientX: touch.clientX, clientY: touch.clientY });
                     }
                   }
