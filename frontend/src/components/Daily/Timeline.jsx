@@ -129,10 +129,14 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     const handleTouchMove = (e) => {
       const { isCreating, isDraggingEvent, isResizing, longPressActive } = interactionStateRef.current;
       
+      // Check if we are waiting for a long press to create an event
+      const isWaitingForCreate = createLongPressTimerRef.current !== null;
+      
       // Only prevent scroll if:
       // 1. Already creating/dragging/resizing, OR
       // 2. Long press is active (isCreating will be true after 500ms)
-      if (isCreating || isDraggingEvent || isResizing || longPressActive) {
+      // 3. Waiting for create long press (prevent scroll while holding)
+      if (isCreating || isDraggingEvent || isResizing || longPressActive || isWaitingForCreate) {
         if (e.cancelable) e.preventDefault();
       } else if (longPressPendingRef.current) {
         // If moved during long press wait, cancel it
