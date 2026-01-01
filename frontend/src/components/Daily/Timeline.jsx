@@ -144,15 +144,18 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
         if (e.cancelable) {
           console.log('[handleTouchMove NATIVE] ✅ Preventing scroll');
           e.preventDefault();
+          e.stopPropagation(); // Prevent React from seeing this event
         } else {
           console.log('[handleTouchMove NATIVE] ❌ Cannot prevent - not cancelable');
         }
-        return;
       }
+
+      // Call handleDragMove for ALL touch moves (it has its own logic)
+      handleDragMove(e);
 
       // If waiting for long press (before vibration), allow normal scrolling
       // Movement will cancel the long press timer in handleDragMove
-      if (longPressPendingRef.current) {
+      if (longPressPendingRef.current && !(isCreating || isDraggingEvent || isResizing || longPressActive)) {
         console.log('[handleTouchMove NATIVE] Clearing longPressPending');
         longPressPendingRef.current = false;
         setIsCreateHold(false);
@@ -162,6 +165,8 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     const handleTouchEnd = (e) => {
       // Clear the pending flag
       longPressPendingRef.current = false;
+      // Call handleDragEnd (handleMouseUp)
+      handleMouseUp();
     };
 
     // Use passive: false to allow preventDefault
@@ -1714,8 +1719,6 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
           }}
           onMouseMove={handleDragMove}
           onMouseUp={handleDragEnd}
-          onTouchMove={handleDragMove}
-          onTouchEnd={handleDragEnd}
           onMouseLeave={() => {
             if (rafRef.current) {
               cancelAnimationFrame(rafRef.current);
