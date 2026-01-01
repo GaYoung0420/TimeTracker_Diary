@@ -471,6 +471,16 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   const handleDragMove = useCallback((e) => {
     const { isCreating, isDraggingEvent, isResizing } = interactionStateRef.current;
 
+    // Prevent scrolling when dragging/resizing/creating on mobile (AFTER vibration)
+    // IMPORTANT: This must be BEFORE the timer cancel logic
+    if ((isCreating || isDraggingEvent || isResizing) && isMobile() && e.cancelable) {
+      e.preventDefault();
+      // If already creating, don't cancel - just continue with drag handling below
+      if (isCreating) {
+        // Continue to event creation handling
+      }
+    }
+
     // If long press timer is active (before vibration) and user moves, cancel it to allow scrolling
     if (createLongPressTimerRef.current && createDragStartPosRef.current && isMobile()) {
       const coords = getEventCoords(e);
@@ -488,12 +498,6 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
         setIsCreateHold(false);
         return;
       }
-    }
-
-    // Prevent scrolling when dragging/resizing/creating on mobile (AFTER vibration)
-    // This is a backup for the native event listener
-    if ((isCreating || isDraggingEvent || isResizing) && isMobile() && e.cancelable) {
-      e.preventDefault();
     }
 
     // Handle event resizing
