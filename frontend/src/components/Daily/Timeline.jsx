@@ -135,28 +135,17 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     const handleTouchMove = (e) => {
       const { isCreating, isDraggingEvent, isResizing, longPressActive } = interactionStateRef.current;
 
-      // Check if we are waiting for a long press to create an event
-      const isWaitingForCreate = createLongPressTimerRef.current !== null;
-
       // Only prevent scroll if:
-      // 1. Already creating/dragging/resizing, OR
-      // 2. Long press is active (isCreating will be true after 500ms)
+      // 1. Already creating/dragging/resizing (AFTER vibration), OR
+      // 2. Long press is active
       if (isCreating || isDraggingEvent || isResizing || longPressActive) {
         if (e.cancelable) e.preventDefault();
         return;
       }
 
-      // 3. Waiting for create long press (prevent scroll while holding)
-      if (isWaitingForCreate && isMobile()) {
-        // Always prevent scroll while waiting for long press to trigger
-        if (e.cancelable) {
-          e.preventDefault();
-        }
-        return;
-      }
-
+      // If waiting for long press (before vibration), allow normal scrolling
+      // Movement will cancel the long press timer in handleDragMove
       if (longPressPendingRef.current) {
-        // If moved during long press wait, cancel it
         longPressPendingRef.current = false;
         setIsCreateHold(false);
       }
@@ -480,15 +469,15 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   };
 
   const handleDragMove = useCallback((e) => {
-    // If long press timer is active and user moves horizontally (not vertically for drag), cancel it
+    // If long press timer is active (before vibration) and user moves, cancel it to allow scrolling
     if (createLongPressTimerRef.current && createDragStartPosRef.current && isMobile()) {
       const coords = getEventCoords(e);
       const deltaX = Math.abs(coords.x - createDragStartPosRef.current.x);
       const deltaY = Math.abs(coords.y - createDragStartPosRef.current.y);
 
-      // Cancel long press timer only if moved significantly horizontally (sideways swipe)
-      // Allow vertical movement for dragging to set event duration
-      if (deltaX > 20 && deltaX > deltaY) {
+      // Cancel long press timer if moved more than 10px in any direction
+      // This allows normal scrolling before the vibration/feedback
+      if (deltaX > 10 || deltaY > 10) {
         clearTimeout(createLongPressTimerRef.current);
         createLongPressTimerRef.current = null;
         setCreatingColumn(null);
@@ -1698,8 +1687,8 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
           style={{
             minHeight: `${24 * hourHeight}px`,
             position: 'relative',
-            touchAction: (isCreating || isDraggingEvent || isResizing || longPressActive || isCreateHold) ? 'none' : 'pan-y',
-            overflowY: (isCreating || isDraggingEvent || isResizing || longPressActive || isCreateHold) ? 'hidden' : undefined,
+            touchAction: (isCreating || isDraggingEvent || isResizing || longPressActive) ? 'none' : 'pan-y',
+            overflowY: (isCreating || isDraggingEvent || isResizing || longPressActive) ? 'hidden' : undefined,
           }}
           onMouseMove={handleDragMove}
           onMouseUp={handleDragEnd}
@@ -1738,7 +1727,15 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
               className="timeline-column plan-column"
               onMouseDown={(e) => handleDragStart(e, 'plan')}
               onTouchStart={(e) => handleDragStart(e, 'plan')}
-              style={{ position: 'relative' }}
+              style={{
+                position: 'relative',
+                backgroundColor: isCreating && creatingColumn === 'plan'
+                  ? 'rgba(66, 133, 244, 0.1)'
+                  : (isCreateHold && creatingColumn === 'plan'
+                    ? 'rgba(66, 133, 244, 0.05)'
+                    : undefined),
+                transition: 'background-color 0.2s ease'
+              }}
             >
               <div className="timeline-hover-line" id="timeline-hover-line-plan"></div>
               {planEvents.map(event => renderEventBlock(event, event.is_todo, planLayout[event.id]))}
@@ -1750,7 +1747,15 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
               className="timeline-column actual-column"
               onMouseDown={(e) => handleDragStart(e, 'actual')}
               onTouchStart={(e) => handleDragStart(e, 'actual')}
-              style={{ position: 'relative' }}
+              style={{
+                position: 'relative',
+                backgroundColor: isCreating && creatingColumn === 'actual'
+                  ? 'rgba(66, 133, 244, 0.1)'
+                  : (isCreateHold && creatingColumn === 'actual'
+                    ? 'rgba(66, 133, 244, 0.05)'
+                    : undefined),
+                transition: 'background-color 0.2s ease'
+              }}
             >
               <div className="timeline-hover-line" id="timeline-hover-line-actual"></div>
               {actualEvents.map(event => renderEventBlock(event, false, actualLayout[event.id]))}
