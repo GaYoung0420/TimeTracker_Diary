@@ -115,77 +115,6 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     interactionStateRef.current = { isCreating, isDraggingEvent, isResizing, longPressActive };
   }, [isCreating, isDraggingEvent, isResizing, longPressActive]);
 
-  // Prevent scrolling during drag/resize operations
-  useEffect(() => {
-    const wrapper = timelineRef.current;
-    if (!wrapper) return;
-
-    const handleTouchStart = (e) => {
-      console.log('[handleTouchStart NATIVE] Called');
-      // Mark that we're potentially starting a long press
-      // Don't prevent default yet - allow normal scrolling
-      if (isMobile()) {
-        longPressPendingRef.current = true;
-        if (e.touches && e.touches[0]) {
-          touchStartPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-          touchStartTimeRef.current = Date.now();
-        }
-      }
-    };
-
-    const handleTouchMoveNative = (e) => {
-      const { isCreating, isDraggingEvent, isResizing, longPressActive } = interactionStateRef.current;
-
-      console.log('[handleTouchMove NATIVE] isCreating:', isCreating, 'isDraggingEvent:', isDraggingEvent, 'isResizing:', isResizing, 'longPressActive:', longPressActive, 'cancelable:', e.cancelable);
-
-      // Only prevent scroll if:
-      // 1. Already creating/dragging/resizing (AFTER vibration), OR
-      // 2. Long press is active
-      if (isCreating || isDraggingEvent || isResizing || longPressActive) {
-        if (e.cancelable) {
-          console.log('[handleTouchMove NATIVE] ✅ Preventing scroll');
-          e.preventDefault();
-          e.stopPropagation(); // Prevent React from seeing this event
-        } else {
-          console.log('[handleTouchMove NATIVE] ❌ Cannot prevent - not cancelable');
-        }
-      }
-
-      // Call handleDragMove for ALL touch moves (it has its own logic)
-      handleDragMove(e);
-
-      // If waiting for long press (before vibration), allow normal scrolling
-      // Movement will cancel the long press timer in handleDragMove
-      if (longPressPendingRef.current && !(isCreating || isDraggingEvent || isResizing || longPressActive)) {
-        console.log('[handleTouchMove NATIVE] Clearing longPressPending');
-        longPressPendingRef.current = false;
-        setIsCreateHold(false);
-      }
-    };
-
-    const handleTouchEndNative = (e) => {
-      console.log('[handleTouchEnd NATIVE] Called');
-      // Clear the pending flag
-      longPressPendingRef.current = false;
-      // Call handleDragEnd (handleMouseUp)
-      handleMouseUp();
-    };
-
-    // Use passive: false to allow preventDefault
-    // Use capture: true to intercept events BEFORE React's synthetic events
-    console.log('[SETUP] Adding native touch listeners to wrapper');
-    wrapper.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
-    wrapper.addEventListener('touchmove', handleTouchMoveNative, { passive: false, capture: true });
-    wrapper.addEventListener('touchend', handleTouchEndNative, { passive: false, capture: true });
-
-    return () => {
-      console.log('[CLEANUP] Removing native touch listeners');
-      wrapper.removeEventListener('touchstart', handleTouchStart, { capture: true });
-      wrapper.removeEventListener('touchmove', handleTouchMoveNative, { capture: true });
-      wrapper.removeEventListener('touchend', handleTouchEndNative, { capture: true });
-    };
-  }, [handleDragMove, handleMouseUp]); // Add dependencies
-
   // Prevent body scroll during drag/resize operations
   useEffect(() => {
     if (isCreating || isDraggingEvent || isResizing) {
@@ -939,6 +868,77 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   }, [isCreating, isDraggingEvent, isResizing, draggingEvent, resizingEvent, newEventPosition, newResizeStart, newResizeEnd, dragStart, dragEnd, creatingColumn, categories, onCreateEvent, onUpdateEvent]);
 
   const handleDragEnd = handleMouseUp;
+
+  // Prevent scrolling during drag/resize operations with native event listeners
+  useEffect(() => {
+    const wrapper = timelineRef.current;
+    if (!wrapper) return;
+
+    const handleTouchStart = (e) => {
+      console.log('[handleTouchStart NATIVE] Called');
+      // Mark that we're potentially starting a long press
+      // Don't prevent default yet - allow normal scrolling
+      if (isMobile()) {
+        longPressPendingRef.current = true;
+        if (e.touches && e.touches[0]) {
+          touchStartPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          touchStartTimeRef.current = Date.now();
+        }
+      }
+    };
+
+    const handleTouchMoveNative = (e) => {
+      const { isCreating, isDraggingEvent, isResizing, longPressActive } = interactionStateRef.current;
+
+      console.log('[handleTouchMove NATIVE] isCreating:', isCreating, 'isDraggingEvent:', isDraggingEvent, 'isResizing:', isResizing, 'longPressActive:', longPressActive, 'cancelable:', e.cancelable);
+
+      // Only prevent scroll if:
+      // 1. Already creating/dragging/resizing (AFTER vibration), OR
+      // 2. Long press is active
+      if (isCreating || isDraggingEvent || isResizing || longPressActive) {
+        if (e.cancelable) {
+          console.log('[handleTouchMove NATIVE] ✅ Preventing scroll');
+          e.preventDefault();
+          e.stopPropagation(); // Prevent React from seeing this event
+        } else {
+          console.log('[handleTouchMove NATIVE] ❌ Cannot prevent - not cancelable');
+        }
+      }
+
+      // Call handleDragMove for ALL touch moves (it has its own logic)
+      handleDragMove(e);
+
+      // If waiting for long press (before vibration), allow normal scrolling
+      // Movement will cancel the long press timer in handleDragMove
+      if (longPressPendingRef.current && !(isCreating || isDraggingEvent || isResizing || longPressActive)) {
+        console.log('[handleTouchMove NATIVE] Clearing longPressPending');
+        longPressPendingRef.current = false;
+        setIsCreateHold(false);
+      }
+    };
+
+    const handleTouchEndNative = (e) => {
+      console.log('[handleTouchEnd NATIVE] Called');
+      // Clear the pending flag
+      longPressPendingRef.current = false;
+      // Call handleDragEnd (handleMouseUp)
+      handleMouseUp();
+    };
+
+    // Use passive: false to allow preventDefault
+    // Use capture: true to intercept events BEFORE React's synthetic events
+    console.log('[SETUP] Adding native touch listeners to wrapper');
+    wrapper.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
+    wrapper.addEventListener('touchmove', handleTouchMoveNative, { passive: false, capture: true });
+    wrapper.addEventListener('touchend', handleTouchEndNative, { passive: false, capture: true });
+
+    return () => {
+      console.log('[CLEANUP] Removing native touch listeners');
+      wrapper.removeEventListener('touchstart', handleTouchStart, { capture: true });
+      wrapper.removeEventListener('touchmove', handleTouchMoveNative, { capture: true });
+      wrapper.removeEventListener('touchend', handleTouchEndNative, { capture: true });
+    };
+  }, [handleDragMove, handleMouseUp]); // Add dependencies
 
   // Long press handlers for mobile
   const startLongPress = (event, e, isResize = false, edge = null) => {
