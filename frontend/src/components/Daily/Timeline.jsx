@@ -469,6 +469,8 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   };
 
   const handleDragMove = useCallback((e) => {
+    const { isCreating, isDraggingEvent, isResizing } = interactionStateRef.current;
+
     // If long press timer is active (before vibration) and user moves, cancel it to allow scrolling
     if (createLongPressTimerRef.current && createDragStartPosRef.current && isMobile()) {
       const coords = getEventCoords(e);
@@ -618,7 +620,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
         setDragEnd(snappedMinutes);
       }
     });
-  }, [isCreating, isDraggingEvent, isResizing, resizeEdge, newResizeStart, newResizeEnd, hourHeight, dragOffset, newEventPosition, originalEventDuration]);
+  }, [resizeEdge, newResizeStart, newResizeEnd, hourHeight, dragOffset, newEventPosition, originalEventDuration]);
 
   const handleMouseUp = useCallback(async () => {
     // Cancel long press timer for event creation on mobile if it's still pending
