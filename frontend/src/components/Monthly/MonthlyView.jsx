@@ -11,6 +11,7 @@ function MonthlyView({ goToDate }) {
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [viewMode, setViewMode] = useState('calendar'); // 'calendar', 'time', or 'stats'
+  const [loadedImages, setLoadedImages] = useState(new Set());
 
   useEffect(() => {
     if (viewMode === 'calendar' || viewMode === 'time') {
@@ -79,12 +80,18 @@ function MonthlyView({ goToDate }) {
     const newMonth = new Date(currentMonth);
     newMonth.setMonth(newMonth.getMonth() + delta);
     setCurrentMonth(newMonth);
+    // Reset loaded images when month changes
+    setLoadedImages(new Set());
   };
 
   const formatMonth = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth() + 1;
     return `${year}년 ${month}월`;
+  };
+
+  const handleImageLoad = (dateKey) => {
+    setLoadedImages(prev => new Set([...prev, dateKey]));
   };
 
   const renderCalendarGrid = () => {
@@ -240,11 +247,26 @@ function MonthlyView({ goToDate }) {
                 </div>
 
                 {img && (
-                  <img
-                    src={img.thumbnailUrl}
-                    className="monthly-thumbnail"
-                    alt="Daily thumbnail"
-                  />
+                  <div className="monthly-thumbnail-wrapper">
+                    {!loadedImages.has(dateKey) && (
+                      <div className="monthly-thumbnail-skeleton" />
+                    )}
+                    <img
+                      src={img.thumbnailUrl}
+                      className="monthly-thumbnail"
+                      alt="Daily thumbnail"
+                      style={{
+                        opacity: loadedImages.has(dateKey) ? 1 : 0,
+                        transition: 'opacity 0.3s ease-in-out'
+                      }}
+                      onLoad={() => handleImageLoad(dateKey)}
+                      onError={(e) => {
+                        if (img.viewUrl && e.target.src === img.thumbnailUrl) {
+                          e.target.src = img.viewUrl;
+                        }
+                      }}
+                    />
+                  </div>
                 )}
               </div>
             );

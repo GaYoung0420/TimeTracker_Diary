@@ -1035,11 +1035,30 @@ html, body {
   background: #e9e9e7;
 }
 
+.image-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.image-skeleton {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
 .image-thumbnail {
   width: 100%;
   height: 100%;
   object-fit: cover;
   cursor: pointer;
+  display: block;
 }
 
 .image-delete-btn {
@@ -2165,12 +2184,31 @@ html, body {
   font-size: 18px;
 }
 
+.monthly-thumbnail-wrapper {
+  position: relative;
+  width: 100%;
+  height: 70px;
+  margin-top: auto;
+}
+
+.monthly-thumbnail-skeleton {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
 .monthly-thumbnail {
   width: 100%;
   height: 70px;
   object-fit: cover;
   border-radius: 6px;
-  margin-top: auto;
+  display: block;
   /* Safari/iOS optimization */
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
@@ -3507,6 +3545,10 @@ html, body {
     padding: 2px 4px;
   }
 
+  .monthly-thumbnail-wrapper {
+    height: 60px;
+  }
+
   .monthly-thumbnail {
     height: 60px;
   }
@@ -3866,6 +3908,10 @@ html, body {
 
   .monthly-event-more {
     padding: 1px 3px;
+  }
+
+  .monthly-thumbnail-wrapper {
+    height: 50px;
   }
 
   .monthly-thumbnail {

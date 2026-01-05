@@ -1,11 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getLocalDateString } from '../../utils/helpers';
 
 function ImageUpload({ currentDate, images, onImageUploaded, onImageDeleted }) {
   const [uploading, setUploading] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [loadedImages, setLoadedImages] = useState(new Set());
 
   const dateKey = getLocalDateString(currentDate);
+
+  // Reset loaded images when date changes
+  useEffect(() => {
+    setLoadedImages(new Set());
+  }, [currentDate]);
+
+  const handleImageLoad = (imageId) => {
+    setLoadedImages(prev => new Set([...prev, imageId]));
+  };
 
   const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files);
@@ -83,17 +93,27 @@ function ImageUpload({ currentDate, images, onImageUploaded, onImageDeleted }) {
       <div className="images-grid">
         {images && images.length > 0 && images.map((image) => (
           <div key={image.id} className="image-item">
-            <img
-              src={image.thumbnail_url || image.view_url}
-              alt={image.file_name}
-              className="image-thumbnail"
-              onDoubleClick={() => setSelectedImage(image)}
-              onError={(e) => {
-                if (image.thumbnail_url && e.target.src.includes('_thumb')) {
-                  e.target.src = image.view_url;
-                }
-              }}
-            />
+            <div className="image-wrapper">
+              {!loadedImages.has(image.id) && (
+                <div className="image-skeleton" />
+              )}
+              <img
+                src={image.thumbnail_url || image.view_url}
+                alt={image.file_name}
+                className="image-thumbnail"
+                style={{
+                  opacity: loadedImages.has(image.id) ? 1 : 0,
+                  transition: 'opacity 0.3s ease-in-out'
+                }}
+                onLoad={() => handleImageLoad(image.id)}
+                onDoubleClick={() => setSelectedImage(image)}
+                onError={(e) => {
+                  if (image.thumbnail_url && e.target.src.includes('_thumb')) {
+                    e.target.src = image.view_url;
+                  }
+                }}
+              />
+            </div>
             <button
               className="image-delete-btn"
               onClick={() => handleDelete(image.id)}
