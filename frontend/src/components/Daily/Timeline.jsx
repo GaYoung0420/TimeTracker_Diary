@@ -1040,6 +1040,11 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   const handleEventClick = (event, e) => {
     if (!timelineRef.current) return;
 
+    // Don't allow editing routine events
+    if (event.isRoutine) {
+      return;
+    }
+
     setSelectedEvent(event);
 
     // On mobile, open popup (which will render as bottom sheet) instead of modal
@@ -1094,12 +1099,11 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
   const handleEventUpdate = async (id, updates) => {
     try {
-      // Check if this is a routine or todo event (virtual events that need to be converted to real events)
-      const isRoutineEvent = id && typeof id === 'string' && id.startsWith('routine-');
+      // Check if this is a todo event (virtual event that needs to be converted to real event)
       const isTodoEvent = id && typeof id === 'string' && id.startsWith('todo-');
 
-      if (id === null || isRoutineEvent || isTodoEvent) {
-        // Create new event (for new events, routine events, or todo events)
+      if (id === null || isTodoEvent) {
+        // Create new event (for new events or todo events)
         const { title, start_time, end_time, category_id, description, is_plan } = updates;
         await onCreateEvent(title, start_time, end_time, category_id, is_plan, description || '');
       } else {

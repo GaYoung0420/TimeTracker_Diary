@@ -43,7 +43,16 @@ async function generateThumbnails() {
 
         // Download original image
         console.log(`Processing image ${image.id}...`);
-        const response = await fetch(image.view_url);
+
+        // Generate fresh signed URL for download
+        const filePath = `${image.date}/${image.file_id}`;
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+          .from('diary-images')
+          .createSignedUrl(filePath, 60);
+
+        if (signedUrlError) throw signedUrlError;
+
+        const response = await fetch(signedUrlData.signedUrl);
         if (!response.ok) {
           throw new Error(`Failed to download image: ${response.statusText}`);
         }

@@ -374,28 +374,54 @@ app.get('/api/daily/:date', requireAuth, async (req, res) => {
     }
 
     // Generate fresh signed URLs for images (valid for 1 hour)
-    const imagesWithSignedUrls = await Promise.all(
-      (imagesResult.data || []).map(async (image) => {
-        const filePath = `${image.date}/${image.file_id}`;
-        const thumbnailPath = filePath.replace(/\.([^.]+)$/, '_thumb.jpeg');
+    // Optimization: Use createSignedUrls to get all URLs in one request instead of N requests
+    const images = imagesResult.data || [];
+    let imagesWithSignedUrls = images;
 
-        try {
-          const [viewUrlResult, thumbUrlResult] = await Promise.all([
-            supabase.storage.from('diary-images').createSignedUrl(filePath, 3600),
-            supabase.storage.from('diary-images').createSignedUrl(thumbnailPath, 3600)
-          ]);
+    if (images.length > 0) {
+      try {
+        const paths = [];
+        images.forEach(image => {
+          const filePath = `${image.date}/${image.file_id}`;
+          // Construct thumbnail path (assuming standard naming convention)
+          const thumbnailPath = filePath.replace(/\.([^.]+)$/, '_thumb.jpeg');
+          paths.push(filePath);
+          paths.push(thumbnailPath);
+        });
 
-          return {
-            ...image,
-            view_url: viewUrlResult.data?.signedUrl || image.view_url,
-            thumbnail_url: thumbUrlResult.data?.signedUrl || image.thumbnail_url
-          };
-        } catch (error) {
-          console.error('Error generating signed URLs for image:', image.id, error);
-          return image; // Return original if signed URL generation fails
+        const { data: signedUrls, error: signedUrlsError } = await supabase
+          .storage
+          .from('diary-images')
+          .createSignedUrls(paths, 3600);
+
+        if (signedUrlsError) {
+          console.error('Error generating signed URLs batch:', signedUrlsError);
+        } else if (signedUrls) {
+          // Create a map for O(1) lookup
+          const urlMap = {};
+          signedUrls.forEach(item => {
+            // item structure: { path: string, signedUrl: string, error: string | null }
+            if (item.path && item.signedUrl) {
+              urlMap[item.path] = item.signedUrl;
+            }
+          });
+
+          imagesWithSignedUrls = images.map(image => {
+            const filePath = `${image.date}/${image.file_id}`;
+            const thumbnailPath = filePath.replace(/\.([^.]+)$/, '_thumb.jpeg');
+            
+            return {
+              ...image,
+              view_url: urlMap[filePath] || image.view_url,
+              thumbnail_url: urlMap[thumbnailPath] || image.thumbnail_url
+            };
+          });
         }
-      })
-    );
+      } catch (error) {
+        console.error('Error in signed URL generation process:', error);
+        // Fallback to original images if optimization fails
+      }
+    }
 
     res.json({
       success: true,

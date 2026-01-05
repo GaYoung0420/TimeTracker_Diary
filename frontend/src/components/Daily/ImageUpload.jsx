@@ -84,10 +84,15 @@ function ImageUpload({ currentDate, images, onImageUploaded, onImageDeleted }) {
         {images && images.length > 0 && images.map((image) => (
           <div key={image.id} className="image-item">
             <img
-              src={image.view_url}
+              src={image.thumbnail_url || image.view_url}
               alt={image.file_name}
               className="image-thumbnail"
               onDoubleClick={() => setSelectedImage(image)}
+              onError={(e) => {
+                if (image.thumbnail_url && e.target.src.includes('_thumb')) {
+                  e.target.src = image.view_url;
+                }
+              }}
             />
             <button
               className="image-delete-btn"

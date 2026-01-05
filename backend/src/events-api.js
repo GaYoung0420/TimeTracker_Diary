@@ -19,10 +19,15 @@ export function setupEventsAPI(app, supabase, cache) {
     try {
       const { date } = req.body;
 
-      // Get events from previous day and current day to handle overnight events
+      // Get events that might overlap with the target date
+      // Strategy: Get events where:
+      // 1. date = target date (events starting on target date)
+      // 2. date < target date AND (end_date is null OR end_date >= target date)
+      //    (multi-day events or overnight events that extend to target date)
+
       const d = new Date(date);
       const prevDate = new Date(d);
-      prevDate.setDate(d.getDate() - 1);
+      prevDate.setDate(d.getDate() - 7); // Look back 7 days for long events
       const prevDateStr = prevDate.toISOString().split('T')[0];
 
       const { data, error } = await supabase
@@ -32,7 +37,8 @@ export function setupEventsAPI(app, supabase, cache) {
           category:categories(id, name, color)
         `)
         .eq('user_id', req.session.userId)
-        .in('date', [prevDateStr, date])
+        .gte('date', prevDateStr)
+        .lte('date', date)
         .order('date')
         .order('start_time');
 
@@ -45,18 +51,27 @@ export function setupEventsAPI(app, supabase, cache) {
       const events = (data || [])
         .map(event => {
           const start = `${event.date}T${event.start_time}`;
-          const end = `${event.date}T${event.end_time}`;
 
-          // Handle overnight events: if end_time < start_time, event ends next day
-          const [startHour] = event.start_time.split(':').map(Number);
-          const [endHour] = event.end_time.split(':').map(Number);
+          // Determine actual end date/time
+          let actualEnd;
 
-          let actualEnd = end;
-          if (endHour < startHour) {
-            // Event spans to next day
-            const nextDay = new Date(event.date);
-            nextDay.setDate(nextDay.getDate() + 1);
-            actualEnd = `${nextDay.toISOString().split('T')[0]}T${event.end_time}`;
+          if (event.end_date && event.end_date !== event.date) {
+            // Multi-day event with explicit end_date
+            actualEnd = `${event.end_date}T${event.end_time}`;
+          } else {
+            // Single day or overnight event
+            const [startHour] = event.start_time.split(':').map(Number);
+            const [endHour] = event.end_time.split(':').map(Number);
+
+            if (endHour < startHour) {
+              // Event spans to next day
+              const nextDay = new Date(event.date);
+              nextDay.setDate(nextDay.getDate() + 1);
+              actualEnd = `${nextDay.toISOString().split('T')[0]}T${event.end_time}`;
+            } else {
+              // Same day event
+              actualEnd = `${event.date}T${event.end_time}`;
+            }
           }
 
           return {
@@ -68,7 +83,8 @@ export function setupEventsAPI(app, supabase, cache) {
             category: event.category,
             is_plan: event.is_plan,
             is_sleep: event.is_sleep || false,
-            description: event.description || ''
+            description: event.description || '',
+            end_date: event.end_date
           };
         })
         .filter(event => {
