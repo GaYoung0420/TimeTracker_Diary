@@ -219,6 +219,7 @@ function DailyView({ currentDate, setCurrentDate, onOpenSettings }) {
         <Reflection
           value={dailyData.reflection}
           onSave={(reflection) => saveData({ reflection })}
+          currentDate={currentDate}
         />
       </div>
 

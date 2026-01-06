@@ -16,21 +16,23 @@ import { setupCategoriesAPI } from './categories-api.js';
 import { setupTodoCategoriesAPI } from './todo-categories-api.js';
 import { setupAuthAPI } from './auth-api.js';
 import { setupCalendarsAPI } from './calendars-api.js';
+import { setupAIAPI } from './ai-api.js';
 import { requireAuth } from './middleware/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load .env from backend directory (works both in dev and production)
-const backendDir = path.join(__dirname, '..');
-const envPath = path.join(backendDir, '.env');
+// __dirname is backend/src, so go up one level to backend/
+const envPath = path.join(__dirname, '..', '.env');
 console.log('Loading .env from:', envPath);
-dotenv.config({ path: envPath });
+dotenv.config({ path: envPath, override: true });
 
 // Debug: Check if env vars are loaded
 console.log('Environment variables loaded:');
 console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'exists' : 'MISSING');
 console.log('SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? 'exists' : 'MISSING');
+console.log('ANTHROPIC_API_KEY:', process.env.ANTHROPIC_API_KEY ? 'exists' : 'MISSING');
 
 // Configure multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
@@ -1947,6 +1949,11 @@ setupAuthAPI(app, supabase);
    Calendars API (User Calendar Subscriptions)
    ======================================== */
 setupCalendarsAPI(app, supabase);
+
+/* ========================================
+   AI API (Claude-powered reflections)
+   ======================================== */
+setupAIAPI(app, supabase);
 
 /* ========================================
    Reflection Template API
