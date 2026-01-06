@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getLocalDateString } from '../../utils/helpers';
 import './EventEditModal.css';
 
@@ -18,10 +18,19 @@ function Reflection({ value, onSave, currentDate }) {
   const [templateText, setTemplateText] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiReflection, setAiReflection] = useState('');
+  const textareaRef = useRef(null);
 
   useEffect(() => {
     loadCustomTemplate();
   }, [value]);
+
+  useEffect(() => {
+    // 텍스트 내용이 변경될 때마다 높이 조절
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'; // 높이 초기화
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`; // 내용에 맞춰 높이 설정
+    }
+  }, [text]);
 
   const loadCustomTemplate = async () => {
     try {
@@ -209,10 +218,12 @@ function Reflection({ value, onSave, currentDate }) {
       )}
 
       <textarea
+        ref={textareaRef}
         className="reflection-textarea"
         placeholder="오늘 하루를 돌아보며..."
         value={text}
         onChange={(e) => setText(e.target.value)}
+        style={{ minHeight: '120px', overflowY: 'hidden' }}
       />
       <button className="btn" style={{ marginTop: '12px', width: '100%' }} onClick={handleSave}>
         저장하기
