@@ -621,6 +621,86 @@ app.post('/api/todos/:id/pomodoro', requireAuth, async (req, res) => {
   }
 });
 
+// Complete Todo and Create Event
+app.post('/api/todos/:id/complete', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.session.userId;
+
+    // Fetch the todo with its category information
+    const { data: todo, error: fetchError } = await supabase
+      .from('todos')
+      .select('*, todo_categories(event_category_id)')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError) throw fetchError;
+    if (!todo) {
+      return res.status(404).json({ success: false, error: 'Todo not found' });
+    }
+
+    // Mark todo as completed
+    const { error: updateError } = await supabase
+      .from('todos')
+      .update({ completed: true })
+      .eq('id', id)
+      .eq('user_id', userId);
+
+    if (updateError) throw updateError;
+
+    // If todo has scheduled_time and duration, create an event
+    let createdEvent = null;
+    if (todo.scheduled_time && todo.duration) {
+      // Parse scheduled_time (format: "HH:MM")
+      const [startHour, startMinute] = todo.scheduled_time.split(':').map(Number);
+      const endMinutes = startHour * 60 + startMinute + todo.duration;
+      const endHour = Math.floor(endMinutes / 60) % 24;
+      const endMinute = endMinutes % 60;
+      const endTime = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
+
+      // Determine end_date if event goes past midnight
+      let endDate = null;
+      if (endMinutes >= 24 * 60) {
+        const d = new Date(todo.date);
+        d.setDate(d.getDate() + 1);
+        endDate = d.toISOString().split('T')[0];
+      }
+
+      // Get event category from todo category
+      let categoryId = todo.category_id;
+      if (todo.todo_category_id && todo.todo_categories) {
+        categoryId = todo.todo_categories.event_category_id || categoryId;
+      }
+
+      // Create event with todo text as title (without emoji prefix)
+      const { data: event, error: eventError } = await supabase
+        .from('events')
+        .insert({
+          user_id: userId,
+          date: todo.date,
+          title: todo.text,
+          start_time: todo.scheduled_time,
+          end_time: endTime,
+          end_date: endDate,
+          category_id: categoryId,
+          is_plan: false,
+          source: 'todo'
+        })
+        .select()
+        .single();
+
+      if (eventError) throw eventError;
+      createdEvent = event;
+    }
+
+    res.json({ success: true, event: createdEvent });
+  } catch (error) {
+    console.error('Complete todo error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 /* ========================================
    Images
    ======================================== */
@@ -1343,6 +1423,10 @@ app.post('/api/monthly/time-stats', requireAuth, async (req, res) => {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
 
+    // Also fetch events from previous day that might extend into this month
+    const prevDay = new Date(year, month - 1, 0); // Last day of previous month
+    const prevDayDate = `${prevDay.getFullYear()}-${String(prevDay.getMonth() + 1).padStart(2, '0')}-${String(prevDay.getDate()).padStart(2, '0')}`;
+
     // Fetch categories and events in parallel for better performance
     const [categoriesResult, eventsResult] = await Promise.all([
       supabase
@@ -1361,7 +1445,7 @@ app.post('/api/monthly/time-stats', requireAuth, async (req, res) => {
           category:categories(name, color)
         `)
         .eq('user_id', userId)
-        .gte('date', startDate)
+        .gte('date', prevDayDate)  // Include previous day to catch events that cross month boundary
         .lte('date', endDate)
         .eq('is_plan', false)
         .order('date')
@@ -1410,12 +1494,22 @@ app.post('/api/monthly/time-stats', requireAuth, async (req, res) => {
         endDate = nextDay.toISOString().split('T')[0];
       }
 
-      // Combine date + time for frontend compatibility
-      eventsByDate[dateKey].push({
+      const eventData = {
         ...event,
         start: `${event.date}T${event.start_time}`,
         end: `${endDate}T${event.end_time}`
-      });
+      };
+
+      // Add to start date
+      eventsByDate[dateKey].push(eventData);
+
+      // If event spans to next day, also add to next day for proper rendering
+      if (endDate !== event.date) {
+        if (!eventsByDate[endDate]) {
+          eventsByDate[endDate] = [];
+        }
+        eventsByDate[endDate].push(eventData);
+      }
     });
 
     // Generate data for each day

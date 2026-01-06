@@ -657,27 +657,35 @@ html, body {
   transition: opacity 0.2s;
 }
 
-.event-block-absolute:hover .resize-handle {
+/* Show resize handles when event is active (clicked) */
+.event-block-absolute.event-active .resize-handle {
   opacity: 0.3;
   background: rgba(0, 0, 0, 0.2);
 }
 
-.resize-handle:hover {
+.event-block-absolute.event-active .resize-handle:hover {
   opacity: 0.6 !important;
   background: rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Active event visual feedback */
+.event-block-absolute.event-active {
+  box-shadow: 0 0 0 2px var(--primary-color);
+  transition: box-shadow 0.2s;
 }
 
 /* Mobile long press visual feedback */
 @media (max-width: 768px) {
   .event-block-absolute.long-press-active {
     transform: scale(1.02);
-    box-shadow: 0 4px 12px rgba(35, 131, 226, 0.3);
+    box-shadow: 0 4px 12px rgba(183, 229, 205, 0.4);
     transition: transform 0.1s ease-out;
   }
 
-  .resize-handle {
-    /* Make resize handles more visible on mobile */
-    background: rgba(0, 0, 0, 0.05);
+  /* On mobile, show resize handles when active */
+  .event-block-absolute.event-active .resize-handle {
+    opacity: 0.4;
+    background: rgba(0, 0, 0, 0.15);
   }
 }
 

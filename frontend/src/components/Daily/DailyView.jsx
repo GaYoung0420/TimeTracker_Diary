@@ -12,11 +12,13 @@ import CategoryManager from '../Settings/CategoryManager';
 import TodoCategoryManager from '../Settings/TodoCategoryManager';
 import ICloudEvents from './ICloudEvents';
 import { api } from '../../utils/api';
+import { fetchMultipleCalendars, getEventsForDate } from '../../services/iCloudCalendar';
 
 function DailyView({ currentDate, setCurrentDate, onOpenSettings }) {
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showTodoCategoryManager, setShowTodoCategoryManager] = useState(false);
   const [todoCategories, setTodoCategories] = useState([]);
+  const [iCloudCalendarEvents, setICloudCalendarEvents] = useState([]);
   const { dailyData, loading, addTodo, updateTodo, deleteTodo, reorderTodos, updateRoutineCheck, addRoutine, updateRoutine, deleteRoutine, reorderRoutines, saveData, addImageToState, removeImageFromState } = useDailyData(currentDate);
   const { categories, events, loading: eventsLoading, reloadCategories, createEvent, updateEvent, deleteEvent, addEventToState, wakeSleepInfo } = useEvents(currentDate);
 
@@ -31,10 +33,51 @@ function DailyView({ currentDate, setCurrentDate, onOpenSettings }) {
     }
   }, []);
 
+  // Load iCloud calendar events
+  const loadICloudCalendarEvents = useCallback(async () => {
+    try {
+      const response = await api.getCalendars();
+      if (!response.success || !response.data) {
+        setICloudCalendarEvents([]);
+        return;
+      }
+
+      const enabledCalendars = response.data.filter(cal => cal.enabled);
+      if (enabledCalendars.length === 0) {
+        setICloudCalendarEvents([]);
+        return;
+      }
+
+      const allEvents = await fetchMultipleCalendars(enabledCalendars);
+      const todayEvents = getEventsForDate(allEvents, currentDate);
+
+      // Filter only timed events (not all-day events)
+      const timedEvents = todayEvents.filter(event => !event.isAllDay);
+      setICloudCalendarEvents(timedEvents);
+    } catch (error) {
+      console.error('Failed to load iCloud calendar events:', error);
+      setICloudCalendarEvents([]);
+    }
+  }, [currentDate]);
+
   // 투두 카테고리 로드
   useEffect(() => {
     loadTodoCategories();
   }, [loadTodoCategories]);
+
+  // Load iCloud calendar events when date changes
+  useEffect(() => {
+    loadICloudCalendarEvents();
+
+    const handleCalendarUpdate = () => {
+      loadICloudCalendarEvents();
+    };
+
+    window.addEventListener('icloud-calendar-updated', handleCalendarUpdate);
+    return () => {
+      window.removeEventListener('icloud-calendar-updated', handleCalendarUpdate);
+    };
+  }, [loadICloudCalendarEvents]);
 
   const handleAddTodoCategory = async (name, eventCategoryId, color) => {
     try {
@@ -124,6 +167,7 @@ function DailyView({ currentDate, setCurrentDate, onOpenSettings }) {
           onUpdateEvent={updateEvent}
           onDeleteEvent={deleteEvent}
           wakeSleepInfo={wakeSleepInfo}
+          iCloudCalendarEvents={iCloudCalendarEvents}
         />
       </div>
 

@@ -62,7 +62,7 @@ const calculateEventLayout = (events) => {
   return layout;
 };
 
-function Timeline({ events, todos, routines, routineChecks, categories, todoCategories, loading, currentDate, onCreateEvent, onUpdateEvent, onDeleteEvent, wakeSleepInfo }) {
+function Timeline({ events, todos, routines, routineChecks, categories, todoCategories, loading, currentDate, onCreateEvent, onUpdateEvent, onDeleteEvent, wakeSleepInfo, iCloudCalendarEvents = [] }) {
   const hourHeight = 40;
   const [isCreating, setIsCreating] = useState(false);
   const [creatingColumn, setCreatingColumn] = useState(null); // 'plan' or 'actual'
@@ -85,6 +85,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   const [longPressActive, setLongPressActive] = useState(false);
   const [canCreateEvent, setCanCreateEvent] = useState(false);
   const [isCreateHold, setIsCreateHold] = useState(false); // lock scroll while holding to create
+  const [activeEventId, setActiveEventId] = useState(null); // Track which event is clicked/active
   const timelineRef = useRef(null);
   const rafRef = useRef(null);
   const lastDragEndRef = useRef(null);
@@ -95,6 +96,8 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   const touchStartTimeRef = useRef(0);
   const createDragStartPosRef = useRef(null);
   const createLongPressTimerRef = useRef(null);
+  const lastTapTimeRef = useRef(0);
+  const lastTapEventRef = useRef(null);
 
   const [now, setNow] = useState(new Date());
 
@@ -1040,8 +1043,8 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
   const handleEventClick = (event, e) => {
     if (!timelineRef.current) return;
 
-    // Don't allow editing routine events
-    if (event.isRoutine) {
+    // Don't allow editing routine events or iCloud events
+    if (event.isRoutine || event.isICloudEvent) {
       return;
     }
 
@@ -1129,6 +1132,8 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
   const renderEventBlock = (event, isTodo = false, layoutStyle = null) => {
     const isRoutine = event.isRoutine || false;
+    const isICloudEvent = event.isICloudEvent || false;
+    const isFromTodo = event.source === 'todo'; // Event created from completing a todo
     const currentDayStr = getLocalDateString(currentDate);
     const [dateStr, timeStr] = event.start.split('T');
     const [endDateStr, endTimeStr] = event.end.split('T');
@@ -1198,7 +1203,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     // Get category info from nested category object (populated by backend)
     const categoryInfo = event.category || { color: '#9E9E9E', name: '기타' };
     const blockColor = categoryInfo.color;
-    const bgColor = isBeingDragged ? hexToRgba(blockColor, 0.6) : isTodo ? hexToRgba(blockColor, 0.25) : hexToRgba(blockColor, 0.35);
+    const bgColor = isBeingDragged ? hexToRgba(blockColor, 0.6) : (isTodo || isICloudEvent) ? hexToRgba(blockColor, 0.25) : hexToRgba(blockColor, 0.35);
 
     // Calculate display times based on current position (for dragging/resizing)
     let displayStartTime, displayEndTime;
@@ -1222,10 +1227,12 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
     const isSmallEvent = durationMinutes <= 50;
 
+    const isActive = activeEventId === event.id;
+
     return (
       <div
         key={event.id}
-        className={`event-block-absolute ${longPressActive && draggingEvent?.id === event.id ? 'long-press-active' : ''}`}
+        className={`event-block-absolute ${longPressActive && draggingEvent?.id === event.id ? 'long-press-active' : ''} ${isActive ? 'event-active' : ''}`}
         style={{
           background: bgColor,
           color: '#000',
@@ -1233,48 +1240,75 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
           height: `${Math.max(height, 20)}px`,
           left: left,
           width: width,
-          cursor: (isTodo || isRoutine) ? 'pointer' : (isBeingDragged ? 'grabbing' : 'grab'),
+          cursor: (isTodo || isRoutine || isICloudEvent) ? 'pointer' : (isBeingDragged ? 'grabbing' : (isActive ? 'grab' : 'pointer')),
           touchAction: 'none', // Prevent browser handling of gestures on event blocks
-          opacity: (isTodo || isRoutine) ? 0.9 : (isBeingDragged ? 0.8 : 1),
+          opacity: (isTodo || isRoutine || isICloudEvent) ? 0.9 : (isBeingDragged ? 0.8 : 1),
           zIndex: zIndex,
           transition: isBeingDragged ? 'none' : 'top 0.1s ease-out, left 0.1s ease-out, width 0.1s ease-out',
-          border: isTodo ? `2px dashed ${blockColor}` : (isRoutine ? `2px dotted ${blockColor}` : undefined),
+          border: isTodo ? `2px dashed ${blockColor}` : (isRoutine ? `2px dotted ${blockColor}` : (isICloudEvent ? `2px solid ${blockColor}` : undefined)),
           padding: isSmallEvent ? '1px 4px' : '6px 8px',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: isSmallEvent ? 'center' : 'flex-start',
           boxSizing: 'border-box'
         }}
-        onMouseDown={(e) => !(isTodo || isRoutine) && handleEventStart(e, event)}
-        onTouchStart={(e) => {
-          if (isTodo || isRoutine) {
-            // For routine/todo events, just open edit popup on tap
-            return;
+        onMouseDown={(e) => {
+          if (!(isTodo || isRoutine || isICloudEvent) && isActive) {
+            handleEventStart(e, event);
           }
-          handleEventTouchStart(event, e);
         }}
-        onTouchMove={(e) => !(isTodo || isRoutine) && handleEventTouchMove(e)}
-        onTouchEnd={(e) => {
-          if (isTodo || isRoutine) {
-            // For routine/todo events, open edit popup on tap
-            handleEventClick(event, e);
+        onTouchStart={(e) => {
+          const currentTime = Date.now();
+          const timeDiff = currentTime - lastTapTimeRef.current;
+
+          // Check for double tap (within 300ms)
+          if (timeDiff < 300 && lastTapEventRef.current === event.id) {
+            // Double tap detected - open edit popup
+            e.preventDefault();
+            if (!isDraggingEvent && !isResizing) {
+              handleEventClick(event, { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
+            }
+            lastTapTimeRef.current = 0;
+            lastTapEventRef.current = null;
             return;
           }
-          handleEventTouchEnd(event, e);
+
+          // Record this tap
+          lastTapTimeRef.current = currentTime;
+          lastTapEventRef.current = event.id;
+
+          if (isActive) {
+            handleEventTouchStart(event, e);
+          }
+        }}
+        onTouchMove={(e) => {
+          if (isActive) {
+            handleEventTouchMove(e);
+          }
+        }}
+        onTouchEnd={(e) => {
+          if (isActive) {
+            handleEventTouchEnd(event, e);
+          }
         }}
         onClick={(e) => {
-          // Routine and todo events are clickable (converted to real events on edit)
-          if (isRoutine || isTodo) {
-            handleEventClick(event, e);
+          e.stopPropagation(); // Prevent deactivation when clicking the event itself
+          // Toggle active state for resize handles visibility
+          if (activeEventId === event.id) {
+            setActiveEventId(null);
+          } else {
+            setActiveEventId(event.id);
           }
-          // Regular events only clickable on desktop when not dragging/resizing
-          else if (!isDraggingEvent && !isResizing && !isMobile()) {
+        }}
+        onDoubleClick={(e) => {
+          // All events open edit popup on double click
+          if (!isDraggingEvent && !isResizing) {
             handleEventClick(event, e);
           }
         }}
-        title={isTodo ? `📋 ${event.title}\n${displayStartTime} - ${displayEndTime}\n(할일 계획)` : (isRoutine ? `🔄 ${event.title}\n${displayStartTime} - ${displayEndTime}\n(루틴)` : `${event.title}\n${displayStartTime} - ${displayEndTime}\n${durationText}`)}
+        title={(isTodo && !isFromTodo) ? `📋 ${event.title}\n${displayStartTime} - ${displayEndTime}\n(할일 계획)` : (isRoutine ? `🔄 ${event.title}\n${displayStartTime} - ${displayEndTime}\n(루틴)` : (isICloudEvent ? `📅 ${event.title}\n${displayStartTime} - ${displayEndTime}\n(캘린더)` : `${event.title}\n${displayStartTime} - ${displayEndTime}\n${durationText}`))}
       >
-        {!(isTodo || isRoutine) && (
+        {!(isTodo || isRoutine || isICloudEvent) && (
           <>
             <div
               className="resize-handle resize-handle-top"
@@ -1284,39 +1318,40 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
                 left: 0,
                 right: 0,
                 height: isMobile() ? '12px' : '6px',
-                cursor: 'ns-resize',
+                cursor: isActive ? 'ns-resize' : 'default',
                 zIndex: 10,
-                background: longPressActive && isMobile() ? 'rgba(35, 131, 226, 0.3)' : 'transparent'
+                background: longPressActive && isMobile() ? 'rgba(35, 131, 226, 0.3)' : 'transparent',
+                pointerEvents: isActive ? 'auto' : 'none'
               }}
-              onMouseDown={(e) => handleResizeStart(e, event, 'top')}
+              onMouseDown={(e) => {
+                if (isActive) {
+                  handleResizeStart(e, event, 'top');
+                }
+              }}
               onTouchStart={(e) => {
+                if (!isActive) return;
                 e.stopPropagation();
                 if (e.persist) e.persist();
 
                 // Start long press for resize on mobile
                 startLongPress(event, e, true, 'top');
               }}
-              onTouchMove={(e) => isMobile() && handleEventTouchMove(e)}
+              onTouchMove={(e) => isActive && isMobile() && handleEventTouchMove(e)}
               onTouchEnd={(e) => {
+                if (!isActive) return;
                 if (isMobile()) {
-                  // Check for tap on handle (small movement)
-                  if (touchStartPosRef.current && !longPressActive && !isResizing) {
-                    const touch = e.changedTouches[0];
-                    const deltaX = Math.abs(touch.clientX - touchStartPosRef.current.x);
-                    const deltaY = Math.abs(touch.clientY - touchStartPosRef.current.y);
-
-                    if (deltaX < 5 && deltaY < 5) {
-                      // It was a tap, trigger edit
-                      handleEventClick(event, { clientX: touch.clientX, clientY: touch.clientY });
-                    }
-                  }
-
                   cancelLongPress();
                   setLongPressActive(false);
                   touchStartPosRef.current = null;
                 }
               }}
               onClick={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                if (!isDraggingEvent && !isResizing) {
+                  handleEventClick(event, e);
+                }
+              }}
             />
             <div
               className="resize-handle resize-handle-bottom"
@@ -1326,50 +1361,51 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
                 left: 0,
                 right: 0,
                 height: isMobile() ? '12px' : '6px',
-                cursor: 'ns-resize',
+                cursor: isActive ? 'ns-resize' : 'default',
                 zIndex: 10,
-                background: longPressActive && isMobile() ? 'rgba(35, 131, 226, 0.3)' : 'transparent'
+                background: longPressActive && isMobile() ? 'rgba(35, 131, 226, 0.3)' : 'transparent',
+                pointerEvents: isActive ? 'auto' : 'none'
               }}
-              onMouseDown={(e) => handleResizeStart(e, event, 'bottom')}
+              onMouseDown={(e) => {
+                if (isActive) {
+                  handleResizeStart(e, event, 'bottom');
+                }
+              }}
               onTouchStart={(e) => {
+                if (!isActive) return;
                 e.stopPropagation();
                 if (e.persist) e.persist();
 
                 // Start long press for resize on mobile
                 startLongPress(event, e, true, 'bottom');
               }}
-              onTouchMove={(e) => isMobile() && handleEventTouchMove(e)}
+              onTouchMove={(e) => isActive && isMobile() && handleEventTouchMove(e)}
               onTouchEnd={(e) => {
+                if (!isActive) return;
                 if (isMobile()) {
-                  // Check for tap on handle (small movement)
-                  if (touchStartPosRef.current && !longPressActive && !isResizing) {
-                    const touch = e.changedTouches[0];
-                    const deltaX = Math.abs(touch.clientX - touchStartPosRef.current.x);
-                    const deltaY = Math.abs(touch.clientY - touchStartPosRef.current.y);
-
-                    if (deltaX < 5 && deltaY < 5) {
-                      // It was a tap, trigger edit
-                      handleEventClick(event, { clientX: touch.clientX, clientY: touch.clientY });
-                    }
-                  }
-
                   cancelLongPress();
                   setLongPressActive(false);
                   touchStartPosRef.current = null;
                 }
               }}
               onClick={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                if (!isDraggingEvent && !isResizing) {
+                  handleEventClick(event, e);
+                }
+              }}
             />
           </>
         )}
-        <div className="event-title" style={{ 
+        <div className="event-title" style={{
           fontSize: isSmallEvent ? '10px' : '11px',
           lineHeight: isSmallEvent ? '1.1' : '1.4',
           whiteSpace: isSmallEvent ? 'nowrap' : 'normal',
           overflow: 'hidden',
           textOverflow: 'ellipsis'
         }}>
-          {isTodo ? '📋 ' : ''}{event.title}
+          {(isTodo && !isFromTodo) ? '📋 ' : ''}{event.title}
           {isSmallEvent && (
             <span style={{ marginLeft: '4px', fontSize: '9px', opacity: 0.8, fontWeight: 'normal' }}>
               {displayStartTime}-{displayEndTime}
@@ -1549,7 +1585,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
         return {
           id: `todo-${todo.id}`,
-          title: `📝 ${todo.text}`,
+          title: todo.text,
           start: `${dateStr}T${startTime}`,
           end: `${dateStr}T${endTime}`,
           category: category,
@@ -1559,6 +1595,42 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
         };
       });
   }, [todos, categories, todoCategories, currentDate]);
+
+  // Convert iCloud calendar events to timeline format
+  const iCloudTimelineEvents = useMemo(() => {
+    if (!iCloudCalendarEvents || iCloudCalendarEvents.length === 0) return [];
+
+    const dateStr = getLocalDateString(currentDate);
+
+    return iCloudCalendarEvents.map((event, index) => {
+      // Extract time from Date object
+      const startDate = event.startDate;
+      const endDate = event.endDate || startDate;
+
+      const startHour = String(startDate.getHours()).padStart(2, '0');
+      const startMinute = String(startDate.getMinutes()).padStart(2, '0');
+      const startTime = `${startHour}:${startMinute}:00`;
+
+      const endHour = String(endDate.getHours()).padStart(2, '0');
+      const endMinute = String(endDate.getMinutes()).padStart(2, '0');
+      const endTime = `${endHour}:${endMinute}:00`;
+
+      return {
+        id: `icloud-${event.calendarId}-${event.uid || index}`,
+        title: `📅 ${event.title || '(제목 없음)'}`,
+        start: `${dateStr}T${startTime}`,
+        end: `${dateStr}T${endTime}`,
+        category: { color: event.calendarColor || '#007bff', name: event.calendarName || 'iCloud' },
+        category_id: null,
+        is_plan: true, // Show in plan column
+        isICloudEvent: true, // Flag to identify as iCloud event
+        calendarName: event.calendarName,
+        calendarColor: event.calendarColor,
+        location: event.location,
+        description: event.description
+      };
+    });
+  }, [iCloudCalendarEvents, currentDate]);
 
   // Convert routines to plan/actual events based on check status
   const { routinePlanEvents, routineActualEvents } = useMemo(() => {
@@ -1668,15 +1740,15 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
 
   // Separate events by is_plan field (memoized to prevent re-filtering on every render)
   const { planEvents, actualEvents } = useMemo(() => {
-    const allPlanEvents = [...events.filter(e => e.is_plan === true), ...todoEvents, ...routinePlanEvents];
+    const allPlanEvents = [...events.filter(e => e.is_plan === true), ...todoEvents, ...routinePlanEvents, ...iCloudTimelineEvents];
     const allActualEvents = [...events.filter(e => e.is_plan === false), ...routineActualEvents];
-    console.log('[Timeline] Final plan events (with routines):', allPlanEvents);
+    console.log('[Timeline] Final plan events (with routines and iCloud):', allPlanEvents);
     console.log('[Timeline] Final actual events (with routines):', allActualEvents);
     return {
       planEvents: allPlanEvents,
       actualEvents: allActualEvents
     };
-  }, [events, todoEvents, routinePlanEvents, routineActualEvents]);
+  }, [events, todoEvents, routinePlanEvents, routineActualEvents, iCloudTimelineEvents]);
 
   // Calculate layout for overlapping events
   const planLayout = useMemo(() => calculateEventLayout(planEvents), [planEvents]);
@@ -1735,6 +1807,14 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
             position: 'relative',
             touchAction: (isCreating || isDraggingEvent || isResizing || longPressActive) ? 'none' : 'pan-y',
             overflowY: (isCreating || isDraggingEvent || isResizing || longPressActive) ? 'hidden' : undefined,
+          }}
+          onClick={(e) => {
+            // Deactivate event if NOT clicking on an event block
+            // Check if the click target is the event block or its children
+            const isEventBlock = e.target.closest('.event-block-absolute');
+            if (!isEventBlock) {
+              setActiveEventId(null);
+            }
           }}
           onMouseMove={handleDragMove}
           onMouseUp={handleDragEnd}
