@@ -43,26 +43,35 @@ function RoutineGrid({ routines, routineChecks, currentDate, onToggle, onAdd, on
   };
 
   const handleAdd = () => {
-    if (newRoutine.trim()) {
-      onAdd(
-        newRoutine.trim(),
-        newEmoji,
-        undefined,
-        newScheduledTime,
-        newDuration,
-        newWeekdays.length > 0 ? newWeekdays : null,
-        newStartDate || null,
-        newEndDate || null
-      );
-      setNewRoutine('');
-      setNewEmoji('✓');
-      setNewScheduledTime('');
-      setNewDuration(30);
-      setNewWeekdays([0, 1, 2, 3, 4, 5, 6]);
-      setNewStartDate('');
-      setNewEndDate('');
-      setShowAddModal(false);
+    if (!newRoutine.trim()) {
+      alert('루틴 이름을 입력해주세요.');
+      return;
     }
+    if (!newStartDate || !newEndDate) {
+      alert('시작 날짜와 종료 날짜를 입력해주세요.');
+      return;
+    }
+
+    onAdd(
+      newRoutine.trim(),
+      newEmoji,
+      undefined,
+      newScheduledTime,
+      newDuration,
+      newWeekdays.length > 0 ? newWeekdays : null,
+      newStartDate,
+      newEndDate
+    );
+    setNewRoutine('');
+    setNewEmoji('✓');
+    setNewScheduledTime('');
+    setNewDuration(30);
+    setNewWeekdays([0, 1, 2, 3, 4, 5, 6]);
+    // Keep dates or reset? Usually better to keep if adding multiple similar, but here reset is safer to force conscious choice.
+    // But maybe let's reset to empty as per previous logic
+    setNewStartDate('');
+    setNewEndDate('');
+    setShowAddModal(false);
   };
 
   const handleKeyPress = (e) => {
@@ -84,17 +93,24 @@ function RoutineGrid({ routines, routineChecks, currentDate, onToggle, onAdd, on
   };
 
   const saveEdit = () => {
-    if (editText.trim()) {
-      onUpdate(editingId, {
-        text: editText.trim(),
-        emoji: editEmoji,
-        scheduled_time: editScheduledTime || null,
-        duration: editDuration,
-        weekdays: editWeekdays.length > 0 ? editWeekdays : null,
-        start_date: editStartDate || null,
-        end_date: editEndDate || null
-      });
+    if (!editText.trim()) {
+      alert('루틴 이름을 입력해주세요.');
+      return;
     }
+    if (!editStartDate || !editEndDate) {
+      alert('시작 날짜와 종료 날짜를 입력해주세요.');
+      return;
+    }
+
+    onUpdate(editingId, {
+      text: editText.trim(),
+      emoji: editEmoji,
+      scheduled_time: editScheduledTime || null,
+      duration: editDuration,
+      weekdays: editWeekdays.length > 0 ? editWeekdays : null,
+      start_date: editStartDate,
+      end_date: editEndDate
+    });
     setEditingId(null);
     setEditText('');
     setEditEmoji('✓');
@@ -278,107 +294,111 @@ function RoutineGrid({ routines, routineChecks, currentDate, onToggle, onAdd, on
       {showAddModal && (
         <div className="routine-modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="routine-modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3 className="routine-modal-title">새 루틴 추가</h3>
-            <div className="form-group">
-              <input
-                type="text"
-                className="routine-modal-input"
-                placeholder="루틴 이름 입력..."
-                value={newRoutine}
-                onChange={(e) => setNewRoutine(e.target.value)}
-                onKeyPress={handleKeyPress}
-                autoFocus
-              />
+            <div className="routine-modal-header-row">
+              <h3 className="routine-modal-title">새 루틴 추가</h3>
+              <button
+                className="btn-header-icon"
+                onClick={() => setShowAddModal(false)}
+                title="닫기"
+              >
+                ×
+              </button>
             </div>
-            <div className="form-group">
-              <label className="emoji-label">완료 시 표시할 이모지</label>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div className="routine-modal-body">
+              <div className="form-group">
                 <input
-                  ref={emojiButtonRef}
                   type="text"
-                  className="emoji-input"
-                  placeholder="이모지 입력 (예: ✓, ⭐, 🎯)"
-                  value={newEmoji}
-                  onChange={(e) => setNewEmoji(e.target.value.slice(0, 2))}
-                  maxLength="2"
-                  readOnly
-                  onClick={(e) => {
-                    const rect = e.target.getBoundingClientRect();
-                    setEmojiPickerPosition({
-                      top: rect.bottom + window.scrollY + 8,
-                      left: rect.left + window.scrollX
-                    });
-                    setShowEmojiPicker(!showEmojiPicker);
-                  }}
-                  style={{ cursor: 'pointer' }}
+                  className="routine-modal-input"
+                  placeholder="루틴 이름 입력 * (필수)"
+                  value={newRoutine}
+                  onChange={(e) => setNewRoutine(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  autoFocus
                 />
               </div>
-            </div>
-            <div className="form-group">
-              <label className="emoji-label">예정 시간 (선택사항)</label>
-              <input
-                type="time"
-                className="routine-modal-input"
-                value={newScheduledTime}
-                onChange={(e) => setNewScheduledTime(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="emoji-label">소요 시간 (분)</label>
-              <input
-                type="number"
-                className="routine-modal-input"
-                placeholder="30"
-                value={newDuration}
-                onChange={(e) => setNewDuration(parseInt(e.target.value) || 30)}
-                min="1"
-              />
-            </div>
-            <div className="form-group">
-              <label className="emoji-label">반복 요일</label>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      setNewWeekdays(prev =>
-                        prev.includes(idx)
-                          ? prev.filter(d => d !== idx)
-                          : [...prev, idx].sort()
-                      );
+              <div className="form-group">
+                <label className="emoji-label">완료 시 표시할 이모지</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    ref={emojiButtonRef}
+                    type="text"
+                    className="emoji-input"
+                    placeholder="이모지 입력 (예: ✓, ⭐, 🎯)"
+                    value={newEmoji}
+                    onChange={(e) => setNewEmoji(e.target.value.slice(0, 2))}
+                    maxLength="2"
+                    readOnly
+                    onClick={(e) => {
+                      const rect = e.target.getBoundingClientRect();
+                      setEmojiPickerPosition({
+                        top: rect.bottom + window.scrollY + 8,
+                        left: rect.left + window.scrollX
+                      });
+                      setShowEmojiPicker(!showEmojiPicker);
                     }}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '4px',
-                      border: newWeekdays.includes(idx) ? '2px solid #4A90E2' : '1px solid #ccc',
-                      backgroundColor: newWeekdays.includes(idx) ? '#E3F2FD' : '#fff',
-                      cursor: 'pointer',
-                      fontWeight: newWeekdays.includes(idx) ? 'bold' : 'normal'
-                    }}
-                  >
-                    {day}
-                  </button>
-                ))}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </div>
               </div>
-            </div>
-            <div className="form-group">
-              <label className="emoji-label">시작 날짜 (선택사항)</label>
-              <input
-                type="date"
-                className="routine-modal-input"
-                value={newStartDate}
-                onChange={(e) => setNewStartDate(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="emoji-label">종료 날짜 (선택사항)</label>
-              <input
-                type="date"
-                className="routine-modal-input"
-                value={newEndDate}
-                onChange={(e) => setNewEndDate(e.target.value)}
-              />
+              <div className="form-group">
+                <label className="emoji-label">예정 시간 (선택사항)</label>
+                <input
+                  type="time"
+                  className="routine-modal-input"
+                  value={newScheduledTime}
+                  onChange={(e) => setNewScheduledTime(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="emoji-label">소요 시간 (분)</label>
+                <input
+                  type="number"
+                  className="routine-modal-input"
+                  placeholder="30"
+                  value={newDuration}
+                  onChange={(e) => setNewDuration(parseInt(e.target.value) || 30)}
+                  min="1"
+                />
+              </div>
+              <div className="form-group">
+                <label className="emoji-label">반복 요일</label>
+                <div className="weekday-selector">
+                  {['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`weekday-btn ${newWeekdays.includes(idx) ? 'selected' : ''}`}
+                      onClick={() => {
+                        setNewWeekdays(prev =>
+                          prev.includes(idx)
+                            ? prev.filter(d => d !== idx)
+                            : [...prev, idx].sort()
+                        );
+                      }}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="emoji-label">시작 날짜 <span style={{ color: '#ef4444' }}>*</span></label>
+                <input
+                  type="date"
+                  className="routine-modal-input"
+                  value={newStartDate}
+                  onChange={(e) => setNewStartDate(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="emoji-label">종료 날짜 <span style={{ color: '#ef4444' }}>*</span></label>
+                <input
+                  type="date"
+                  className="routine-modal-input"
+                  value={newEndDate}
+                  onChange={(e) => setNewEndDate(e.target.value)}
+                />
+              </div>
             </div>
             <div className="routine-modal-actions">
               <button className="routine-btn-cancel" onClick={() => setShowAddModal(false)}>취소</button>
@@ -393,7 +413,25 @@ function RoutineGrid({ routines, routineChecks, currentDate, onToggle, onAdd, on
           <div className="routine-manage-modal" onClick={(e) => e.stopPropagation()}>
             <div className="routine-manage-header">
               <h3 className="routine-modal-title">루틴 관리</h3>
-              <button className="btn-close-modal" onClick={() => setShowManageModal(false)}>×</button>
+              <div className="routine-header-actions">
+                <button
+                  className="btn-header-icon add"
+                  onClick={() => {
+                    setShowManageModal(false);
+                    setShowAddModal(true);
+                  }}
+                  title="새 루틴 추가"
+                >
+                  +
+                </button>
+                <button
+                  className="btn-header-icon"
+                  onClick={() => setShowManageModal(false)}
+                  title="닫기"
+                >
+                  ×
+                </button>
+              </div>
             </div>
             <div className="routine-manage-list">
               {allSortedRoutines.length === 0 ? (
@@ -473,11 +511,12 @@ function RoutineGrid({ routines, routineChecks, currentDate, onToggle, onAdd, on
                               </div>
                               <div style={{ marginTop: '8px' }}>
                                 <label style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '4px' }}>반복 요일</label>
-                                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                <div className="weekday-selector small">
                                   {['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => (
                                     <button
                                       key={idx}
                                       type="button"
+                                      className={`weekday-btn small ${editWeekdays.includes(idx) ? 'selected' : ''}`}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setEditWeekdays(prev =>
@@ -485,15 +524,6 @@ function RoutineGrid({ routines, routineChecks, currentDate, onToggle, onAdd, on
                                             ? prev.filter(d => d !== idx)
                                             : [...prev, idx].sort()
                                         );
-                                      }}
-                                      style={{
-                                        padding: '4px 8px',
-                                        fontSize: '11px',
-                                        borderRadius: '3px',
-                                        border: editWeekdays.includes(idx) ? '1.5px solid #4A90E2' : '1px solid #ccc',
-                                        backgroundColor: editWeekdays.includes(idx) ? '#E3F2FD' : '#fff',
-                                        cursor: 'pointer',
-                                        fontWeight: editWeekdays.includes(idx) ? 'bold' : 'normal'
                                       }}
                                     >
                                       {day}
@@ -503,7 +533,9 @@ function RoutineGrid({ routines, routineChecks, currentDate, onToggle, onAdd, on
                               </div>
                               <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
                                 <div style={{ flex: 1 }}>
-                                  <label style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '4px' }}>시작</label>
+                                  <label style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '4px' }}>
+                                    시작 <span style={{ color: '#ef4444' }}>*</span>
+                                  </label>
                                   <input
                                     type="date"
                                     className="routine-manage-input"
@@ -513,7 +545,9 @@ function RoutineGrid({ routines, routineChecks, currentDate, onToggle, onAdd, on
                                   />
                                 </div>
                                 <div style={{ flex: 1 }}>
-                                  <label style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '4px' }}>종료</label>
+                                  <label style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '4px' }}>
+                                    종료 <span style={{ color: '#ef4444' }}>*</span>
+                                  </label>
                                   <input
                                     type="date"
                                     className="routine-manage-input"
