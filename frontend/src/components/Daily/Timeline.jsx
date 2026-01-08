@@ -3,6 +3,15 @@ import { formatKoreanTime, getCategoryColorByName, getCategoryTextColorByName, h
 import EventEditPopup from './EventEditPopup';
 import EventEditBottomSheet from './EventEditBottomSheet';
 
+// Helper to parse time string (HH:MM:SS) to minutes
+const parseTimeToMinutes = (timeString) => {
+  if (!timeString) return 0;
+  const parts = timeString.split(':');
+  const hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+  return hours * 60 + minutes;
+};
+
 // Helper to calculate layout for overlapping events
 const calculateEventLayout = (events) => {
   if (!events || events.length === 0) return {};
@@ -773,14 +782,43 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       rafRef.current = null;
     }
 
-    const start = Math.min(dragStart, dragEnd);
-    const end = Math.max(dragStart, dragEnd);
+    let start = Math.min(dragStart, dragEnd);
+    let end = Math.max(dragStart, dragEnd);
 
     // Minimum 10 minutes
     if (end - start < 10) {
       setIsCreating(false);
       lastDragEndRef.current = null;
       return;
+    }
+
+    // Check for overlapping events and adjust start time if necessary
+    const is_plan = creatingColumn === 'plan';
+    const relevantEvents = is_plan ? planEvents : actualEvents;
+
+    // Find events that overlap with the dragged time range
+    const overlappingEvents = relevantEvents.filter(event => {
+      const eventStart = parseTimeToMinutes(event.start_time);
+      const eventEnd = parseTimeToMinutes(event.end_time);
+
+      // Check if there's any overlap
+      return (start < eventEnd && end > eventStart);
+    });
+
+    // If there are overlapping events, adjust the start time to be after the latest ending event
+    if (overlappingEvents.length > 0) {
+      const latestEndingEvent = overlappingEvents.reduce((latest, event) => {
+        const eventEnd = parseTimeToMinutes(event.end_time);
+        const latestEnd = parseTimeToMinutes(latest.end_time);
+        return eventEnd > latestEnd ? event : latest;
+      });
+
+      const newStart = parseTimeToMinutes(latestEndingEvent.end_time);
+      const duration = end - start;
+
+      // Adjust start to be right after the overlapping event
+      start = newStart;
+      end = start + duration;
     }
 
     const startHour = Math.floor(start / 60);
@@ -791,8 +829,6 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     const start_time = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00`;
     const end_time = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00`;
 
-    // Determine default category and is_plan based on column
-    const is_plan = creatingColumn === 'plan';
     // Use first category as default (will need at least one category in database)
     const defaultCategory = categories.find(c => c.id) || categories[0];
     const category_id = defaultCategory ? defaultCategory.id : null;

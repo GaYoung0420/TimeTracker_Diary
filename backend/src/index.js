@@ -361,6 +361,7 @@ app.get('/api/daily/:date', requireAuth, async (req, res) => {
     const userId = req.session.userId;
 
     const [todosResult, reflectionResult, imagesResult, routinesResult, checksResult] = await Promise.all([
+      // Fetch all todos for the date (including sub-todos)
       supabase.from('todos').select('*, category:categories(id, name, color)').eq('user_id', userId).eq('date', date).order('order').order('id'),
       supabase.from('reflections').select('*').eq('user_id', userId).eq('date', date).single(),
       supabase.from('images').select('*').eq('user_id', userId).eq('date', date).order('id'),
@@ -461,6 +462,7 @@ app.post('/api/daily/:date', requireAuth, async (req, res) => {
           completed: t.completed,
           category_id: t.category_id || null,
           order: t.order !== undefined ? t.order : 9999,
+          parent_id: t.parent_id || null,
           user_id: userId
         }));
         await supabase.from('todos').insert(todosToInsert);
@@ -506,15 +508,16 @@ app.post('/api/daily/:date', requireAuth, async (req, res) => {
    ======================================== */
 app.post('/api/todos', requireAuth, async (req, res) => {
   try {
-    const { date, text, category_id, todo_category_id, scheduled_time, duration } = req.body;
+    const { date, text, category_id, todo_category_id, scheduled_time, duration, parent_id } = req.body;
     const userId = req.session.userId;
 
-    // Get the highest order for this date
+    // Get the highest order for this date (only for root-level todos or sub-todos under the same parent)
     const { data: existingTodos } = await supabase
       .from('todos')
       .select('order')
       .eq('user_id', userId)
       .eq('date', date)
+      .is('parent_id', parent_id || null)
       .order('order', { ascending: false })
       .limit(1);
 
@@ -531,6 +534,7 @@ app.post('/api/todos', requireAuth, async (req, res) => {
         duration,
         completed: false,
         order: nextOrder,
+        parent_id: parent_id || null,
         user_id: userId
       })
       .select('*, category:categories(id, name, color)')

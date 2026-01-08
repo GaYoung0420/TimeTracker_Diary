@@ -20,7 +20,7 @@ export const api = {
   },
 
   // Todos
-  async addTodo(date, text, categoryId, todoCategoryId, scheduledTime, duration) {
+  async addTodo(date, text, categoryId, todoCategoryId, scheduledTime, duration, parentId = null) {
     const res = await fetch(`${API_URL}/api/todos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -30,7 +30,8 @@ export const api = {
         category_id: categoryId,
         todo_category_id: todoCategoryId,
         scheduled_time: scheduledTime,
-        duration
+        duration,
+        parent_id: parentId
       })
     });
     return res.json();
