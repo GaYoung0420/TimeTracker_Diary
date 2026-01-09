@@ -1607,7 +1607,7 @@ app.post('/api/monthly/routine-mood-stats', requireAuth, async (req, res) => {
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`;
 
     // Fetch all active routines
-    const { data: routines, error: routinesError } = await supabase
+    const { data: allRoutines, error: routinesError } = await supabase
       .from('routines')
       .select('*')
       .eq('user_id', userId)
@@ -1615,6 +1615,21 @@ app.post('/api/monthly/routine-mood-stats', requireAuth, async (req, res) => {
       .order('order');
 
     if (routinesError) throw routinesError;
+
+    // Filter routines that overlap with the current month
+    const routines = allRoutines.filter(routine => {
+      // If no start_date, assume it starts from the beginning of time
+      const routineStart = routine.start_date ? new Date(routine.start_date) : new Date('1900-01-01');
+      // If no end_date, assume it continues indefinitely
+      const routineEnd = routine.end_date ? new Date(routine.end_date) : new Date('2100-12-31');
+
+      const monthStart = new Date(startDate);
+      const monthEnd = new Date(endDate);
+
+      // Check if routine period overlaps with the month
+      // Routine overlaps if: routine_start <= month_end AND routine_end >= month_start
+      return routineStart <= monthEnd && routineEnd >= monthStart;
+    });
 
     // Fetch all categories
     const { data: categories, error: categoriesError } = await supabase
@@ -1676,10 +1691,18 @@ app.post('/api/monthly/routine-mood-stats', requireAuth, async (req, res) => {
     for (let day = 1; day <= daysInMonth; day++) {
       const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       dailyRoutineChecks[dateKey] = {};
+      const currentDate = new Date(year, month - 1, day);
 
       routines.forEach(routine => {
-        routineStats[routine.id].dailyStatus[dateKey] = false;
-        dailyRoutineChecks[dateKey][routine.id] = false;
+        // Check if this day is within the routine's active period
+        const routineStart = routine.start_date ? new Date(routine.start_date) : new Date('1900-01-01');
+        const routineEnd = routine.end_date ? new Date(routine.end_date) : new Date('2100-12-31');
+
+        // Only initialize status if the date is within the routine's active period
+        if (currentDate >= routineStart && currentDate <= routineEnd) {
+          routineStats[routine.id].dailyStatus[dateKey] = false;
+          dailyRoutineChecks[dateKey][routine.id] = false;
+        }
       });
     }
 
@@ -1699,15 +1722,24 @@ app.post('/api/monthly/routine-mood-stats', requireAuth, async (req, res) => {
     today.setHours(0, 0, 0, 0);
 
     Object.values(routineStats).forEach(stat => {
-      // Count total days excluding future dates
+      // Find the routine to get its start_date and end_date
+      const routine = routines.find(r => r.id === stat.id);
+      if (!routine) return;
+
+      const routineStart = routine.start_date ? new Date(routine.start_date) : new Date('1900-01-01');
+      const routineEnd = routine.end_date ? new Date(routine.end_date) : new Date('2100-12-31');
+
+      // Count total days excluding future dates and days outside the routine's active period
       let totalDays = 0;
       for (let day = 1; day <= daysInMonth; day++) {
         const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const checkDate = new Date(year, month - 1, day);
         checkDate.setHours(0, 0, 0, 0);
 
-        // Only count days up to today
-        if (checkDate <= today) {
+        // Only count days that are:
+        // 1. Up to today (not future dates)
+        // 2. Within the routine's active period
+        if (checkDate <= today && checkDate >= routineStart && checkDate <= routineEnd) {
           totalDays++;
         }
       }
