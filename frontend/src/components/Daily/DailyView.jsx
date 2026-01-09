@@ -13,6 +13,7 @@ import TodoCategoryManager from '../Settings/TodoCategoryManager';
 import ICloudEvents from './ICloudEvents';
 import { api } from '../../utils/api';
 import { fetchMultipleCalendars, getEventsForDate } from '../../services/iCloudCalendar';
+import { getLocalDateString } from '../../utils/helpers';
 
 function DailyView({ currentDate, setCurrentDate, onOpenSettings }) {
   const [showCategoryManager, setShowCategoryManager] = useState(false);
@@ -132,6 +133,26 @@ function DailyView({ currentDate, setCurrentDate, onOpenSettings }) {
     setCurrentDate(new Date());
   };
 
+  // Add todo for a specific date (used by Reflection component for next-day tasks)
+  const handleAddTodoForDate = useCallback(async (targetDate, text) => {
+    try {
+      const dateStr = getLocalDateString(targetDate);
+      const result = await api.addTodo(dateStr, text, null, null, null, null, null);
+      if (result.success) {
+        // If we're currently viewing the target date, reload data
+        const currentDateStr = getLocalDateString(currentDate);
+        if (dateStr === currentDateStr) {
+          // The current date's data will be reloaded by useDailyData
+        }
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to add todo for date:', error);
+      return false;
+    }
+  }, [currentDate]);
+
   const formatDate = (date) => {
     const options = {
       year: 'numeric',
@@ -220,6 +241,7 @@ function DailyView({ currentDate, setCurrentDate, onOpenSettings }) {
           value={dailyData.reflection}
           onSave={(reflection) => saveData({ reflection })}
           currentDate={currentDate}
+          onAddTodo={handleAddTodoForDate}
         />
       </div>
 

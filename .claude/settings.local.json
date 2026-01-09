@@ -43,7 +43,8 @@
       "Bash(find:*)",
       "Bash(xxd:*)",
       "Bash(xattr:*)",
-      "Bash(echo $ANTHROPIC_API_KEY)"
+      "Bash(echo $ANTHROPIC_API_KEY)",
+      "Bash(ps:*)"
     ]
   }
 }

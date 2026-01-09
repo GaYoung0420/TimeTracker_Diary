@@ -406,5 +406,16 @@ export const api = {
       credentials: 'include'
     });
     return res.json();
+  },
+
+  // AI Features
+  async getTaskRecommendations(date) {
+    const res = await fetch(`${API_URL}/api/ai/task-recommendations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ date })
+    });
+    return res.json();
   }
 };

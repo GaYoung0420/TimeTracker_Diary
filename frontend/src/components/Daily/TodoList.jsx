@@ -284,17 +284,26 @@ function TodoList({ todos, categories, todoCategories, currentDate, onAdd, onUpd
     }
   };
 
+  // Debug: Log when todos prop changes
+  // useEffect(() => {
+  //   console.log('TodoList todos updated:', todos.map(t => ({ id: t.id, completed: t.completed })));
+  // }, [todos]);
+
   const handleCompleteTodo = async (todoId, completed) => {
     if (completed) {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#FFD700', '#FFA500', '#FF6347', '#87CEEB', '#90EE90']
-      });
-
-      // Optimistic update: Update UI immediately without waiting for API
+      // Optimistic update: Update UI immediately
       onUpdate(todoId, { completed }, { skipApi: true });
+
+      try {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#FFD700', '#FFA500', '#FF6347', '#87CEEB', '#90EE90']
+        });
+      } catch (e) {
+        console.error('Confetti error:', e);
+      }
 
       // 할일이 완료될 때 이벤트 생성
       try {
