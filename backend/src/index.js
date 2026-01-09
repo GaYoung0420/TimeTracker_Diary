@@ -665,14 +665,6 @@ app.post('/api/todos/:id/complete', requireAuth, async (req, res) => {
       const endMinute = endMinutes % 60;
       const endTime = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
 
-      // Determine end_date if event goes past midnight
-      let endDate = null;
-      if (endMinutes >= 24 * 60) {
-        const d = new Date(todo.date);
-        d.setDate(d.getDate() + 1);
-        endDate = d.toISOString().split('T')[0];
-      }
-
       // Get event category from todo category
       let categoryId = todo.category_id;
       if (todo.todo_category_id && todo.todo_categories) {
@@ -688,10 +680,8 @@ app.post('/api/todos/:id/complete', requireAuth, async (req, res) => {
           title: todo.text,
           start_time: todo.scheduled_time,
           end_time: endTime,
-          end_date: endDate,
           category_id: categoryId,
-          is_plan: false,
-          source: 'todo'
+          is_plan: false
         })
         .select()
         .single();
