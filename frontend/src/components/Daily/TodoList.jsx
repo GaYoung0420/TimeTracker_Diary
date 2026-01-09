@@ -818,6 +818,7 @@ function TodoList({ todos, categories, todoCategories, currentDate, onAdd, onUpd
           todoId={activePomodoroId}
           todoText={sortedTodos.find(t => t.id === activePomodoroId)?.text || ''}
           pomodoroCount={sortedTodos.find(t => t.id === activePomodoroId)?.pomodoro_count || 0}
+          initialTimeLeft={sortedTodos.find(t => t.id === activePomodoroId)?.pomodoro_time_left}
           onComplete={() => handlePomodoroComplete(activePomodoroId)}
           onClose={handleClosePomodoro}
         />

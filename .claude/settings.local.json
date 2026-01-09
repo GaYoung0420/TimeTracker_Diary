@@ -44,7 +44,8 @@
       "Bash(xxd:*)",
       "Bash(xattr:*)",
       "Bash(echo $ANTHROPIC_API_KEY)",
-      "Bash(ps:*)"
+      "Bash(ps:*)",
+      "Bash(npm run migrate:*)"
     ]
   }
 }
