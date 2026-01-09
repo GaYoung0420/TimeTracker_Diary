@@ -5,7 +5,7 @@ import HamsterFaceIcon from './HamsterFaceIcon';
 import { api } from '../../utils/api';
 import pomoSvg from './pomo.svg';
 
-function TodoList({ todos, categories, todoCategories, currentDate, onAdd, onUpdate, onDelete, onReorder, onOpenTodoCategoryManager, onEventCreated }) {
+function TodoList({ todos, categories, todoCategories, currentDate, onAdd, onUpdate, onDelete, onReorder, onOpenTodoCategoryManager, onEventCreated, onRefresh }) {
   const [inputValue, setInputValue] = useState('');
   const [showSettingsPopup, setShowSettingsPopup] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
@@ -357,8 +357,17 @@ function TodoList({ todos, categories, todoCategories, currentDate, onAdd, onUpd
     }
   };
 
-  const handleClosePomodoro = () => {
+  const handleClosePomodoro = (timeLeft) => {
+    if (activePomodoroId && timeLeft !== undefined) {
+      onUpdate(activePomodoroId, { pomodoro_time_left: timeLeft }, { skipApi: true });
+    }
     setActivePomodoroId(null);
+    if (onRefresh) {
+      // Delay refresh to allow save to complete
+      setTimeout(() => {
+        onRefresh();
+      }, 1000);
+    }
   };
 
   const renderTomatoIcons = (count) => {

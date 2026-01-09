@@ -461,7 +461,7 @@ function PomodoroTimer({ todoId, todoText, pomodoroCount, onComplete, onClose, i
   return (
     <div className="pomodoro-overlay">
       <div className={`pomodoro-modal ${isFullscreen ? 'fullscreen' : ''}`}>
-        <button className="pomodoro-close" onClick={onClose}>×</button>
+        <button className="pomodoro-close" onClick={() => onClose(timeLeft)}>×</button>
 
         <div className="pomodoro-content-wrapper">
           <div className="pomodoro-timer-section">
