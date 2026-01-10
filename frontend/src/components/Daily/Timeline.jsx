@@ -833,6 +833,17 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
     const defaultCategory = categories.find(c => c.id) || categories[0];
     const category_id = defaultCategory ? defaultCategory.id : null;
 
+    // Determine the correct start date
+    // If end_time < start_time, it means the event spans midnight
+    // In this case, the start date should be the previous day
+    let eventDate = getLocalDateString(currentDate);
+    if (endHour < startHour || (endHour === startHour && endMinute < startMinute)) {
+      // Event spans to next day, so start is actually on previous day
+      const prevDate = new Date(currentDate);
+      prevDate.setDate(prevDate.getDate() - 1);
+      eventDate = getLocalDateString(prevDate);
+    }
+
     // Prepare new event object (not saved yet)
     const newEvent = {
       id: null, // Indicates new event
@@ -842,7 +853,7 @@ function Timeline({ events, todos, routines, routineChecks, categories, todoCate
       category_id: category_id,
       description: '',
       is_plan: is_plan,
-      date: getLocalDateString(currentDate)
+      date: eventDate
     };
 
     // Open edit popup immediately with the new event data
