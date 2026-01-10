@@ -54,7 +54,7 @@ export function setupAIAPI(app, supabase) {
     }));
 
     // 2. 루틴 & 루틴 체크 가져오기
-    const { data: routines, error: routinesError } = await supabase
+    const { data: allRoutines, error: routinesError } = await supabase
       .from('routines')
       .select('*')
       .eq('user_id', userId)
@@ -62,6 +62,46 @@ export function setupAIAPI(app, supabase) {
       .order('order');
 
     if (routinesError) throw routinesError;
+
+    // Filter routines by date range and weekday
+    let filteredRoutines = allRoutines || [];
+    if (filteredRoutines.length > 0) {
+      const dateObj = new Date(date + 'T00:00:00');
+      const weekday = dateObj.getDay();
+
+      filteredRoutines = filteredRoutines.filter(routine => {
+        // Check date range
+        if (routine.start_date && date < routine.start_date) {
+          return false;
+        }
+        if (routine.end_date && date > routine.end_date) {
+          return false;
+        }
+
+        // Check weekday
+        if (routine.weekdays) {
+          let weekdays = routine.weekdays;
+          // Parse JSON string if needed (handle multiple levels of JSON encoding)
+          while (typeof weekdays === 'string') {
+            try {
+              weekdays = JSON.parse(weekdays);
+            } catch (e) {
+              console.error('Failed to parse routine weekdays:', e);
+              return false;
+            }
+          }
+
+          // Check if weekdays is array and contains current weekday
+          if (Array.isArray(weekdays) && weekdays.length > 0) {
+            if (!weekdays.includes(weekday)) {
+              return false;
+            }
+          }
+        }
+
+        return true;
+      });
+    }
 
     const { data: routineChecksData, error: checksError } = await supabase
       .from('routine_checks')
@@ -119,7 +159,7 @@ export function setupAIAPI(app, supabase) {
       date,
       weekday,
       events: eventsWithCategory,
-      routines: routines || [],
+      routines: filteredRoutines,
       routineChecks,
       todos: todosWithCategory,
       mood: reflection.mood,
@@ -214,7 +254,7 @@ export function setupAIAPI(app, supabase) {
       }));
 
       // 2. 루틴 & 루틴 체크 가져오기
-      const { data: routines, error: routinesError } = await supabase
+      const { data: allRoutines, error: routinesError } = await supabase
         .from('routines')
         .select('*')
         .eq('user_id', userId)
@@ -222,6 +262,46 @@ export function setupAIAPI(app, supabase) {
         .order('order');
 
       if (routinesError) throw routinesError;
+
+      // Filter routines by date range and weekday
+      let filteredRoutines = allRoutines || [];
+      if (filteredRoutines.length > 0) {
+        const dateObj = new Date(date + 'T00:00:00');
+        const weekday = dateObj.getDay();
+
+        filteredRoutines = filteredRoutines.filter(routine => {
+          // Check date range
+          if (routine.start_date && date < routine.start_date) {
+            return false;
+          }
+          if (routine.end_date && date > routine.end_date) {
+            return false;
+          }
+
+          // Check weekday
+          if (routine.weekdays) {
+            let weekdays = routine.weekdays;
+            // Parse JSON string if needed (handle multiple levels of JSON encoding)
+            while (typeof weekdays === 'string') {
+              try {
+                weekdays = JSON.parse(weekdays);
+              } catch (e) {
+                console.error('Failed to parse routine weekdays:', e);
+                return false;
+              }
+            }
+
+            // Check if weekdays is array and contains current weekday
+            if (Array.isArray(weekdays) && weekdays.length > 0) {
+              if (!weekdays.includes(weekday)) {
+                return false;
+              }
+            }
+          }
+
+          return true;
+        });
+      }
 
       const { data: routineChecksData, error: checksError } = await supabase
         .from('routine_checks')
@@ -278,7 +358,7 @@ export function setupAIAPI(app, supabase) {
         date,
         weekday,
         events: eventsWithCategory,
-        routines: routines || [],
+        routines: filteredRoutines,
         routineChecks,
         todos: todosWithCategory,
         mood: reflection.mood,
