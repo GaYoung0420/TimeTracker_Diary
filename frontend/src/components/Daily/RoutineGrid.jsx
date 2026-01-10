@@ -183,66 +183,11 @@ function RoutineGrid({ routines, routineChecks, currentDate, onToggle, onAdd, on
     setDraggedItem(null);
   };
 
-  // Helper function to get date string in YYYY-MM-DD format
-  const getLocalDateString = (date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  // Routines are already filtered by backend based on date range and weekday
+  const sortedRoutines = [...routines].sort((a, b) => a.order - b.order);
 
-  // Filter routines based on current date's weekday and date range
-  const filteredRoutines = routines.filter(routine => {
-    const weekday = currentDate.getDay();
-    const dateString = getLocalDateString(currentDate);
-
-    console.log(`[RoutineGrid] Checking routine: ${routine.text}`);
-    console.log(`  - weekdays:`, routine.weekdays, `(type: ${typeof routine.weekdays}, isArray: ${Array.isArray(routine.weekdays)})`);
-    console.log(`  - current weekday: ${weekday} (type: ${typeof weekday})`);
-
-    // Parse weekdays if it's a string
-    let weekdays = routine.weekdays;
-    if (typeof weekdays === 'string') {
-      try {
-        weekdays = JSON.parse(weekdays);
-        console.log(`  - Parsed weekdays from string:`, weekdays);
-      } catch (e) {
-        console.error(`  - Failed to parse weekdays string:`, e);
-        weekdays = null;
-      }
-    }
-
-    // Check weekday filter
-    if (weekdays && Array.isArray(weekdays) && weekdays.length > 0) {
-      console.log(`  - weekdays array contents:`, weekdays.map(d => `${d} (${typeof d})`));
-      console.log(`  - includes check: ${weekdays.includes(weekday)}`);
-      if (!weekdays.includes(weekday)) {
-        console.log(`[RoutineGrid] ${routine.text} filtered out by weekday`);
-        return false;
-      }
-    } else {
-      console.log(`  - NO weekday filter (weekdays is null or not array or empty)`);
-    }
-
-    // Check date range filter
-    if (routine.start_date) {
-      if (dateString < routine.start_date) {
-        console.log(`[RoutineGrid] ${routine.text} filtered out by start_date`);
-        return false;
-      }
-    }
-    if (routine.end_date) {
-      if (dateString > routine.end_date) {
-        console.log(`[RoutineGrid] ${routine.text} filtered out by end_date`);
-        return false;
-      }
-    }
-
-    console.log(`[RoutineGrid] ${routine.text} INCLUDED`);
-    return true;
-  });
-
-  const sortedRoutines = [...filteredRoutines].sort((a, b) => a.order - b.order);
+  // For manage modal, we need to fetch all routines (not just today's)
+  // For now, we'll use the filtered routines in manage modal as well
   const allSortedRoutines = [...routines].sort((a, b) => a.order - b.order);
 
   return (

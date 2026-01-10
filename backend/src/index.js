@@ -369,6 +369,46 @@ app.get('/api/daily/:date', requireAuth, async (req, res) => {
       supabase.from('routine_checks').select('*').eq('user_id', userId).eq('date', date)
     ]);
 
+    // Filter routines by date range and weekday
+    let filteredRoutines = routinesResult.data || [];
+    if (filteredRoutines.length > 0) {
+      const dateObj = new Date(date + 'T00:00:00');
+      const weekday = dateObj.getDay();
+
+      filteredRoutines = filteredRoutines.filter(routine => {
+        // Check date range
+        if (routine.start_date && date < routine.start_date) {
+          return false;
+        }
+        if (routine.end_date && date > routine.end_date) {
+          return false;
+        }
+
+        // Check weekday
+        if (routine.weekdays) {
+          let weekdays = routine.weekdays;
+          // Parse JSON string if needed
+          if (typeof weekdays === 'string') {
+            try {
+              weekdays = JSON.parse(weekdays);
+            } catch (e) {
+              console.error('Failed to parse weekdays:', e);
+              return false;
+            }
+          }
+
+          // Check if weekdays is array and contains current weekday
+          if (Array.isArray(weekdays) && weekdays.length > 0) {
+            if (!weekdays.includes(weekday)) {
+              return false;
+            }
+          }
+        }
+
+        return true;
+      });
+    }
+
     const routineChecks = {};
     if (checksResult.data) {
       checksResult.data.forEach(check => {
@@ -433,7 +473,7 @@ app.get('/api/daily/:date', requireAuth, async (req, res) => {
         reflection: reflectionResult.data?.reflection_text || '',
         mood: reflectionResult.data?.mood || null,
         images: imagesWithSignedUrls,
-        routines: routinesResult.data || [],
+        routines: filteredRoutines,
         routineChecks
       }
     });
