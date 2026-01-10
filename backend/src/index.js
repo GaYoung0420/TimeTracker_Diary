@@ -375,22 +375,37 @@ app.get('/api/daily/:date', requireAuth, async (req, res) => {
       const dateObj = new Date(date + 'T00:00:00');
       const weekday = dateObj.getDay();
 
+      console.log(`[DEBUG] Filtering routines for date: ${date}, weekday: ${weekday}`);
+      console.log(`[DEBUG] Total routines before filter: ${filteredRoutines.length}`);
+
       filteredRoutines = filteredRoutines.filter(routine => {
+        console.log(`[DEBUG] Checking routine: ${routine.text}`);
+        console.log(`  - weekdays:`, routine.weekdays, `(type: ${typeof routine.weekdays})`);
+        console.log(`  - start_date: ${routine.start_date}, end_date: ${routine.end_date}`);
+
         // Check date range
         if (routine.start_date && date < routine.start_date) {
+          console.log(`  - FILTERED OUT by start_date`);
           return false;
         }
         if (routine.end_date && date > routine.end_date) {
+          console.log(`  - FILTERED OUT by end_date`);
           return false;
         }
 
         // Check weekday
         if (routine.weekdays) {
           let weekdays = routine.weekdays;
-          // Parse JSON string if needed
+          // Parse JSON string if needed (handle double-encoded JSON)
           if (typeof weekdays === 'string') {
             try {
               weekdays = JSON.parse(weekdays);
+              console.log(`  - Parsed weekdays (1st):`, weekdays);
+              // Check if still a string (double-encoded)
+              if (typeof weekdays === 'string') {
+                weekdays = JSON.parse(weekdays);
+                console.log(`  - Parsed weekdays (2nd):`, weekdays);
+              }
             } catch (e) {
               console.error('Failed to parse weekdays:', e);
               return false;
@@ -399,14 +414,19 @@ app.get('/api/daily/:date', requireAuth, async (req, res) => {
 
           // Check if weekdays is array and contains current weekday
           if (Array.isArray(weekdays) && weekdays.length > 0) {
+            console.log(`  - Checking if weekdays ${JSON.stringify(weekdays)} includes ${weekday}`);
             if (!weekdays.includes(weekday)) {
+              console.log(`  - FILTERED OUT by weekday`);
               return false;
             }
           }
         }
 
+        console.log(`  - INCLUDED`);
         return true;
       });
+
+      console.log(`[DEBUG] Total routines after filter: ${filteredRoutines.length}`);
     }
 
     const routineChecks = {};
